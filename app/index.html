@@ -324,7 +324,7 @@ function render(){
     :`<button class="${UI.view===k?'on':''}" data-act="go" data-v="${k}">${I[k]}${l}</button>`).join('')}</div></nav>`;
   if(UI.detail)renderDetail();
 }
-function top(title,eyebrow,right=''){return`<header class="top"><div class="grow"><div class="eyebrow">${eyebrow||''}</div><h1>${title}</h1></div>${right}</header>`}
+function topBar(title,eyebrow,right=''){return`<header class="top"><div class="grow"><div class="eyebrow">${eyebrow||''}</div><h1>${title}</h1></div>${right}</header>`}
 function modeNote(){
   if(MODE==='local')return`<div class="notice info">Modo local: os dados ficam só neste navegador. Abra pelo app do Claude, com sua conta, para salvar no seu banco.</div>`;
   return'';
@@ -350,7 +350,7 @@ function vInicio(){
   const edits=S.contents.filter(c=>['Captação concluída','Em edição','Em revisão'].includes(c.status)).length;
   const pubsW=S.pubs.filter(p=>p.status!=='Publicado'&&p.date>=TODAY&&diffDays(TODAY,p.date)<=7).length;
   const prodFree=S.products.filter(p=>p.available!==false&&!S.contents.some(c=>arr(c.productIds).includes(p.id))&&!S.takes.some(t=>arr(t.productIds).includes(p.id)));
-  return top(`${['Bom dia','Boa tarde','Boa noite'][d.getHours()<12?0:d.getHours()<18?1:2]}, Julia`,fmtD(TODAY))+modeNote()+
+  return topBar(`${['Bom dia','Boa tarde','Boa noite'][d.getHours()<12?0:d.getHours()<18?1:2]}, Julia`,fmtD(TODAY))+modeNote()+
   (emptyAll()?`<div class="empty" style="margin-top:12px">Seu Creative OS está vazio. Comece por um projeto, uma referência ou um conteúdo.<div class="row" style="justify-content:center;margin-top:10px"><button class="btn sm" data-act="new" data-t="project">Novo projeto</button><button class="btn sm" data-act="new" data-t="ref">Nova referência</button><button class="btn sm pri" data-act="new" data-t="content">Novo conteúdo</button></div></div>`:'')+
   `<div class="cap-hero" style="margin-top:6px">
     <div class="row"><span class="rec-dot"></span><span class="eyebrow" style="color:inherit">Captar agora</span></div>
@@ -397,7 +397,7 @@ function projMini(pr){const s=projStats(pr);const pct=s.tk.length?Math.round(s.g
 /* ---------- CAPTAR AGORA ---------- */
 function vCaptar(){
   const C=UI.captar;const r=C.ctx.length?captarResults(C.ctx):null;
-  let out=top('Captar agora','<span class="rec-dot"></span> Contexto');
+  let out=topBar('Captar agora','<span class="rec-dot"></span> Contexto');
   out+=`<form class="cap-in" data-form="captar"><input type="search" id="cap-text" value="${h(C.text)}" placeholder="O que você está fazendo agora?" autocomplete="off"><button class="btn pri" type="submit">Buscar</button></form>
   <div class="scroll-x" style="margin-top:8px">${CAP_QUICK.map(q=>`<button class="chip btn" data-act="cap-quick" data-q="${h(q)}">${h(q.replace('Estou ',''))}</button>`).join('')}</div>`;
   if(C.text&&!C.ctx.length)out+=`<div class="sec"><div class="notice">Não reconheci um contexto em "${h(C.text)}". Escolha um abaixo ou use as sugestões da IA.</div><div class="chips">${Object.keys(CTX).map(k=>`<button class="chip btn" data-act="cap-ctx" data-k="${k}">${CTX[k].l}</button>`).join('')}</div>${aiBlock()}</div>`;
@@ -439,7 +439,7 @@ function takeCard(t,o={}){
 
 /* ---------- IDEIAS (referências, ideias, planejamento) ---------- */
 function vIdeias(){
-  let out=top('Referências e ideias','Planejamento',`<button class="icon-btn" data-act="new" data-t="${UI.ideaTab==='ideias'?'idea':'ref'}" aria-label="Adicionar">＋</button>`);
+  let out=topBar('Referências e ideias','Planejamento',`<button class="icon-btn" data-act="new" data-t="${UI.ideaTab==='ideias'?'idea':'ref'}" aria-label="Adicionar">＋</button>`);
   out+=`<div class="tabs">${[['refs','Referências'],['ideias','Ideias'],['plano','Plano do mês']].map(([k,l])=>`<button class="${UI.ideaTab===k?'on':''}" data-act="itab" data-k="${k}">${l}</button>`).join('')}</div>`;
   if(UI.ideaTab==='refs'){
     const q=UI.refQ;let list=S.refs.map(r=>({r,s:refScore(r,q)}));if(q)list=list.filter(x=>x.s>0).sort((a,b)=>b.s-a.s);
@@ -481,7 +481,7 @@ function vPlano(){
 /* ---------- PRODUÇÃO ---------- */
 function vProducao(){
   const tab=UI.prodTab;
-  let out=top('Produção','Conteúdos, takes e edição',`<button class="icon-btn" data-act="new" data-t="${tab==='takes'||tab==='gravados'?'take':'content'}" aria-label="Adicionar">＋</button>`);
+  let out=topBar('Produção','Conteúdos, takes e edição',`<button class="icon-btn" data-act="new" data-t="${tab==='takes'||tab==='gravados'?'take':'content'}" aria-label="Adicionar">＋</button>`);
   out+=`<div class="tabs">${[['conteudos','Conteúdos'],['takes','Takes'],['gravados','Gravados'],['edicao','Edição']].map(([k,l])=>`<button class="${tab===k?'on':''}" data-act="ptab" data-k="${k}">${l}</button>`).join('')}</div>`;
   if(tab==='conteudos'){
     const f=UI.contentF;const list=S.contents.filter(c=>!f||c.status===f).sort((a,b)=>(a.pubDate||'9').localeCompare(b.pubDate||'9'));
@@ -519,7 +519,7 @@ function drivePath(f,t){return`Creative OS/Biblioteca de Takes/${(t?.code||'TAKE
 /* ---------- CALENDÁRIO ---------- */
 function vCalendario(){
   const M=UI.calMode;const base=UI.calDate||TODAY;
-  let out=top('Calendário','Gravar, editar, publicar',`<button class="icon-btn" data-act="new" data-t="event" data-preset='${h(JSON.stringify({date:UI.calSel||TODAY,type:"compromisso"}))}' aria-label="Novo">＋</button>`);
+  let out=topBar('Calendário','Gravar, editar, publicar',`<button class="icon-btn" data-act="new" data-t="event" data-preset='${h(JSON.stringify({date:UI.calSel||TODAY,type:"compromisso"}))}' aria-label="Novo">＋</button>`);
   out+=`<div class="tabs">${[['dia','Dia'],['semana','Semana'],['mes','Mês'],['lista','Lista']].map(([k,l])=>`<button class="${M===k?'on':''}" data-act="calmode" data-k="${k}">${l}</button>`).join('')}</div>`;
   const F=UI.calF;
   out+=`<div class="scroll-x" style="margin-top:10px">${[['compromisso','Compromissos'],['gravacao','Gravações'],['edicao','Edições'],['revisao','Revisões'],['publicacao','Publicações']].map(([k,l])=>`<button class="chip btn ${F.types.includes(k)?'on':''}" data-act="calf" data-k="types" data-v="${k}"><span class="dot t-${k}"></span>${l}</button>`).join('')}</div>
@@ -569,7 +569,7 @@ function dayView(d,items,compact){
 /* ---------- PROJETOS, PRODUTOS, INDICADORES ---------- */
 function vProjetos(){
   const tab=UI.projTab;
-  let out=top('Projetos','Experiências, produtos e números',`<button class="icon-btn" data-act="new" data-t="${tab==='produtos'?'product':'project'}" aria-label="Adicionar">＋</button>`);
+  let out=topBar('Projetos','Experiências, produtos e números',`<button class="icon-btn" data-act="new" data-t="${tab==='produtos'?'product':'project'}" aria-label="Adicionar">＋</button>`);
   out+=`<div class="tabs">${[['projetos','Projetos'],['produtos','TikTok Shop'],['numeros','Indicadores']].map(([k,l])=>`<button class="${tab===k?'on':''}" data-act="jtab" data-k="${k}">${l}</button>`).join('')}</div>`;
   if(tab==='projetos')out+=`<div class="sec"><div class="list">${S.projects.map(projMini).join('')||'<div class="empty">Nenhum projeto. Crie um para viagens, eventos ou campanhas.</div>'}</div></div>`;
   else if(tab==='produtos'){
