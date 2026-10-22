@@ -119,6 +119,31 @@ nav.bottom button.cap .rec i{width:16px;height:16px;border-radius:50%;background
 .month .dots{display:flex;gap:2px;flex-wrap:wrap;justify-content:center}
 .month .dots .dot{width:6px;height:6px}
 .cal-item{display:flex;gap:10px;align-items:flex-start}
+.cal-m{display:flex;flex-direction:column;gap:3px;margin-inline:-8px}
+.cal-wd{display:grid;grid-template-columns:repeat(7,1fr);font-size:.66rem;font-weight:700;color:var(--muted);text-transform:uppercase;text-align:center}
+.cal-wk{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:2px 2px;min-height:96px;position:relative}
+.cal-cell{border:1px solid var(--line);background:var(--surface);border-radius:8px;min-height:96px;padding:0;z-index:0}
+.cal-cell.out{opacity:.45}.cal-cell.today{border:2px solid var(--accent)}
+.cal-cell.drop-on,.wk-pill.drop-on,.wk-day.drop-on{outline:3px solid var(--accent);outline-offset:-2px;background:var(--accent-soft)}
+.cal-n{z-index:1;pointer-events:none;font-size:.78rem;font-weight:700;padding:4px 0 2px 5px;font-variant-numeric:tabular-nums}
+.cal-n.today{color:var(--accent)}
+.cal-bar{z-index:1;pointer-events:none;margin:0 2px;border-radius:5px;font-size:.64rem;font-weight:700;line-height:18px;height:18px;padding:0 5px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;background:color-mix(in srgb,var(--c) 22%,var(--surface));color:var(--ink);border-left:3px solid var(--c)}
+.cal-stack{z-index:1;pointer-events:none;display:flex;flex-direction:column;gap:2px;padding:2px 2px 4px;min-width:0}
+.cal-lab{font-size:.6rem;font-weight:600;line-height:1.25;padding:1px 3px;border-radius:4px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;background:color-mix(in srgb,var(--c) 14%,var(--surface));border-left:2px solid var(--c)}
+.cal-more{font-size:.6rem;color:var(--muted);padding-left:3px}
+.cal-tk{font-size:.62rem;font-weight:800;color:var(--accent);padding-left:2px}
+.wk-strip{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.wk-pill{border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:6px 0;display:flex;flex-direction:column;align-items:center;gap:1px;font-size:.7rem;color:var(--muted);position:relative}
+.wk-pill b{font-size:1rem;color:var(--ink);font-variant-numeric:tabular-nums}
+.wk-pill.on{background:var(--ink);border-color:var(--ink)}.wk-pill.on b,.wk-pill.on span{color:var(--bg)}
+.wk-pill.today{border-color:var(--accent)}
+.wk-pill i{position:absolute;top:-6px;right:-4px;font-style:normal;background:var(--accent);color:var(--on-accent);border-radius:99px;font-size:.62rem;font-weight:800;min-width:17px;height:17px;display:grid;place-items:center;padding:0 3px}
+.tk-row{align-items:center;gap:8px;padding:6px 0;border-top:1px solid var(--line);-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+.tk-row:first-of-type{border-top:0}
+.grip{color:var(--muted);font-size:.9rem;letter-spacing:-2px;padding:0 2px;cursor:grab}
+.tk-row.dragging{opacity:.35}
+.drag-ghost{position:fixed;z-index:80;transform:translateX(-50%);pointer-events:none;background:var(--ink);color:var(--bg);padding:8px 12px;border-radius:12px;font-weight:700;font-size:.85rem;max-width:70vw;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;box-shadow:0 10px 30px rgb(0 0 0 / .35)}
+body.is-dragging{overflow:hidden;touch-action:none}
 .cal-item .time{font-family:var(--f-mono);font-size:.74rem;color:var(--muted);width:42px;flex:none;padding-top:2px}
 .sub{margin-left:12px;padding-left:12px;border-left:2px dashed var(--line);display:flex;flex-direction:column;gap:6px}
 /* sheets & pages */
@@ -205,7 +230,7 @@ const CAP_QUICK=['Estou na praia','Estou na academia','Estou cozinhando','Estou 
 const KEYS=['refs','ideas','contents','takes','products','projects','events','pubs','files'];
 const S={}; KEYS.forEach(k=>S[k]=[]);
 let DB=null, MODE='loading', SAMPLE=null;
-const UI={view:'inicio',tipoF:'',noteQ:'',noteKind:'note',noteDraft:{},noteAI:null,janelaF:'',prodTab:'conteudos',ideaTab:'refs',projTab:'projetos',calMode:'mes',calDate:null,calSel:null,calF:{types:[],plat:[],proj:''},captar:{text:'',ctx:[],ai:null,aiBusy:false},refQ:'',refAI:null,refBusy:false,takeQ:'',takeF:{ctx:'',status:'pendente'},libQ:'',libUnused:false,contentF:'',plan:null,detail:null,mode:'roteiro',grp:'cenario'};
+const UI={view:'inicio',dayNet:'',tipoF:'',noteQ:'',noteKind:'note',noteDraft:{},noteAI:null,janelaF:'',prodTab:'conteudos',ideaTab:'refs',projTab:'projetos',calMode:'mes',calDate:null,calSel:null,calF:{types:[],plat:[],proj:''},captar:{text:'',ctx:[],ai:null,aiBusy:false},refQ:'',refAI:null,refBusy:false,takeQ:'',takeF:{ctx:'',status:'pendente'},libQ:'',libUnused:false,contentF:'',plan:null,detail:null,mode:'roteiro',grp:'cenario'};
 const timers={};
 function save(k){
   S[k].forEach(x=>{if(x&&!x.createdAt)x.createdAt=new Date().toISOString()});
@@ -265,7 +290,7 @@ function captarResults(ctxs){
     let sc=cs.length*3;
     if(dl){const d=diffDays(TODAY,dl);sc+=d<0?6:d<=7?5:d<=14?3:d<=30?1:0}
     sc+={alta:3,media:1,baixa:0}[t.priority]||0;
-    if(t.fixedEventId)sc+=2; if(t.hardToRepeat)sc+=2;
+    if(t.fixedEventId)sc+=2; if(t.hardToRepeat)sc+=2; const td=takeDay(t); if(td===TODAY)sc+=5; else if(td&&td<TODAY)sc+=4;
     return{t,cs,dl,sc};
   }).sort((a,b)=>b.sc-a.sc);
   const groups={};
@@ -344,6 +369,9 @@ function reminders(){
     if(cs.length){add(d<=0?95:90-d*3,d<=3?'bad':'warn',`<b>${h(e.title)}</b> ${quando}: ${cs.length} conteúdo${cs.length>1?'s':''} para gravar${semTakes?`, <b>${semTakes} ainda sem takes</b>`:''}${pend?` · ${pend} com takes pendentes`:''}.`,`data-act="go-filter" data-ev="${e.id}"`)}
     else if(d>0)add(60-d,'info',`<b>${h(e.title)}</b> ${quando}. Nenhum conteúdo planejado para ele ainda.`,`data-act="cal-day" data-d="${e.date}"`);
   });
+  const tdy=S.takes.filter(t=>t.status!=='gravado'&&takeDay(t)===TODAY).length,late=S.takes.filter(t=>t.status!=='gravado'&&takeDay(t)&&takeDay(t)<TODAY).length;
+  if(tdy)add(97,'acc',`<b>Hoje: ${tdy} take${tdy>1?'s':''} para gravar.</b>`,`data-act="cal-day" data-d="${TODAY}"`);
+  if(late)add(96,'bad',`<b>${late} take${late>1?'s':''} atrasado${late>1?'s':''}</b> (a data já passou). Grave ou arraste para outro dia.`,`data-act="cal-late"`);
   const ed=S.contents.filter(c=>c.status==='Edição');
   if(ed.length)add(80,'warn',ed.length===1?`<b>${h(ed[0].title)}</b> está esperando edição.`:`<b>${ed.length} vídeos esperando edição:</b> ${ed.slice(0,3).map(c=>h(c.title)).join(' · ')}`,`data-act="go" data-v="producao" data-tab="edicao"`);
   S.contents.filter(readyForEdit).forEach(c=>add(85,'ok',`Todos os takes de <b>${h(c.title)}</b> gravados. Marque a captação como completa para ir para edição.`,open(c)));
@@ -552,12 +580,13 @@ function takeCard(t,o={}){
   const prods=arr(t.productIds).map(id=>byId('products',id)).filter(Boolean);
   const others=o.compact?cs.filter(c=>c.id!==o.compact):cs;
   const meta=o.compact
-    ?[others.length?`também serve para ${others.length} outro${others.length>1?'s':''} conteúdo${others.length>1?'s':''}`:'',files?`${files} arquivo${files>1?'s':''}`:'',t.fixedEventId?'data fixa':''].filter(Boolean).join(' · ')
+    ?[takeDay(t)?`📅 ${fmtShort(takeDay(t))}${takeDay(t)<TODAY&&!done?' (atrasado)':''}`:'',others.length?`também serve para ${others.length} outro${others.length>1?'s':''} conteúdo${others.length>1?'s':''}`:'',files?`${files} arquivo${files>1?'s':''}`:'',t.fixedEventId?'data fixa':''].filter(Boolean).join(' · ')
     :'';
   return`<div class="card take ${done?'done':''}" style="padding:12px">
     <button class="chk ${done?'done':''}" data-act="take-toggle" data-id="${t.id}" aria-label="${done?'Desmarcar take':'Marcar take como gravado'}">${done?'✓':''}</button>
     <div class="grow" style="display:flex;flex-direction:column;gap:4px;min-width:0">
       <button class="tdesc" style="border:0;background:none;padding:0;text-align:left;font-weight:600" data-act="open" data-t="take" data-id="${t.id}">${h(t.desc)}</button>
+      ${!o.compact&&takeDay(t)&&!done?`<div class="serves">📅 gravar ${rel(takeDay(t))}</div>`:''}
       ${!o.compact&&cs.length?`<div class="serves">${cs.length>1?`<b>${cs.length} conteúdos</b>: `:''}${cs.map(c=>h(c.title)).join(' · ')}</div>`:''}
       ${!o.compact&&!cs.length?'<div class="serves">Sem conteúdo vinculado</div>':''}
       ${meta?`<div class="serves">${h(meta)}</div>`:''}
@@ -679,55 +708,147 @@ function libCard(t){const cs=arr(t.contentIds).map(id=>byId('contents',id)).filt
 function drivePath(f,t){return`Creative OS/Biblioteca de Takes/${(t?.code||'TAKE')}_${f.name}`}
 
 /* ---------- CALENDÁRIO ---------- */
+const NETS=[['insta','Instagram'],['tiktok','TikTok'],['shop','TikTok Shop'],['ugc','UGC']];
+function takeDay(t){if(t.date)return t.date;if(t.fixedEventId){const e=byId('events',t.fixedEventId);if(e)return e.date}return ''}
+const netOk=c=>!UI.dayNet||tiposOf(c).includes(UI.dayNet);
+function takesOn(d,{pendingOnly=false,net=true}={}){return S.takes.filter(t=>takeDay(t)===d&&(!pendingOnly||t.status!=='gravado')&&(!net||!UI.dayNet||arr(t.contentIds).some(id=>{const c=byId('contents',id);return c&&netOk(c)})))}
+function takeRowCal(t,d){
+  const cs=arr(t.contentIds).map(id=>byId('contents',id)).filter(Boolean);const done=t.status==='gravado';
+  return`<div class="take tk-row ${done?'done':''}" ${done?'':`data-drag-take="${t.id}" data-from="${d}"`}>
+    <button class="chk ${done?'done':''}" style="width:26px;height:26px;border-radius:8px" data-act="take-toggle" data-id="${t.id}" aria-label="${done?'Desmarcar take':'Marcar take como gravado'}">${done?'✓':''}</button>
+    <div class="grow" style="min-width:0"><button class="tdesc" style="border:0;background:none;padding:0;text-align:left;font-weight:600;font-size:.92rem" data-act="open" data-t="take" data-id="${t.id}">${h(t.desc)}</button>
+    <div class="serves">${cs.map(c=>h(c.title)).join(' · ')||'Sem conteúdo'}${t.fixedEventId?' · data fixa':''}</div></div>
+    ${done?'':`<button class="icon-btn" style="width:34px;height:34px;font-size:.8rem" data-act="move-take" data-id="${t.id}" data-from="${d}" aria-label="Mover para outro dia">⇄</button><span class="grip" aria-hidden="true">⋮⋮</span>`}
+  </div>`;
+}
 function vCalendario(){
   const M=UI.calMode;const base=UI.calDate||TODAY;
-  let out=topBar('Calendário','Gravar, editar, publicar',`<button class="icon-btn" data-act="new" data-t="event" data-preset='${h(JSON.stringify({date:UI.calSel||TODAY,type:"compromisso"}))}' aria-label="Novo">＋</button>`);
+  let out=topBar('Calendário','Gravar, editar, postar',`<button class="icon-btn" data-act="new" data-t="event" data-preset='${h(JSON.stringify({date:UI.calSel||TODAY,type:"compromisso"}))}' aria-label="Novo compromisso">＋</button>`);
   out+=`<div class="tabs">${[['dia','Dia'],['semana','Semana'],['mes','Mês'],['lista','Lista']].map(([k,l])=>`<button class="${M===k?'on':''}" data-act="calmode" data-k="${k}">${l}</button>`).join('')}</div>`;
   const F=UI.calF;
-  out+=`<div class="scroll-x" style="margin-top:10px">${[['compromisso','Compromissos'],['gravacao','Gravações'],['edicao','Edições'],['revisao','Revisões'],['publicacao','Publicações']].map(([k,l])=>`<button class="chip btn ${F.types.includes(k)?'on':''}" data-act="calf" data-k="types" data-v="${k}"><span class="dot t-${k}"></span>${l}</button>`).join('')}</div>
-  <div class="scroll-x">${PLAT.slice(0,4).map(p=>`<button class="chip btn ${F.plat.includes(p)?'on':''}" data-act="calf" data-k="plat" data-v="${h(p)}">${h(p)}</button>`).join('')}<select id="cal-proj" data-calproj style="min-height:32px;padding:3px 10px;border-radius:999px;width:auto;font-size:.8rem">${['',...S.projects.map(p=>p.id)].map(id=>`<option value="${id}" ${F.proj===id?'selected':''}>${id?h(projName(id)):'Todos os projetos'}</option>`).join('')}</select>${(F.types.length||F.plat.length||F.proj)?`<button class="chip btn" data-act="calf-clear">Limpar filtros</button>`:''}</div>`;
+  if(M!=='dia')out+=`<div class="scroll-x" style="margin-top:10px">${[['compromisso','Compromissos'],['gravacao','Gravações'],['edicao','Edições'],['revisao','Revisões'],['publicacao','Postagens']].map(([k,l])=>`<button class="chip btn ${F.types.includes(k)?'on':''}" data-act="calf" data-k="types" data-v="${k}"><span class="dot t-${k}"></span>${l}</button>`).join('')}${(F.types.length||F.plat.length||F.proj)?`<button class="chip btn" data-act="calf-clear">Limpar</button>`:''}</div>`;
   const items=calItems().filter(passFilter);
-  if(M==='mes'){
-    const [y,m]=base.split('-').map(Number);const first=new Date(y,m-1,1);const start=addDays(iso(first),-((first.getDay()+6)%7));
-    const sel=UI.calSel||TODAY;
-    out+=`<div class="sec"><div class="row between"><button class="icon-btn" data-act="calnav" data-n="-1" aria-label="Mês anterior">‹</button><h2>${MONL[m-1]} ${y}</h2><button class="icon-btn" data-act="calnav" data-n="1" aria-label="Próximo mês">›</button></div>
-    <div class="month">${['seg','ter','qua','qui','sex','sáb','dom'].map(d=>`<div class="wd">${d}</div>`).join('')}${Array.from({length:42},(_,i)=>{const d=addDays(start,i);const its=items.filter(x=>x.date===d);const types=[...new Set(its.map(x=>x.type))];return`<button class="${d.slice(5,7)!=String(m).padStart(2,'0')?'out':''} ${d===TODAY?'today':''} ${d===sel?'sel':''}" data-act="calsel" data-d="${d}"><span class="n">${+d.slice(8)}</span><span class="dots">${types.map(t=>`<span class="dot t-${t}"></span>`).join('')}</span></button>`}).join('')}</div></div>`;
-    out+=dayView(sel,items,true);
-  }else if(M==='dia'){
-    const d=UI.calSel||TODAY;out+=`<div class="sec"><div class="row between"><button class="icon-btn" data-act="dayn" data-n="-1" aria-label="Dia anterior">‹</button><h2>${fmtD(d)}</h2><button class="icon-btn" data-act="dayn" data-n="1" aria-label="Próximo dia">›</button></div></div>`+dayView(d,items,false);
-  }else if(M==='semana'){
-    const d=UI.calSel||TODAY;const ws=addDays(d,-((new Date(d+'T12:00:00').getDay()+6)%7));
-    out+=`<div class="sec"><div class="row between"><button class="icon-btn" data-act="dayn" data-n="-7" aria-label="Semana anterior">‹</button><h2>${fmtShort(ws)} – ${fmtShort(addDays(ws,6))}</h2><button class="icon-btn" data-act="dayn" data-n="7" aria-label="Próxima semana">›</button></div><div class="list">${Array.from({length:7},(_,i)=>{const dd=addDays(ws,i);const its=items.filter(x=>x.date===dd);return`<div class="card" style="gap:2px"><button class="row between" style="border:0;background:none;padding:0" data-act="cal-day" data-d="${dd}"><b style="${dd===TODAY?'color:var(--accent)':''}">${fmtD(dd)}</b><span class="small muted">${its.length||''}</span></button>${its.map(calRow).join('')||'<span class="small muted">Livre</span>'}</div>`}).join('')}</div></div>`;
-  }else{
-    const fut=items.filter(x=>x.date>=TODAY&&diffDays(TODAY,x.date)<=45);const days=[...new Set(fut.map(x=>x.date))];
-    out+=`<div class="sec"><div class="list">${days.map(d=>`<div class="card" style="gap:2px"><button class="row between" style="border:0;background:none;padding:0" data-act="cal-day" data-d="${d}"><b>${fmtD(d)}</b><span class="small muted">${rel(d)}</span></button>${fut.filter(x=>x.date===d).map(calRow).join('')}</div>`).join('')||'<div class="empty">Nada nos próximos 45 dias com esses filtros.</div>'}</div></div>`;
-  }
+  if(M==='mes')out+=monthView(base,items);
+  else if(M==='dia')out+=dayView(UI.calSel||TODAY,items);
+  else if(M==='semana')out+=weekView(UI.calSel||TODAY,items);
+  else{const fut=items.filter(x=>x.date>=TODAY&&diffDays(TODAY,x.date)<=45);const days=[...new Set([...fut.map(x=>x.date),...S.takes.filter(t=>t.status!=='gravado'&&takeDay(t)>=TODAY&&diffDays(TODAY,takeDay(t))<=45).map(takeDay)])].sort();
+    out+=`<div class="sec"><div class="list">${days.map(d=>{const tk=takesOn(d,{pendingOnly:true});return`<div class="card" style="gap:2px"><button class="row between" style="border:0;background:none;padding:0" data-act="cal-day" data-d="${d}"><b>${fmtD(d)}</b><span class="small muted">${rel(d)}</span></button>${fut.filter(x=>x.date===d).map(calRow).join('')}${tk.length?`<div class="small" style="color:var(--accent);font-weight:700">🎬 ${tk.length} take${tk.length>1?'s':''} para gravar</div>`:''}</div>`}).join('')||'<div class="empty">Nada nos próximos 45 dias.</div>'}</div></div>`}
   return out;
 }
-function dayView(d,items,compact){
-  const its=items.filter(x=>x.date===d);
-  let out=`<div class="sec"><div class="sec-h"><h2>${compact?fmtD(d):'Agenda do dia'}</h2><span class="small muted">${rel(d)}</span></div>`;
-  if(!its.length)return out+`<div class="empty">Nada neste dia com os filtros atuais.<div style="margin-top:8px"><button class="btn sm" data-act="new" data-t="event" data-preset='${h(JSON.stringify({date:d,type:"compromisso"}))}'>Adicionar compromisso</button></div></div></div>`;
-  out+=`<div class="list">`;
-  its.forEach(it=>{
-    if(it.kind==='pub'){const c=byId('contents',it.p.contentId);out+=`<div class="card stripe t-publicacao"><div class="row between"><span class="eyebrow">Publicação · ${h(it.p.platform)}</span><span class="mono muted">${h(it.time)}</span></div><button style="border:0;background:none;padding:0;text-align:left" data-act="open" data-t="content" data-id="${c?.id}"><h3>${h(c?.title||'—')}</h3></button><div class="small muted">${h(it.p.format||'')} · ${h(it.p.status||'Programada')}${c?` · ${h(c.status)}`:''}</div><div><button class="btn sm" data-act="open" data-t="pub" data-id="${it.p.id}">Editar publicação</button></div></div>`;return}
-    const e=it.e;const cs=arr(e.contentIds).map(id=>byId('contents',id)).filter(Boolean);
-    const linked=S.events.filter(x=>x.sourceId===e.id);const tk=(e.type==='compromisso'||e.type==='gravacao')?eventTakes(e):[];const flex=e.type==='compromisso'?flexOpps(e):[];
-    out+=`<div class="card stripe t-${e.type}"><div class="row between"><span class="eyebrow">${EVT[e.type]}${e.type==='gravacao'?(e.fixed?' · fixa':' · flexível'):''}${it.multi?' · vários dias':''}</span><span class="mono muted">${h(e.time||'')}</span></div>
-      <button style="border:0;background:none;padding:0;text-align:left" data-act="open" data-t="event" data-id="${e.id}"><h3>${h(e.title)}</h3></button>
-      <div class="small muted">${[e.location,arr(e.contexts).map(ctxL).join(', '),e.responsible,e.projectId&&projName(e.projectId)].filter(Boolean).map(h).join(' · ')}</div>
-      ${e.type==='gravacao'&&e.fixed?`<div class="notice" style="padding:6px 10px">Precisa acontecer neste dia: depende da experiência.</div>`:''}
-      ${cs.length?`<div class="sub"><span class="eyebrow">${e.type==='compromisso'?'Gravações relacionadas':'Conteúdos'}</span>${cs.map(c=>{const p=progress(c);return`<button class="row between" style="border:0;background:none;padding:0;text-align:left" data-act="open" data-t="content" data-id="${c.id}"><span class="grow small"><b>${h(c.title)}</b></span><span class="mono muted">${p.done}/${p.total}</span></button>`}).join('')}</div>`:''}
-      ${linked.length?`<div class="small muted">Tarefas ligadas: ${linked.map(l=>`${EVT[l.type]} ${fmtShort(l.date)}`).join(' · ')}</div>`:''}
-      ${tk.length?`<div class="sub"><span class="eyebrow">Takes necessários</span>${tk.map(t=>`<div class="take ${t.status==='gravado'?'done':''}" style="gap:8px;align-items:center"><button class="chk ${t.status==='gravado'?'done':''}" style="width:24px;height:24px;border-radius:7px" data-act="take-toggle" data-id="${t.id}" aria-label="Alternar gravado">${t.status==='gravado'?'✓':''}</button><span class="tdesc small grow">${h(t.desc)}${t.fixedEventId?' <span class="chip warn">fixo</span>':''}</span></div>`).join('')}</div>`:''}
-      ${flex.length?`<div class="sub"><span class="eyebrow">Oportunidades flexíveis aqui</span>${flex.map(t=>`<div class="small">${h(t.desc)} <span class="muted">· ${arr(t.contentIds).length} conteúdo(s)</span></div>`).join('')}</div>`:''}
-      ${(e.type==='compromisso'||e.type==='gravacao')&&arr(e.contexts).length?`<div><button class="btn sm pri" data-act="cap-event" data-id="${e.id}">Captar neste evento</button></div>`:''}
-      ${['edicao','revisao','finalizacao','gravacao'].includes(e.type)?`<div class="row"><button class="btn sm ${e.status==='concluido'?'ok':''}" data-act="ev-done" data-id="${e.id}">${e.status==='concluido'?'✓ Concluída':'Marcar concluída'}</button></div>`:''}
-    </div>`;
-  });
+function monthView(base,items){
+  const [y,m]=base.split('-').map(Number);const first=new Date(y,m-1,1);const start=addDays(iso(first),-((first.getDay()+6)%7));
+  const last=new Date(y,m,0);const end=addDays(iso(last),(7-((last.getDay()+6)%7)-1));const weeks=Math.round((diffDays(start,end)+1)/7);
+  let out=`<div class="sec"><div class="row between"><button class="icon-btn" data-act="calnav" data-n="-1" aria-label="Mês anterior">‹</button><h2>${MONL[m-1]} ${y}</h2><button class="icon-btn" data-act="calnav" data-n="1" aria-label="Próximo mês">›</button></div>
+  <div class="cal-m"><div class="cal-wd">${['seg','ter','qua','qui','sex','sáb','dom'].map(d=>`<span>${d}</span>`).join('')}</div>`;
+  for(let w=0;w<weeks;w++){
+    const ws=addDays(start,w*7),we=addDays(ws,6);
+    const spans=S.events.filter(e=>e.endDate&&e.endDate>e.date&&e.date<=we&&e.endDate>=ws&&passFilter({kind:'event',type:e.type,date:e.date,e})).map(e=>({e,s:e.date<ws?ws:e.date,t:e.endDate>we?we:e.endDate,cont:e.date<ws}));
+    const lanes=[];spans.forEach(sp=>{let l=0;while(lanes[l]&&lanes[l].some(o=>!(sp.t<o.s||sp.s>o.t)))l++;(lanes[l]=lanes[l]||[]).push(sp);sp.l=l});
+    const rows=2+lanes.length;
+    out+=`<div class="cal-wk" style="grid-template-rows:auto ${lanes.length?`repeat(${lanes.length},20px) `:''}1fr">`;
+    for(let i=0;i<7;i++){const d=addDays(ws,i);const out_=d.slice(5,7)!=String(m).padStart(2,'0');
+      out+=`<button class="cal-cell ${out_?'out':''} ${d===TODAY?'today':''}" style="grid-column:${i+1};grid-row:1/${rows+1}" data-act="cal-day" data-d="${d}" data-dropday="${d}" aria-label="${fmtD(d)}"></button><span class="cal-n ${d===TODAY?'today':''}" style="grid-column:${i+1};grid-row:1">${+d.slice(8)}</span>`}
+    spans.forEach(sp=>{const c1=diffDays(ws,sp.s)+1,len=diffDays(sp.s,sp.t)+1;out+=`<span class="cal-bar t-${sp.e.type}" style="grid-column:${c1}/span ${len};grid-row:${2+sp.l}">${sp.cont?'… ':''}${h(sp.e.title)}</span>`});
+    for(let i=0;i<7;i++){const d=addDays(ws,i);
+      const singles=items.filter(x=>x.date===d&&!x.multi);const tk=takesOn(d,{pendingOnly:true,net:false}).length;
+      const labs=singles.map(x=>x.kind==='pub'?{t:'publicacao',l:'Postar: '+(byId('contents',x.p.contentId)?.title||'')}:{t:x.e.type,l:x.e.title.replace(/^(Gravação|Edição|Revisão): /,'')});
+      const show=labs.slice(0,2),more=labs.length-show.length;
+      out+=`<span class="cal-stack" style="grid-column:${i+1};grid-row:${rows}">${show.map(x=>`<span class="cal-lab t-${x.t}">${h(x.l)}</span>`).join('')}${more>0?`<span class="cal-more">+${more}</span>`:''}${tk?`<span class="cal-tk">🎬 ${tk}</span>`:''}</span>`}
+    out+=`</div>`;
+  }
+  return out+`</div><div class="small muted" style="margin-top:6px">Toque num dia para ver o que gravar. Segure um take e arraste para outro dia na visão Semana ou Dia.</div></div>`;
+}
+function weekStrip(d){const ws=addDays(d,-((new Date(d+'T12:00:00').getDay()+6)%7));return`<div class="wk-strip">${Array.from({length:7},(_,i)=>{const dd=addDays(ws,i);const n=takesOn(dd,{pendingOnly:true,net:false}).length;return`<button class="wk-pill ${dd===d?'on':''} ${dd===TODAY?'today':''}" data-act="cal-day" data-d="${dd}" data-dropday="${dd}"><span>${WD[new Date(dd+'T12:00:00').getDay()]}</span><b>${+dd.slice(8)}</b>${n?`<i>${n}</i>`:''}</button>`}).join('')}</div>`}
+function netChips(){return`<div class="scroll-x"><button class="chip btn ${!UI.dayNet?'on':''}" data-act="daynet" data-k="">Todas as redes</button>${NETS.map(([k,l])=>`<button class="chip btn ${UI.dayNet===k?'on':''}" data-act="daynet" data-k="${k}">${l}</button>`).join('')}</div>`}
+function weekView(d,items){
+  const ws=addDays(d,-((new Date(d+'T12:00:00').getDay()+6)%7));
+  let out=`<div class="sec"><div class="row between"><button class="icon-btn" data-act="dayn" data-n="-7" aria-label="Semana anterior">‹</button><h2>${fmtShort(ws)} – ${fmtShort(addDays(ws,6))}</h2><button class="icon-btn" data-act="dayn" data-n="7" aria-label="Próxima semana">›</button></div>${netChips()}<div class="small muted">Segure um take e arraste para outro dia.</div><div class="list">`;
+  for(let i=0;i<7;i++){const dd=addDays(ws,i);const its=items.filter(x=>x.date===dd&&(x.kind!=='pub'||netOk(byId('contents',x.p.contentId)||{})));const tk=takesOn(dd);
+    out+=`<div class="card wk-day ${dd===TODAY?'is-today':''}" data-dropday="${dd}" style="gap:4px"><button class="row between" style="border:0;background:none;padding:0" data-act="cal-day" data-d="${dd}"><b style="${dd===TODAY?'color:var(--accent)':''}">${fmtD(dd)}</b><span class="small muted">${tk.filter(t=>t.status!=='gravado').length?`🎬 ${tk.filter(t=>t.status!=='gravado').length}`:''}</span></button>
+    ${its.map(it=>`<div class="small stripe t-${it.type}" style="padding-block:2px">${it.kind==='pub'?`Postar: ${h(byId('contents',it.p.contentId)?.title||'')} · ${h(it.p.platform)}`:h(it.e.title)}${it.multi?' <span class="muted">(vários dias)</span>':''}</div>`).join('')}
+    ${tk.map(t=>takeRowCal(t,dd)).join('')}
+    ${!its.length&&!tk.length?'<span class="small muted">Livre · solte um take aqui</span>':''}</div>`}
   return out+`</div></div>`;
 }
+function dayView(d,items){
+  const its=items.filter(x=>x.date===d);const tk=takesOn(d);const pend=tk.filter(t=>t.status!=='gravado'),done=tk.filter(t=>t.status==='gravado');
+  const byC={};pend.forEach(t=>{const k=t.contentIds?.[0]||'_';(byC[k]=byC[k]||[]).push(t)});
+  let out=`<div class="sec"><div class="row between"><button class="icon-btn" data-act="dayn" data-n="-1" aria-label="Dia anterior">‹</button><h2>${fmtD(d)}</h2><button class="icon-btn" data-act="dayn" data-n="1" aria-label="Próximo dia">›</button></div>${weekStrip(d)}${netChips()}</div>`;
+  out+=`<div class="sec"><div class="sec-h"><h2>Para gravar</h2><span class="small muted">${pend.length} take${pend.length!==1?'s':''}</span></div>`;
+  if(pend.length){out+=Object.entries(byC).map(([cid,ts])=>{const c=byId('contents',cid);return`<div class="card" style="gap:6px"><button class="row between" style="border:0;background:none;padding:0;text-align:left" data-act="open" data-t="content" data-id="${cid}"><h3 class="grow">${h(c?.title||'Sem conteúdo')}</h3><span class="chips">${c?tiposOf(c).map(k=>`<span class="chip">${h((NETS.find(n=>n[0]===k)||[])[1]||k)}</span>`).join(''):''}</span></button>${ts.map(t=>takeRowCal(t,d)).join('')}</div>`}).join('');
+    out+=`<div class="small muted">Não deu para gravar? Segure o take e solte em outro dia da faixa acima, ou toque em ⇄.</div>`}
+  else out+=`<div class="empty">Nenhum take agendado${UI.dayNet?' para essa rede':''} neste dia.</div>`;
+  if(done.length)out+=`<div class="sec-h"><h3>Gravados neste dia</h3><span class="small muted">${done.length}</span></div><div class="list">${done.map(t=>takeRowCal(t,d)).join('')}</div>`;
+  out+=`</div>`;
+  const agenda=its.filter(it=>it.kind!=='pub'||netOk(byId('contents',it.p.contentId)||{}));
+  out+=`<div class="sec"><div class="sec-h"><h2>Agenda do dia</h2></div>`;
+  if(!agenda.length)out+=`<div class="empty">Nada na agenda.<div style="margin-top:8px"><button class="btn sm" data-act="new" data-t="event" data-preset='${h(JSON.stringify({date:d,type:"compromisso"}))}'>Adicionar compromisso</button></div></div>`;
+  else out+=`<div class="list">${agenda.map(it=>{
+    if(it.kind==='pub'){const c=byId('contents',it.p.contentId);return`<button class="card tap stripe t-publicacao" data-act="open" data-t="pub" data-id="${it.p.id}" style="gap:2px"><span class="eyebrow">Postagem · ${h(it.p.platform)} ${h(it.time||'')}</span><b>${h(c?.title||'—')}</b></button>`}
+    const e=it.e;const opp=e.type==='compromisso'?flexOpps(e).filter(t=>!takeDay(t)&&arr(t.contentIds).some(id=>{const c=byId('contents',id);return c&&netOk(c)})):[];
+    return`<div class="card stripe t-${e.type}" style="gap:4px"><div class="row between"><span class="eyebrow">${EVT[e.type]}${it.multi?' · vários dias':''}</span><span class="mono muted">${h(e.time||'')}</span></div><button style="border:0;background:none;padding:0;text-align:left" data-act="open" data-t="event" data-id="${e.id}"><h3>${h(e.title)}</h3></button>
+      ${e.location||arr(e.contexts).length?`<div class="small muted">${[e.location,arr(e.contexts).map(ctxL).join(', ')].filter(Boolean).map(h).join(' · ')}</div>`:''}
+      ${opp.length?`<details><summary class="small" style="cursor:pointer;color:var(--accent);font-weight:700">${opp.length} take${opp.length>1?'s':''} sem data que combinam com este lugar</summary><div class="list" style="margin-top:6px">${opp.slice(0,20).map(t=>`<div class="row between"><span class="small grow">${h(t.desc)} <span class="muted">· ${h(byId('contents',t.contentIds[0])?.title||'')}</span></span><button class="btn sm" data-act="sched-take" data-id="${t.id}" data-d="${d}">Gravar neste dia</button></div>`).join('')}</div></details>`:''}
+      ${['edicao','revisao','finalizacao','gravacao'].includes(e.type)?`<div class="row"><button class="btn sm ${e.status==='concluido'?'ok':''}" data-act="ev-done" data-id="${e.id}">${e.status==='concluido'?'✓ Concluída':'Marcar concluída'}</button></div>`:''}
+      ${e.type==='compromisso'&&arr(e.contexts).length?`<div><button class="btn sm pri" data-act="cap-event" data-id="${e.id}">Captar neste lugar</button></div>`:''}
+    </div>`}).join('')}</div>`;
+  return out+`</div>`;
+}
 
+/* ---------- MOVER TAKES ENTRE DIAS ---------- */
+function moveTakes(ids,to){
+  const moved=ids.map(id=>byId('takes',id)).filter(Boolean);if(!moved.length)return;
+  const info=moved.map(t=>({t,from:takeDay(t)}));let unfixed=[];
+  moved.forEach(t=>{if(t.fixedEventId){const e=byId('events',t.fixedEventId);if(e&&e.date!==to){unfixed.push(e.title);delete t.fixedEventId}}t.date=to});
+  const cids=[...new Set(moved.flatMap(t=>arr(t.contentIds)))];
+  // gravação (não fixa) do conteúdo acompanha se ficou sem takes no dia antigo
+  cids.forEach(cid=>{const froms=[...new Set(info.filter(x=>arr(x.t.contentIds).includes(cid)).map(x=>x.from).filter(Boolean))];froms.forEach(f=>{const left=S.takes.some(t=>arr(t.contentIds).includes(cid)&&t.status!=='gravado'&&takeDay(t)===f);if(!left)S.events.filter(e=>e.type==='gravacao'&&!e.fixed&&e.date===f&&arr(e.contentIds).includes(cid)).forEach(e=>e.date=to)})});
+  saveAll('takes','events');
+  render();toast(`${moved.length} take${moved.length>1?'s':''} movido${moved.length>1?'s':''} para ${fmtD(to)}`);
+  datesPopup(cids,to,unfixed);
+}
+function datesPopup(cids,rec,unfixed=[]){
+  const rows=cids.map(cid=>{const c=byId('contents',cid);if(!c)return'';
+    const evs=S.events.filter(e=>['edicao','revisao','finalizacao'].includes(e.type)&&arr(e.contentIds).includes(cid)&&e.status!=='concluido').sort((a,b)=>a.date.localeCompare(b.date));
+    const pubs=S.pubs.filter(p=>p.contentId===cid&&p.status!=='Publicado').sort((a,b)=>a.date.localeCompare(b.date));
+    const lastRec=S.takes.filter(t=>arr(t.contentIds).includes(cid)&&t.status!=='gravado').map(takeDay).filter(Boolean).sort().pop()||rec;
+    let floor=lastRec;const field=(kind,id,label,cur)=>{const sug=cur>floor?cur:addDays(floor,1);floor=sug;const bad=cur<=lastRec;return`<label class="f">${label}${bad?' <span class="chip bad" style="font-size:.66rem">antes ou no dia da gravação</span>':''}<input type="date" data-pdk="${kind}" data-pdid="${id}" value="${sug}"></label>`};
+    const inner=evs.map(e=>field('ev',e.id,`${EVT[e.type]} (era ${fmtShort(e.date)})`,e.date)).join('')+pubs.map(p=>field('pub',p.id,`Postagem ${p.platform} (era ${fmtShort(p.date)})`,p.date)).join('');
+    const none=!evs.length&&!pubs.length;
+    return`<div class="card" style="gap:8px"><h3>${h(c.title)}</h3><div class="small muted">Último take a gravar: ${fmtD(lastRec)}</div>${none?`<div class="small">Ainda sem data de edição ou postagem. Quer definir agora?</div><label class="f">Edição<input type="date" data-pdk="newedit" data-pdid="${cid}" value=""></label><label class="f">Postagem<input type="date" data-pdk="newpub" data-pdid="${cid}" value=""></label>`:inner}</div>`}).join('');
+  sheet('Ajustar edição e postagem?',`${unfixed.length?`<div class="notice">Esses takes dependiam de ${unfixed.map(h).join(', ')}. Agora ficam com data livre.</div>`:''}<div class="small muted">Os takes mudaram de dia. Confira as datas sugeridas abaixo.</div>${rows}<div class="row"><button class="btn pri grow" data-act="pd-apply">Salvar datas</button><button class="btn" data-act="close-form">Manter como está</button></div>`);
+}
+function applyDatesPopup(){
+  let n=0;document.querySelectorAll('[data-pdk]').forEach(inp=>{const v=inp.value;if(!v)return;const k=inp.dataset.pdk,id=inp.dataset.pdid;
+    if(k==='ev'){const e=byId('events',id);if(e&&e.date!==v){e.date=v;n++}}
+    if(k==='pub'){const p=byId('pubs',id);if(p&&p.date!==v){p.date=v;n++}}
+    if(k==='newedit'){const c=byId('contents',id);S.events.push({id:uid('e'),title:'Edição: '+c.title,type:'edicao',date:v,contentIds:[id],projectId:c.projectId,status:'pendente',responsible:'Julia',auto:true});n++}
+    if(k==='newpub'){const c=byId('contents',id);S.pubs.push({id:uid('p'),contentId:id,platform:arr(c.platforms)[0]||'Instagram',date:v,status:'Programada'});n++}
+  });
+  S.contents.forEach(c=>{const f=S.pubs.filter(p=>p.contentId===c.id).map(p=>p.date).sort()[0];if(f)c.pubDate=f});
+  saveAll('events','pubs','contents');closeForm();render();toast(n?`${n} data${n>1?'s':''} atualizada${n>1?'s':''}`:'Datas mantidas');
+}
+
+/* ---------- ARRASTAR (toque longo + arrastar; mouse também) ---------- */
+let DRAG=null,PEND=null;
+function dragStart(src,x,y){
+  const t=byId('takes',src.dataset.dragTake);if(!t)return;
+  const g=document.createElement('div');g.className='drag-ghost';g.textContent='🎬 '+t.desc;document.body.appendChild(g);
+  DRAG={id:t.id,from:src.dataset.from,g,src,over:null};src.classList.add('dragging');document.body.classList.add('is-dragging');dragMove(x,y);
+}
+function dragMove(x,y){if(!DRAG)return;DRAG.g.style.left=x+'px';DRAG.g.style.top=(y-34)+'px';
+  const el=document.elementFromPoint(x,y)?.closest('[data-dropday]');if(DRAG.over&&DRAG.over!==el)DRAG.over.classList.remove('drop-on');if(el){el.classList.add('drop-on');DRAG.over=el}else DRAG.over=null}
+function dragEnd(){if(!DRAG)return;const to=DRAG.over?.dataset.dropday;DRAG.g.remove();DRAG.src.classList.remove('dragging');DRAG.over?.classList.remove('drop-on');document.body.classList.remove('is-dragging');const {id,from}=DRAG;DRAG=null;UI._justDragged=Date.now();if(to&&to!==from)moveTakes([id],to)}
+function pendStart(e,x,y){const src=e.target.closest('[data-drag-take]');if(!src||e.target.closest('.chk,button:not(.tdesc)'))return;PEND={src,x,y,timer:setTimeout(()=>{if(PEND){dragStart(PEND.src,PEND.x,PEND.y);PEND=null}},380)}}
+function pendCancel(){if(PEND){clearTimeout(PEND.timer);PEND=null}}
+document.addEventListener('touchstart',e=>{const p=e.touches[0];pendStart(e,p.clientX,p.clientY)},{passive:true});
+document.addEventListener('touchmove',e=>{const p=e.touches[0];if(DRAG){e.preventDefault();dragMove(p.clientX,p.clientY)}else if(PEND&&Math.hypot(p.clientX-PEND.x,p.clientY-PEND.y)>10)pendCancel()},{passive:false});
+document.addEventListener('touchend',()=>{pendCancel();dragEnd()});
+document.addEventListener('touchcancel',()=>{pendCancel();dragEnd()});
+document.addEventListener('mousedown',e=>{if(e.button===0)pendStart(e,e.clientX,e.clientY)});
+document.addEventListener('mousemove',e=>{if(DRAG)dragMove(e.clientX,e.clientY);else if(PEND&&Math.hypot(e.clientX-PEND.x,e.clientY-PEND.y)>6)pendCancel()});
+document.addEventListener('mouseup',()=>{pendCancel();dragEnd()});
+document.addEventListener('contextmenu',e=>{if(e.target.closest('[data-drag-take]'))e.preventDefault()});
 /* ---------- PROJETOS, PRODUTOS, INDICADORES ---------- */
 function vProjetos(){
   const tab=UI.projTab;
@@ -792,6 +913,7 @@ function pContent(c){
     const pend=tk.filter(t=>t.status!=='gravado'),done=tk.filter(t=>t.status==='gravado');
     out+=`<div class="sec">
     ${isRecorded(c)?'<div class="notice ok">Material já gravado. Não há takes pendentes para este conteúdo.</div>':!tk.length?'<div class="notice">Takes a definir. Escreva abaixo cada take que você quer gravar.</div>':''}
+    ${pend.length?`<div class="row" style="flex-wrap:nowrap"><input type="date" id="sp-${c.id}" value="${pend.map(takeDay).filter(Boolean).sort()[0]||TODAY}" style="flex:1;min-width:0"><button class="btn sm" data-act="sched-pending" data-id="${c.id}">Agendar pendentes</button></div>`:''}
     <form class="cap-in" data-form="quicktake" data-cid="${c.id}"><input type="text" id="qt-${c.id}" placeholder="Escreva um take e toque em +" autocomplete="off"><button class="btn pri" type="submit" aria-label="Adicionar take">+</button></form>
     ${pend.length?`<div class="list">${pend.map(t=>takeCard(t,{compact:c.id,capture:true})).join('')}</div>`:''}
     ${done.length?`<div class="sec-h" style="margin-top:6px"><h3>Gravados</h3><span class="small muted">${done.length}</span></div><div class="list">${done.map(t=>takeCard(t,{compact:c.id})).join('')}</div>`:''}
@@ -860,7 +982,7 @@ const FORMS={
   ref:{key:'refs',title:'Referência',fields:[['title','Título','text'],['url','Link do vídeo','url'],['notes','Observações pessoais','textarea'],['why','Por que gostei','textarea'],['adapt','Como pretendo adaptar','textarea'],['objectives','Objetivos','chips',OBJ],['audiences','Público','chips',AUD],['formats','Formato','chips',FMT],['traits','Características','chips',TRAITS],['platforms','Plataformas','chips',PLAT],['productIds','Produtos','rel','products'],['projectIds','Projetos','rel','projects'],['contentIds','Conteúdos','rel','contents'],['ts.hook','TikTok Shop · gancho comercial','text'],['ts.benefit','TikTok Shop · benefício','text'],['ts.objection','TikTok Shop · objeção de compra','text'],['ts.context','TikTok Shop · contexto de uso','text'],['ts.style','TikTok Shop · estilo de venda','text']]},
   idea:{key:'ideas',title:'Ideia',fields:[['title','Título','text'],['desc','Descrição','textarea'],['refIds','Referências','rel','refs'],['audience','Público-alvo','select',AUD],['objective','Objetivo estratégico','select',OBJ],['platform','Plataforma','select',PLAT],['format','Formato','select',FMT],['projectId','Projeto','one','projects'],['priority','Prioridade','select',PRIO],['status','Status','select',IDEA_ST],['date','Possível data de publicação','date']]},
   content:{key:'contents',title:'Conteúdo',fields:[['title','Título','text'],['refLink','Link de referência','url'],['destino','Destino','text'],['platforms','Plataformas','chips',PLAT],['goal','Objetivo','text'],['audienceText','Público / persona','text'],['when','Quando / cenário','text'],['janela','Janela de gravação','select',JANELAS],['notBefore','Não gravar antes de','date'],['contexts','Contextos (para o Captar agora)','ctx'],['scriptState','Roteiro','select',SCRIPT_ST],['formatNote','Formato / orientação','text'],['notes','Observações','textarea'],['projectId','Projeto','one','projects'],['frontId','Frente do projeto','front'],['productIds','Produtos','rel','products'],['refIds','Referências salvas','rel','refs'],['objectives','Objetivos (para o equilíbrio)','chips',OBJ],['audiences','Públicos (para o equilíbrio)','chips',AUD]]},
-  take:{key:'takes',title:'Take',fields:[['desc','Descrição','text'],['action','Tipo de ação','text'],['framing','Enquadramento','text'],['setting','Cenário','text'],['contexts','Contextos (onde dá para gravar)','ctx'],['location','Localização','text'],['participant','Participante','text'],['productIds','Produtos','rel','products'],['contentIds','Conteúdos que usam este take','rel','contents'],['duration','Duração desejada','text'],['priority','Prioridade','select',PRIO],['status','Status','select',['pendente','gravado']],['fixedEventId','Data fixa: depende do compromisso','one','events'],['hardToRepeat','Oportunidade difícil de repetir','bool'],['notes','Observações','textarea']]},
+  take:{key:'takes',title:'Take',fields:[['desc','Descrição','text'],['action','Tipo de ação','text'],['framing','Enquadramento','text'],['setting','Cenário','text'],['contexts','Contextos (onde dá para gravar)','ctx'],['location','Localização','text'],['participant','Participante','text'],['productIds','Produtos','rel','products'],['contentIds','Conteúdos que usam este take','rel','contents'],['duration','Duração desejada','text'],['priority','Prioridade','select',PRIO],['status','Status','select',['pendente','gravado']],['date','Data para gravar','date'],['fixedEventId','Data fixa: depende do compromisso','one','events'],['hardToRepeat','Oportunidade difícil de repetir','bool'],['notes','Observações','textarea']]},
   product:{key:'products',title:'Produto TikTok Shop',fields:[['name','Nome','text'],['brand','Marca','text'],['category','Categoria','text'],['link','Link','url'],['benefits','Benefícios','textarea'],['audience','Público','text'],['contexts','Contextos de uso (toque para alternar principal → recomendado → alternativo)','ctxlevel'],['refIds','Referências','rel','refs'],['priority','Prioridade','select',PRIO],['status','Status','select',['Disponível para gravar','Em produção','Concluído','Pausado']],['available','Tenho o produto em mãos','bool']]},
   project:{key:'projects',title:'Projeto',fields:[['name','Nome','text'],['start','Início','date'],['end','Fim','date'],['objectives','Objetivos','chips',OBJ],['participants','Participantes (separe por vírgula)','list']]},
   event:{key:'events',title:'Agenda',fields:[['title','Título','text'],['type','Tipo','select',Object.keys(EVT).filter(k=>k!=='publicacao')],['date','Data','date'],['endDate','Até (para vários dias)','date'],['time','Horário','time'],['contexts','Contextos do lugar','ctx'],['location','Local','text'],['projectId','Projeto','one','projects'],['contentIds','Conteúdos relacionados','rel','contents'],['fixed','Gravação fixa (depende desta data)','bool'],['autoRec','Criar gravação fixa vinculada neste dia','bool'],['responsible','Responsável','text'],['status','Status','select',['pendente','concluido']]]},
@@ -1082,6 +1204,13 @@ const ACT={
   'voice-ex':d=>{V.text=d.q;render()},
   reminders:()=>{const R=reminders();sheet('Lembretes',R.length?`<div class="list">${R.map(remRow).join('')}</div>`:'<div class="empty">Nada urgente agora.</div>')},
   'go-filter':d=>{closeForm();UI.prodTab='conteudos';UI.contentF='ev:'+d.ev;UI.janelaF='';go('producao')},
+  'cal-late':()=>{const d=S.takes.filter(t=>t.status!=='gravado'&&takeDay(t)&&takeDay(t)<TODAY).map(takeDay).sort()[0];UI.calSel=d||TODAY;UI.calDate=UI.calSel;UI.calMode='semana';closeForm();go('calendario')},
+  daynet:d=>{UI.dayNet=UI.dayNet===d.k?'':d.k;render()},
+  'move-take':d=>{const t=byId('takes',d.id);const from=d.from||takeDay(t)||TODAY;sheet('Mover take',`<div class="small muted">${h(t.desc)}</div><div class="list">${[1,2,3,7].map(n=>{const to=addDays(from,n);return`<button class="btn wide" data-act="move-to" data-id="${t.id}" data-to="${to}">${n===1?'Amanhã':n===7?'Daqui a 1 semana':'Em '+n+' dias'} · ${fmtD(to)}</button>`}).join('')}</div><label class="f">Outra data<input type="date" id="mv-date" value="${addDays(from,1)}"></label><button class="btn pri" data-act="move-to" data-id="${t.id}" data-pick="1">Mover para esta data</button>`)},
+  'move-to':d=>{const to=d.pick?document.getElementById('mv-date').value:d.to;if(!to)return toast('Escolha uma data.');closeForm();moveTakes([d.id],to)},
+  'sched-take':d=>{const t=byId('takes',d.id);t.date=d.d;save('takes');render();toast('Take agendado para '+fmtD(d.d))},
+  'pd-apply':()=>applyDatesPopup(),
+  'sched-pending':d=>{const v=document.getElementById('sp-'+d.id)?.value;if(!v)return toast('Escolha uma data.');const c=byId('contents',d.id);let n=0;contentTakes(c).forEach(t=>{if(t.status!=='gravado'&&!t.fixedEventId){t.date=v;n++}});save('takes');renderDetail();toast(`${n} take${n!==1?'s':''} agendado${n!==1?'s':''} para ${fmtD(v)}`)},
   tipof:d=>{UI.tipoF=UI.tipoF===d.k?'':d.k;render()},
   'go-cf':d=>{UI.prodTab='conteudos';UI.contentF=d.k;UI.janelaF='';go('producao')},
   'stage-next':d=>{const c=byId('contents',d.id);const a=canAdvance(c);if(!a.ok){toast(a.why||'Não dá para avançar ainda.');return}const i=STATUS.indexOf(c.status);c.status=STATUS[i+1];save('contents');renderDetail();toast(`${c.title.slice(0,40)} foi para ${c.status}`)},
@@ -1139,7 +1268,7 @@ const ACT={
   'front-new':d=>sheet('Nova frente',`<label class="f">Nome da frente<input type="text" id="fr-name" placeholder="Ex.: UGC de produtos"></label><label class="f">Itens (opcional)<input type="text" id="fr-items" placeholder="Hidratante, protetor solar…"></label><button class="btn pri" data-act="front-save" data-id="${d.id}">Adicionar</button>`),
   'front-save':d=>{const n=document.getElementById('fr-name').value.trim();if(!n)return toast('Dê um nome para a frente.');const pr=byId('projects',d.id);pr.fronts=[...arr(pr.fronts),{id:uid('fr'),name:n,items:document.getElementById('fr-items').value.trim()}];save('projects');closeForm();renderDetail()}
 };
-document.addEventListener('click',e=>{const a=e.target.closest('[data-act]');if(!a)return;const fn=ACT[a.dataset.act];if(fn){e.preventDefault();fn(a.dataset,a,e)}});
+document.addEventListener('click',e=>{if(UI._justDragged&&Date.now()-UI._justDragged<400){e.preventDefault();return}const a=e.target.closest('[data-act]');if(!a)return;const fn=ACT[a.dataset.act];if(fn){e.preventDefault();fn(a.dataset,a,e)}});
 document.addEventListener('submit',e=>{e.preventDefault();const f=e.target.dataset.form;
   if(f==='captar'||f==='captar-home'){const v=(document.getElementById(f==='captar'?'cap-text':'cap-home').value||'').trim();if(v)runCaptar(v)}
   else if(f==='refq'){UI.refQ=document.getElementById('ref-q').value.trim();UI.refAI=null;render()}
