@@ -1172,8 +1172,14 @@ async function api(path,opt={}){const r=await fetch(path,{...opt,headers:{'Conte
 async function webInit(){
   try{WEBCFG=await fetch('/api/config').then(r=>r.json())}catch(e){MODE='error';UI._err='Não consegui falar com o servidor do app. Confira sua internet e recarregue.';return false}
   if(!WEBCFG.supabaseUrl){MODE='error';UI._err='O app ainda não foi configurado: faltam as variáveis do Supabase na Vercel.';return false}
-  SB=window.supabase.createClient(WEBCFG.supabaseUrl,WEBCFG.supabaseAnonKey,{auth:{persistSession:true,detectSessionInUrl:true,flowType:'pkce'}});
-  const {data}=await SB.auth.getSession();SESSION=data.session;
+  SB=window.supabase.createClient(WEBCFG.supabaseUrl,WEBCFG.supabaseAnonKey,{auth:{persistSession:true,detectSessionInUrl:false,flowType:'pkce'}});
+  const qp=new URLSearchParams(location.search),hp=new URLSearchParams(location.hash.replace(/^#/,''));
+  const urlErr=qp.get('error_description')||hp.get('error_description')||qp.get('error')||hp.get('error');
+  const code=qp.get('code');
+  if(code||urlErr){try{history.replaceState(null,'',location.pathname)}catch(_){}}
+  if(urlErr)UI._err='O Google/Supabase recusou o login: '+urlErr.replace(/\+/g,' ');
+  if(code){const {data:ex,error:exErr}=await SB.auth.exchangeCodeForSession(code);if(exErr)UI._err='Não consegui concluir o login: '+exErr.message+(/verifier/i.test(exErr.message)?' Abra o app direto no Safari ou Chrome (não pelo link do WhatsApp) e tente de novo.':'');else if(ex?.session)UI._exchanged=ex.session}
+  const {data}=await SB.auth.getSession();SESSION=data.session||UI._exchanged||null;
   SB.auth.onAuthStateChange((_e,s)=>{if(s)SESSION=s});
   if(!SESSION){MODE='login';return false}
   if(WEBCFG.allowedEmail&&norm(SESSION.user.email)!==norm(WEBCFG.allowedEmail)){await SB.auth.signOut();MODE='login';UI._err='Esta conta não tem acesso a este Creative OS.';return false}
