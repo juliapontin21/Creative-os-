@@ -205,7 +205,7 @@ const CAP_QUICK=['Estou na praia','Estou na academia','Estou cozinhando','Estou 
 const KEYS=['refs','ideas','contents','takes','products','projects','events','pubs','files'];
 const S={}; KEYS.forEach(k=>S[k]=[]);
 let DB=null, MODE='loading', SAMPLE=null;
-const UI={view:'inicio',noteQ:'',noteKind:'note',noteDraft:{},noteAI:null,janelaF:'',prodTab:'conteudos',ideaTab:'refs',projTab:'projetos',calMode:'mes',calDate:null,calSel:null,calF:{types:[],plat:[],proj:''},captar:{text:'',ctx:[],ai:null,aiBusy:false},refQ:'',refAI:null,refBusy:false,takeQ:'',takeF:{ctx:'',status:'pendente'},libQ:'',libUnused:false,contentF:'',plan:null,detail:null,mode:'roteiro',grp:'cenario'};
+const UI={view:'inicio',tipoF:'',noteQ:'',noteKind:'note',noteDraft:{},noteAI:null,janelaF:'',prodTab:'conteudos',ideaTab:'refs',projTab:'projetos',calMode:'mes',calDate:null,calSel:null,calF:{types:[],plat:[],proj:''},captar:{text:'',ctx:[],ai:null,aiBusy:false},refQ:'',refAI:null,refBusy:false,takeQ:'',takeF:{ctx:'',status:'pendente'},libQ:'',libUnused:false,contentF:'',plan:null,detail:null,mode:'roteiro',grp:'cenario'};
 const timers={};
 function save(k){
   S[k].forEach(x=>{if(x&&!x.createdAt)x.createdAt=new Date().toISOString()});
@@ -409,16 +409,25 @@ function contentCard(c){
     ${contentFlag(c)?`<div class="chips">${contentFlag(c)}</div>`:''}
   </button>`;
 }
+const TIPOS=[['ugc','UGC / Portfólio'],['insta','Instagram'],['tiktok','TikTok'],['shop','TikTok Shop']];
+function tiposOf(c){const p=arr(c.platforms),d=norm(c.destino),t=[];
+  if(p.includes('Portfólio')||/ugc|portfolio/.test(d))t.push('ugc');
+  if(p.includes('Instagram')||/instagram/.test(d))t.push('insta');
+  if(p.includes('TikTok')||/tiktok(?! shop)/.test(d.replace('tiktok shop','')))t.push('tiktok');
+  if(p.includes('TikTok Shop')||/tiktok shop/.test(d))t.push('shop');
+  return t}
+const tipoOk=(c,tp=UI.tipoF)=>!tp||tiposOf(c).includes(tp);
+const takeTipoOk=t=>!UI.tipoF||arr(t.contentIds).some(id=>{const c=byId('contents',id);return c&&tipoOk(c)});
+function stageOk(c,f=UI.contentF){
+  if(!f)return c.status!=='Publicado';
+  if(f==='semtakes')return needsTakes(c);
+  if(f==='planejamento')return c.status==='Planejamento'&&!isRecorded(c);
+  if(f.startsWith('ev:'))return arr(byId('events',f.slice(3))?.contentIds).includes(c.id);
+  return c.status===f;
+}
 function contentFilter(){
-  const f=UI.contentF,j=UI.janelaF||'';
-  let list=S.contents.filter(c=>{
-    if(j&&c.janela!==j)return false;
-    if(!f)return c.status!=='Publicado';
-    if(f==='semtakes')return needsTakes(c);
-    if(f==='planejamento')return c.status==='Planejamento'&&!isRecorded(c);
-    if(f.startsWith('ev:'))return arr(byId('events',f.slice(3))?.contentIds).includes(c.id);
-    return c.status===f;
-  });
+  const j=UI.janelaF||'';
+  let list=S.contents.filter(c=>(!j||c.janela===j)&&tipoOk(c)&&stageOk(c));
   const ord={Postagem:0,'Edição':1,Planejamento:2,Publicado:3};
   return list.sort((a,b)=>(ord[a.status]-ord[b.status])||(a.pubDate||'9').localeCompare(b.pubDate||'9')||(a.order||0)-(b.order||0));
 }
@@ -627,18 +636,20 @@ function vPlano(){
 function vProducao(){
   const tab=UI.prodTab;
   let out=topBar('Produção','Conteúdos, takes e edição',`<button class="icon-btn" data-act="new" data-t="${tab==='takes'||tab==='gravados'?'take':'content'}" aria-label="Adicionar">＋</button>`);
+  const baseTipo=c=>(tab!=='conteudos'||((!UI.janelaF||c.janela===UI.janelaF)&&stageOk(c)));
+  out+=`<div class="scroll-x" style="margin-bottom:10px"><button class="chip btn ${!UI.tipoF?'on':''}" data-act="tipof" data-k="">Todos os tipos</button>${TIPOS.map(([k,l])=>{const n=S.contents.filter(c=>baseTipo(c)&&tipoOk(c,k)).length;return`<button class="chip btn ${UI.tipoF===k?'on':''}" data-act="tipof" data-k="${k}">${l} · ${n}</button>`}).join('')}</div>`;
   out+=`<div class="tabs">${[['conteudos','Conteúdos'],['takes','Takes'],['gravados','Gravados'],['edicao','Edição']].map(([k,l])=>`<button class="${tab===k?'on':''}" data-act="ptab" data-k="${k}">${l}</button>`).join('')}</div>`;
   if(tab==='conteudos'){
-    const f=UI.contentF;const list=contentFilter();const nt=S.contents.filter(needsTakes).length;
+    const f=UI.contentF;const list=contentFilter();const cnt=k=>S.contents.filter(c=>(!UI.janelaF||c.janela===UI.janelaF)&&tipoOk(c)&&stageOk(c,k)).length;const nt=cnt('semtakes');
     const ev=f.startsWith('ev:')?byId('events',f.slice(3)):null;
-    out+=`<div class="scroll-x" style="margin-top:12px"><button class="chip btn ${!f?'on':''}" data-act="cf" data-k="">Em aberto</button><button class="chip btn ${f==='semtakes'?'on':''}" data-act="cf" data-k="semtakes">Takes a definir · ${nt}</button>${['planejamento','Edição','Postagem','Publicado'].map(s=>`<button class="chip btn ${f===s?'on':''}" data-act="cf" data-k="${s}">${s==='planejamento'?'Para gravar':s}</button>`).join('')}</div>
+    out+=`<div class="scroll-x" style="margin-top:12px"><button class="chip btn ${!f?'on':''}" data-act="cf" data-k="">Em aberto · ${cnt('')}</button><button class="chip btn ${f==='semtakes'?'on':''}" data-act="cf" data-k="semtakes">Takes a definir · ${nt}</button>${['planejamento','Edição','Postagem','Publicado'].map(s=>`<button class="chip btn ${f===s?'on':''}" data-act="cf" data-k="${s}">${s==='planejamento'?'Para gravar':s} · ${cnt(s)}</button>`).join('')}</div>
     <div class="row" style="margin-top:6px"><select id="janela-f" data-janelaf style="width:auto;min-height:34px;padding:4px 10px;font-size:.84rem"><option value="">Qualquer janela de gravação</option>${JANELAS.filter(j=>S.contents.some(c=>c.janela===j)).map(j=>`<option ${UI.janelaF===j?'selected':''}>${h(j)}</option>`).join('')}</select><span class="small muted">${list.length} conteúdo${list.length!==1?'s':''}</span></div>
     ${ev?`<div class="notice info" style="margin-top:8px">Conteúdos ligados a: ${h(ev.title)}</div>`:''}
     ${f==='semtakes'?'<div class="notice" style="margin-top:8px">Esses conteúdos ainda não têm takes. Abra cada um e escreva os takes em Captação.</div>':''}
     <div class="sec"><div class="list">${list.map(contentCard).join('')||'<div class="empty">Nenhum conteúdo com esse filtro.</div>'}</div></div>`;
   }else if(tab==='takes'){
     const F=UI.takeF,q=norm(UI.takeQ);
-    const list=S.takes.filter(t=>(!F.status||(F.status==='gravado'?t.status==='gravado':t.status!=='gravado'))&&(!F.ctx||arr(t.contexts).includes(F.ctx))&&(!q||norm([t.desc,t.setting,t.action,t.location,t.participant,t.code].join(' ')).includes(q)));
+    const list=S.takes.filter(t=>takeTipoOk(t)&&(!F.status||(F.status==='gravado'?t.status==='gravado':t.status!=='gravado'))&&(!F.ctx||arr(t.contexts).includes(F.ctx))&&(!q||norm([t.desc,t.setting,t.action,t.location,t.participant,t.code].join(' ')).includes(q)));
     const pend=S.takes.filter(t=>t.status!=='gravado');const dup=[];
     for(let i=0;i<pend.length;i++)for(let j=i+1;j<pend.length;j++){const a=pend[i],b=pend[j];if(arr(a.contexts).some(c=>arr(b.contexts).includes(c))&&similar(a.desc,b.desc)>=.5&&a.framing!==b.framing||(similar(a.desc,b.desc)>=.75&&arr(a.contexts).some(c=>arr(b.contexts).includes(c))))dup.push([a,b])}
     out+=`<form class="sec" data-form="takeq" style="margin-top:12px"><input type="search" id="take-q" value="${h(UI.takeQ)}" placeholder="Buscar take por descrição, cenário, pessoa"></form>
@@ -647,13 +658,13 @@ function vProducao(){
     <div class="sec"><div class="list">${list.map(t=>takeCard(t,{capture:t.status!=='gravado'})).join('')||'<div class="empty">Nenhum take.</div>'}</div></div>`;
   }else if(tab==='gravados'){
     const q=norm(UI.libQ);const words=q.split(/\W+/).filter(w=>w.length>2);
-    let list=S.takes.filter(t=>t.status==='gravado').map(t=>{const hay=norm([t.desc,t.setting,t.action,t.location,t.participant,arr(t.contexts).map(ctxL).join(' '),projName(byId('contents',t.contentIds?.[0])?.projectId)].join(' '));let s=words.length?0:1;words.forEach(w=>{if(hay.includes(w))s++;Object.entries(CTX).forEach(([k,v])=>{if(v.s.some(x=>norm(x).trim().startsWith(w))&&arr(t.contexts).includes(k))s++})});return{t,s}}).filter(x=>x.s>0);
+    let list=S.takes.filter(t=>t.status==='gravado'&&takeTipoOk(t)).map(t=>{const hay=norm([t.desc,t.setting,t.action,t.location,t.participant,arr(t.contexts).map(ctxL).join(' '),projName(byId('contents',t.contentIds?.[0])?.projectId)].join(' '));let s=words.length?0:1;words.forEach(w=>{if(hay.includes(w))s++;Object.entries(CTX).forEach(([k,v])=>{if(v.s.some(x=>norm(x).trim().startsWith(w))&&arr(t.contexts).includes(k))s++})});return{t,s}}).filter(x=>x.s>0);
     if(UI.libUnused)list=list.filter(x=>!arr(x.t.contentIds).length);
     list.sort((a,b)=>b.s-a.s);
     out+=`<form class="sec" data-form="libq" style="margin-top:12px"><input type="search" id="lib-q" value="${h(UI.libQ)}" placeholder="Ex.: trabalhando no notebook durante uma viagem"></form><div class="row"><button class="chip btn ${UI.libUnused?'on':''}" data-act="lib-unused">Só sem utilização</button><span class="small muted">${list.length} takes gravados</span></div>
     <div class="sec"><div class="list">${list.map(({t})=>libCard(t)).join('')||'<div class="empty">Nenhum take gravado encontrado.</div>'}</div></div>`;
   }else{
-    const ready=S.contents.filter(readyForEdit),ed=S.contents.filter(c=>c.status==='Edição'),po=S.contents.filter(c=>c.status==='Postagem');
+    const ready=S.contents.filter(c=>readyForEdit(c)&&tipoOk(c)),ed=S.contents.filter(c=>c.status==='Edição'&&tipoOk(c)),po=S.contents.filter(c=>c.status==='Postagem'&&tipoOk(c));
     const mini=c=>{const ev=S.events.find(e=>e.type==='edicao'&&arr(e.contentIds).includes(c.id)&&e.status!=='concluido');const pub=S.pubs.filter(p=>p.contentId===c.id&&p.status!=='Publicado').sort((a,b)=>a.date.localeCompare(b.date))[0];
       return`<button class="card tap" data-act="open" data-t="content" data-id="${c.id}" style="gap:4px"><h3>${h(c.title)}</h3><div class="small muted">${[c.destino,ev?'editar até '+fmtShort(ev.date):'',pub?`postar ${fmtShort(pub.date)} no ${pub.platform}`:(c.status==='Postagem'?'sem data de postagem':'')].filter(Boolean).map(h).join(' · ')}</div></button>`};
     out+=`<div class="sec"><div class="small muted">Gravação → Edição → Postagem. Cada etapa só avança quando você marca como completa.</div></div>
@@ -1071,6 +1082,7 @@ const ACT={
   'voice-ex':d=>{V.text=d.q;render()},
   reminders:()=>{const R=reminders();sheet('Lembretes',R.length?`<div class="list">${R.map(remRow).join('')}</div>`:'<div class="empty">Nada urgente agora.</div>')},
   'go-filter':d=>{closeForm();UI.prodTab='conteudos';UI.contentF='ev:'+d.ev;UI.janelaF='';go('producao')},
+  tipof:d=>{UI.tipoF=UI.tipoF===d.k?'':d.k;render()},
   'go-cf':d=>{UI.prodTab='conteudos';UI.contentF=d.k;UI.janelaF='';go('producao')},
   'stage-next':d=>{const c=byId('contents',d.id);const a=canAdvance(c);if(!a.ok){toast(a.why||'Não dá para avançar ainda.');return}const i=STATUS.indexOf(c.status);c.status=STATUS[i+1];save('contents');renderDetail();toast(`${c.title.slice(0,40)} foi para ${c.status}`)},
   'stage-back':d=>{const c=byId('contents',d.id);const i=STATUS.indexOf(c.status);if(i>0){c.status=STATUS[i-1];save('contents');renderDetail();toast('Voltou para '+c.status)}},
