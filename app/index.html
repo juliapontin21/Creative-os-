@@ -166,7 +166,10 @@ const AUD=['Marcas UGC','Marcas TikTok Shop','Empreendedores (gestão de redes)'
 const FMT=['Vlog','Storytelling','Review','Demonstração','Tutorial','React','Bastidores','Vídeo comercial','Conteúdo de casal','Conteúdo de viagem'];
 const TRAITS=['Gancho','Estilo de edição','Narrativa','Cenário','Transições','Enquadramento','Estética','Linguagem'];
 const PLAT=['Instagram','TikTok','TikTok Shop','Portfólio','LinkedIn','YouTube'];
-const STATUS=['Ideia','Planejamento','Roteirização','Pronto para gravar','Em gravação','Captação concluída','Em edição','Em revisão','Pronto para publicar','Publicado'];
+const STATUS=['Planejamento','Edição','Postagem','Publicado'];
+const STAGE_NEXT={Planejamento:'Captação completa: enviar para edição',Edição:'Edição completa: enviar para postagem',Postagem:'Marcar como publicado'};
+const JANELAS=['Viagem 24/10–02/11','A partir de 09/11','Após retorno a Americana','Gravação externa','Pode editar agora','A definir'];
+const SCRIPT_ST=['Não roteirizado','Roteirizado (fora do app)','Roteiro no app','Material já gravado'];
 const IDEA_ST=['Nova','Em análise','Aprovada','Virou conteúdo','Descartada'];
 const PRIO=['alta','media','baixa'];
 const PRIO_L={alta:'Alta',media:'Média',baixa:'Baixa'};
@@ -183,7 +186,14 @@ const CTX={
   shopping:{l:'Shopping',s:['shopping','loja','compras']},
   notebook:{l:'Notebook',s:['notebook','computador','trabalhando','editando','home office']},
   mala:{l:'Mala',s:['mala','arrumando a mala','fazendo a mala','bagagem']},
-  hospedagem:{l:'Hospedagem',s:['hotel','pousada','hospedagem','quarto','sacada','varanda']},
+  hospedagem:{l:'Hospedagem',s:['hotel','pousada','hospedagem','airbnb','sacada','varanda']},
+  passeio:{l:'Passeio',s:['passeio','passeando','trilha','turismo','cachoeira','mirante','viagem','viajando']},
+  quarto:{l:'Quarto / cama',s:['quarto','cama','dormir','deitad','lencol','cobertor']},
+  casa:{l:'Casa',s:['em casa','louca','arrumando a casa','limpando','faxina','banheiro','sala de estar']},
+  lavanderia:{l:'Lavanderia',s:['lavanderia','lavando roupa','lavar roupa','maquina de lavar','varal']},
+  farmacia:{l:'Farmácia',s:['farmacia','drogaria']},
+  estudio:{l:'Estúdio / tela verde',s:['tela verde','estudio','fundo neutro','cenario livre']},
+  mercado:{l:'Mercado / delivery',s:['mercado','supermercado','delivery','compras de mercado']},
   barco:{l:'Barco',s:['barco','lancha','escuna','piér','pier']},
   pesca:{l:'Pesca',s:['pesca','pescando','pescar','vara','carretilha']},
   carro:{l:'Carro / estrada',s:['carro','estrada','dirigindo']}
@@ -194,7 +204,7 @@ const CAP_QUICK=['Estou na praia','Estou na academia','Estou cozinhando','Estou 
 const KEYS=['refs','ideas','contents','takes','products','projects','events','pubs','files'];
 const S={}; KEYS.forEach(k=>S[k]=[]);
 let DB=null, MODE='loading', SAMPLE=null;
-const UI={view:'inicio',prodTab:'conteudos',ideaTab:'refs',projTab:'projetos',calMode:'mes',calDate:null,calSel:null,calF:{types:[],plat:[],proj:''},captar:{text:'',ctx:[],ai:null,aiBusy:false},refQ:'',refAI:null,refBusy:false,takeQ:'',takeF:{ctx:'',status:'pendente'},libQ:'',libUnused:false,contentF:'',plan:null,detail:null,mode:'roteiro',grp:'cenario'};
+const UI={view:'inicio',noteQ:'',noteKind:'note',noteDraft:{},noteAI:null,janelaF:'',prodTab:'conteudos',ideaTab:'refs',projTab:'projetos',calMode:'mes',calDate:null,calSel:null,calF:{types:[],plat:[],proj:''},captar:{text:'',ctx:[],ai:null,aiBusy:false},refQ:'',refAI:null,refBusy:false,takeQ:'',takeF:{ctx:'',status:'pendente'},libQ:'',libUnused:false,contentF:'',plan:null,detail:null,mode:'roteiro',grp:'cenario'};
 const timers={};
 function save(k){
   S[k].forEach(x=>{if(x&&!x.createdAt)x.createdAt=new Date().toISOString()});
@@ -231,18 +241,13 @@ const projName=id=>byId('projects',id)?.name||'Sem projeto';
 const contentTakes=c=>S.takes.filter(t=>arr(t.contentIds).includes(c.id));
 function progress(c){const t=contentTakes(c);const d=t.filter(x=>x.status==='gravado');return{total:t.length,done:d.length,missing:t.filter(x=>x.status!=='gravado'),pct:t.length?Math.round(d.length/t.length*100):0}}
 const stIdx=s=>STATUS.indexOf(s);
-function statusClass(s){const i=stIdx(s);return i>=9?'s-ok':i>=6?'s-edit':i>=3?'s-hot':''}
-function setTakeStatus(t,st){
-  t.status=st; t.recordedAt=st==='gravado'?TODAY:null;
-  arr(t.contentIds).forEach(cid=>{const c=byId('contents',cid);if(!c)return;const p=progress(c);
-    if(st==='gravado'){
-      if(stIdx(c.status)<4&&stIdx(c.status)>=1)c.status='Em gravação';
-      if(p.total&&p.done===p.total&&stIdx(c.status)<=4)c.status='Captação concluída';
-    }else if(c.status==='Captação concluída')c.status='Em gravação';
-  });
-  saveAll('takes','contents');
-}
-function readyForEdit(c){const p=progress(c);return p.total>0&&p.done===p.total&&stIdx(c.status)<6}
+function statusClass(s){return{Publicado:'s-ok','Edição':'s-edit',Postagem:'s-hot'}[s]||''}
+/* Marcar take nunca muda a etapa do conteúdo: só a Julia avança etapas. */
+function setTakeStatus(t,st){t.status=st;t.recordedAt=st==='gravado'?TODAY:null;save('takes')}
+const isRecorded=c=>c.scriptState==='Material já gravado';
+const needsTakes=c=>c.status==='Planejamento'&&!isRecorded(c)&&contentTakes(c).length===0;
+function readyForEdit(c){const p=progress(c);return c.status==='Planejamento'&&p.total>0&&p.done===p.total}
+function canAdvance(c){if(c.status==='Planejamento'){if(isRecorded(c))return{ok:true};const p=progress(c);if(!p.total)return{ok:false,why:'Defina os takes deste conteúdo primeiro.'};if(p.missing.length)return{ok:false,why:`Falta${p.missing.length>1?'m':''} ${p.missing.length} take${p.missing.length>1?'s':''} para concluir a captação.`};return{ok:true}}if(c.status==='Publicado')return{ok:false,why:''};return{ok:true}}
 function contentConflicts(c){
   const out=[];const evs=S.events.filter(e=>arr(e.contentIds).includes(c.id));
   const pubs=S.pubs.filter(p=>p.contentId===c.id).map(p=>p.date).sort();const first=pubs[0]||c.pubDate;
@@ -313,7 +318,7 @@ const I={
 };
 
 /* ============ RENDER PRINCIPAL ============ */
-const VIEWS=[['inicio','Início'],['ideias','Ideias'],['producao','Produção'],['captar','Captar'],['calendario','Agenda'],['projetos','Projetos']];
+const VIEWS=[['inicio','Início'],['ideias','Notas'],['producao','Produção'],['captar','Captar'],['calendario','Agenda'],['projetos','Projetos']];
 function render(){
   const app=document.getElementById('app');
   if(MODE==='loading'){app.innerHTML=`<div class="wrap"><div class="boot"><div><span class="rec-dot"></span></div><div>Abrindo seu Creative OS…</div></div></div>`;return}
@@ -324,7 +329,32 @@ function render(){
     :`<button class="${UI.view===k?'on':''}" data-act="go" data-v="${k}">${I[k]}${l}</button>`).join('')}</div></nav>`;
   if(UI.detail)renderDetail();
 }
-function topBar(title,eyebrow,right=''){return`<header class="top"><div class="grow"><div class="eyebrow">${eyebrow||''}</div><h1>${title}</h1></div>${right}</header>`}
+function reminders(){
+  const R=[];const add=(score,lvl,text,act)=>R.push({score,lvl,text,act});
+  const open=c=>`data-act="open" data-t="content" data-id="${c.id}"`;
+  // compromissos com conteúdos ligados (viagem, evento, janela)
+  S.events.filter(e=>e.type==='compromisso').forEach(e=>{
+    const end=e.endDate||e.date;const d=diffDays(TODAY,e.date);if(end<TODAY||d>14)return;
+    const cs=arr(e.contentIds).map(id=>byId('contents',id)).filter(c=>c&&c.status==='Planejamento');
+    const semTakes=cs.filter(needsTakes).length;const pend=cs.filter(c=>progress(c).missing.length).length;
+    const quando=d<=0?'em andamento':d===1?'começa amanhã':`começa em ${d} dias`;
+    if(cs.length){add(d<=0?95:90-d*3,d<=3?'bad':'warn',`<b>${h(e.title)}</b> ${quando}: ${cs.length} conteúdo${cs.length>1?'s':''} para gravar${semTakes?`, <b>${semTakes} ainda sem takes</b>`:''}${pend?` · ${pend} com takes pendentes`:''}.`,`data-act="go-filter" data-ev="${e.id}"`)}
+    else if(d>0)add(60-d,'info',`<b>${h(e.title)}</b> ${quando}. Nenhum conteúdo planejado para ele ainda.`,`data-act="cal-day" data-d="${e.date}"`);
+  });
+  const ed=S.contents.filter(c=>c.status==='Edição');
+  if(ed.length)add(80,'warn',ed.length===1?`<b>${h(ed[0].title)}</b> está esperando edição.`:`<b>${ed.length} vídeos esperando edição:</b> ${ed.slice(0,3).map(c=>h(c.title)).join(' · ')}`,`data-act="go" data-v="producao" data-tab="edicao"`);
+  S.contents.filter(readyForEdit).forEach(c=>add(85,'ok',`Todos os takes de <b>${h(c.title)}</b> gravados. Marque a captação como completa para ir para edição.`,open(c)));
+  const post=S.contents.filter(c=>c.status==='Postagem');
+  if(post.length)add(75,'acc',`<b>${post.length} vídeo${post.length>1?'s':''} pronto${post.length>1?'s':''} para postar</b>${post.some(c=>!S.pubs.some(p=>p.contentId===c.id))?' · defina a data':''}.`,`data-act="go" data-v="producao" data-tab="edicao"`);
+  S.events.filter(e=>['edicao','revisao'].includes(e.type)&&e.status!=='concluido'&&e.date>=TODAY&&diffDays(TODAY,e.date)<=1).forEach(e=>add(88,'bad',`${EVT[e.type]} de <b>${h(e.title.replace(/^[^:]+: /,''))}</b> vence ${rel(e.date)}.`,`data-act="cal-day" data-d="${e.date}"`));
+  S.pubs.filter(p=>p.status!=='Publicado'&&p.date>=TODAY&&diffDays(TODAY,p.date)<=1).forEach(p=>{const c=byId('contents',p.contentId);add(92,'acc',`Postar <b>${h(c?.title||'conteúdo')}</b> no ${h(p.platform)} ${rel(p.date)}${p.time?' às '+h(p.time):''}.`,c?open(c):'')});
+  S.pubs.filter(p=>p.status!=='Publicado'&&p.date<TODAY).forEach(p=>{const c=byId('contents',p.contentId);add(93,'bad',`Postagem atrasada: <b>${h(c?.title||'conteúdo')}</b> (${fmtShort(p.date)}).`,c?open(c):'')});
+  S.contents.forEach(c=>{if(contentConflicts(c).length)add(70,'bad',`Conflito de datas em <b>${h(c.title)}</b>.`,open(c))});
+  return R.sort((a,b)=>b.score-a.score);
+}
+function bell(){const n=reminders().filter(r=>r.lvl!=='info').length;return`<button class="icon-btn" data-act="reminders" aria-label="Lembretes" style="position:relative">🔔${n?`<span style="position:absolute;top:-4px;right:-4px;background:var(--accent);color:var(--on-accent);border-radius:99px;font-size:.66rem;font-weight:800;min-width:18px;height:18px;display:grid;place-items:center;padding:0 4px">${n}</span>`:''}</button>`}
+function remRow(r){return`<button class="notice ${r.lvl==='acc'?'':r.lvl} card tap" style="border:0;text-align:left;display:block;line-height:1.4" ${r.act}><span>${r.text}</span></button>`}
+function topBar(title,eyebrow,right=''){return`<header class="top"><div class="grow"><div class="eyebrow">${eyebrow||''}</div><h1>${title}</h1></div>${UI.view!=='inicio'?bell():''}${right}</header>`}
 function modeNote(){
   if(MODE==='local')return`<div class="notice info">Modo local: os dados ficam só neste navegador. Abra pelo app do Claude, com sua conta, para salvar no seu banco.</div>`;
   return'';
@@ -333,56 +363,60 @@ function emptyAll(){return KEYS.every(k=>!S[k].length)}
 
 /* ---------- INÍCIO ---------- */
 function vInicio(){
-  const d=new Date();
+  const d=new Date();const R=reminders();const top3=R.filter(r=>r.lvl!=='info').slice(0,4);
   const items=calItems().filter(i=>i.date===TODAY);
-  const tomorrow=addDays(TODAY,1);
-  const alerts=[];
-  S.events.filter(e=>e.type==='edicao'&&e.status!=='concluido'&&e.date>=TODAY&&diffDays(TODAY,e.date)<=1).forEach(e=>{const c=byId('contents',e.contentIds?.[0]);alerts.push(['warn',`${c?h(c.title):h(e.title)} precisa ser editado até ${rel(e.date)}.`,c?.id])});
-  S.pubs.filter(p=>p.date===TODAY&&p.status!=='Publicado').forEach(p=>{const c=byId('contents',p.contentId);alerts.push(['acc',`${h(c?.title||'Conteúdo')} está programado para hoje no ${h(p.platform)}.`,c?.id])});
-  S.events.filter(e=>e.date===tomorrow&&e.type==='compromisso').forEach(e=>{const n=eventTakes(e).filter(t=>t.status!=='gravado').length+flexOpps(e).length;if(n)alerts.push(['info',`Amanhã: ${h(e.title)} com ${n} takes possíveis.`,null,e.id])});
-  S.contents.filter(c=>stIdx(c.status)>=3&&stIdx(c.status)<6).forEach(c=>{const p=progress(c);if(p.total&&p.missing.length&&p.missing.length<=2)alerts.push(['info',`Falta${p.missing.length>1?'m':''} ${p.missing.length} take${p.missing.length>1?'s':''} para concluir ${h(c.title)}.`,c.id])});
-  S.contents.filter(readyForEdit).forEach(c=>alerts.push(['ok',`${h(c.title)} está pronto para edição.`,c.id]));
-  S.contents.forEach(c=>{if(contentConflicts(c).length)alerts.push(['bad',`Conflito de prazos em ${h(c.title)}.`,c.id])});
-  S.contents.filter(c=>c.pubDate&&c.pubDate<TODAY&&c.status!=='Publicado').forEach(c=>alerts.push(['bad',`${h(c.title)} passou da data de publicação (${fmtShort(c.pubDate)}).`,c.id]));
-  const soon=S.contents.filter(c=>c.pubDate&&c.status!=='Publicado'&&diffDays(TODAY,c.pubDate)>=0&&diffDays(TODAY,c.pubDate)<=21).sort((a,b)=>a.pubDate.localeCompare(b.pubDate)).slice(0,5);
-  const opps=S.events.filter(e=>e.type!=='publicacao'&&e.date>=TODAY&&diffDays(TODAY,e.date)<=10&&arr(e.contexts).length).map(e=>({e,n:eventTakes(e).filter(t=>t.status!=='gravado').length+flexOpps(e).length})).filter(x=>x.n).slice(0,5);
-  const pend=S.takes.filter(t=>t.status!=='gravado'&&arr(t.contentIds).length).length;
-  const edits=S.contents.filter(c=>['Captação concluída','Em edição','Em revisão'].includes(c.status)).length;
-  const pubsW=S.pubs.filter(p=>p.status!=='Publicado'&&p.date>=TODAY&&diffDays(TODAY,p.date)<=7).length;
-  const prodFree=S.products.filter(p=>p.available!==false&&!S.contents.some(c=>arr(c.productIds).includes(p.id))&&!S.takes.some(t=>arr(t.productIds).includes(p.id)));
+  const next=S.events.filter(e=>e.type==='compromisso'&&(e.endDate||e.date)>=TODAY).sort((a,b)=>a.date.localeCompare(b.date)).slice(0,3);
+  const toRec=S.contents.filter(c=>c.status==='Planejamento'&&!isRecorded(c)).length;
+  const noTakes=S.contents.filter(needsTakes).length;
+  const inEdit=S.contents.filter(c=>c.status==='Edição').length;
   return topBar(`${['Bom dia','Boa tarde','Boa noite'][d.getHours()<12?0:d.getHours()<18?1:2]}, Julia`,fmtD(TODAY))+modeNote()+
-  (emptyAll()?`<div class="empty" style="margin-top:12px">Seu Creative OS está vazio. Comece por um projeto, uma referência ou um conteúdo.<div class="row" style="justify-content:center;margin-top:10px"><button class="btn sm" data-act="new" data-t="project">Novo projeto</button><button class="btn sm" data-act="new" data-t="ref">Nova referência</button><button class="btn sm pri" data-act="new" data-t="content">Novo conteúdo</button></div></div>`:'')+
-  `<div class="cap-hero" style="margin-top:6px">
+  (emptyAll()?`<div class="empty" style="margin-top:12px">Seu Creative OS está vazio. Comece por um conteúdo.<div style="margin-top:10px"><button class="btn sm pri" data-act="new" data-t="content">Novo conteúdo</button></div></div>`:'')+
+  (top3.length?`<div class="sec" style="margin-top:4px"><div class="sec-h"><h2>Lembretes</h2>${R.length>top3.length?`<button class="btn ghost sm" data-act="reminders">Ver todos (${R.length})</button>`:''}</div><div class="list">${top3.map(remRow).join('')}</div></div>`:'')+
+  `<div class="cap-hero" style="margin-top:16px">
     <div class="row"><span class="rec-dot"></span><span class="eyebrow" style="color:inherit">Captar agora</span></div>
-    <h2>Onde você está ou o que está fazendo?</h2>
-    <form class="cap-in" data-form="captar-home"><input type="text" id="cap-home" placeholder="Ex.: estou preparando uma panqueca" autocomplete="off"><button class="btn pri" type="submit">Ver takes</button></form>
-    <div class="scroll-x">${CAP_QUICK.slice(0,5).map(q=>`<button class="chip btn" data-act="cap-quick" data-q="${h(q)}">${h(q.replace('Estou ',''))}</button>`).join('')}</div>
+    <form class="cap-in" data-form="captar-home"><input type="text" id="cap-home" placeholder="Onde você está? Ex.: na praia" autocomplete="off"><button class="btn pri" type="submit">Ver</button></form>
   </div>
   <div class="kpis" style="margin-top:12px">
-    <button class="kpi card tap" data-act="go" data-v="producao" data-tab="takes"><b>${pend}</b><span>takes a gravar</span></button>
-    <button class="kpi card tap" data-act="go" data-v="producao" data-tab="edicao"><b>${edits}</b><span>em pós-produção</span></button>
-    <button class="kpi card tap" data-act="go" data-v="calendario"><b>${pubsW}</b><span>publicações em 7 dias</span></button>
+    <button class="kpi card tap" data-act="go-cf" data-k="planejamento"><b>${toRec}</b><span>para gravar</span></button>
+    <button class="kpi card tap" data-act="go-cf" data-k="semtakes"><b style="${noTakes?'color:var(--warn)':''}">${noTakes}</b><span>takes a definir</span></button>
+    <button class="kpi card tap" data-act="go" data-v="producao" data-tab="edicao"><b>${inEdit}</b><span>em edição</span></button>
   </div>
-  ${alerts.length?`<div class="sec"><div class="sec-h"><h2>Precisa de atenção</h2><span class="small muted">${alerts.length}</span></div><div class="list">${alerts.slice(0,7).map(([k,t,cid,eid])=>`<button class="notice ${k==='acc'?'':k} card tap" style="border:0" ${cid?`data-act="open" data-t="content" data-id="${cid}"`:eid?`data-act="cal-day" data-d="${tomorrow}"`:''}>${t}</button>`).join('')}</div></div>`:''}
-  <div class="sec"><div class="sec-h"><h2>Hoje</h2><button class="btn ghost sm" data-act="cal-day" data-d="${TODAY}">Abrir dia</button></div>
-    ${items.length?`<div class="card">${items.map(calRow).join('')}</div>`:`<div class="empty">Nada agendado para hoje.</div>`}</div>
-  ${opps.length?`<div class="sec"><div class="sec-h"><h2>Oportunidades na agenda</h2></div><div class="list">${opps.map(({e,n})=>`<button class="card tap stripe t-${e.type}" data-act="cal-day" data-d="${e.date}"><div class="row between"><h3>${h(e.title)}</h3><span class="chip acc">${n} takes</span></div><div class="small muted">${fmtD(e.date)} · ${rel(e.date)} · ${arr(e.contexts).map(ctxL).join(', ')}</div></button>`).join('')}</div></div>`:''}
-  ${soon.length?`<div class="sec"><div class="sec-h"><h2>Prazos próximos</h2><button class="btn ghost sm" data-act="go" data-v="producao">Ver todos</button></div><div class="list">${soon.map(contentCard).join('')}</div></div>`:''}
-  ${prodFree.length?`<div class="sec"><div class="sec-h"><h2>Produtos sem conteúdo</h2></div><div class="scroll-x">${prodFree.map(p=>`<button class="chip btn" data-act="open" data-t="product" data-id="${p.id}">${h(p.name)}</button>`).join('')}</div></div>`:''}
-  ${S.projects.length?`<div class="sec"><div class="sec-h"><h2>Projetos em andamento</h2></div><div class="list">${S.projects.filter(p=>!p.end||p.end>=TODAY).map(projMini).join('')}</div></div>`:''}`;
+  ${items.length?`<div class="sec"><div class="sec-h"><h2>Hoje</h2></div><div class="card">${items.map(calRow).join('')}</div></div>`:''}
+  ${next.length?`<div class="sec"><div class="sec-h"><h2>Próximos compromissos</h2><button class="btn ghost sm" data-act="go" data-v="calendario">Agenda</button></div><div class="list">${next.map(e=>`<button class="card tap stripe t-compromisso" data-act="cal-day" data-d="${e.date}" style="gap:2px"><div class="row between"><h3 class="grow">${h(e.title)}</h3><span class="small muted">${rel(e.date)}</span></div><div class="small muted">${fmtShort(e.date)}${e.endDate?' – '+fmtShort(e.endDate):''}${arr(e.contentIds).length?` · ${arr(e.contentIds).length} conteúdos`:''}</div></button>`).join('')}</div></div>`:''}`;
 }
 function calRow(it){
   if(it.kind==='pub'){const c=byId('contents',it.p.contentId);return`<button class="cal-item card tap" style="border:0;padding:8px 0;background:transparent" data-act="open" data-t="content" data-id="${c?.id||''}"><span class="time">${h(it.time)||'—'}</span><span class="stripe t-publicacao grow"><b>${h(c?.title||'Publicação')}</b><br><span class="small muted">Publicação · ${h(it.p.platform)} · ${h(it.p.status||'Programada')}</span></span></button>`}
   const e=it.e;const nt=e.type==='compromisso'||e.type==='gravacao'?eventTakes(e).filter(t=>t.status!=='gravado').length:0;
   return`<button class="cal-item card tap" style="border:0;padding:8px 0;background:transparent" data-act="cal-day" data-d="${it.date}"><span class="time">${h(it.time)||(it.multi?'dia':'—')}</span><span class="stripe t-${e.type} grow"><b>${h(e.title)}</b><br><span class="small muted">${EVT[e.type]}${e.type==='gravacao'?(e.fixed?' fixa':' flexível'):''}${e.location?' · '+h(e.location):''}${nt?` · ${nt} takes pendentes`:''}</span></span></button>`;
 }
+function contentFlag(c){
+  if(isRecorded(c)&&c.status==='Planejamento')return'<span class="chip ok">material gravado</span>';
+  if(needsTakes(c))return'<span class="chip warn">takes a definir</span>';
+  if(readyForEdit(c))return'<span class="chip ok">takes completos</span>';
+  return'';
+}
 function contentCard(c){
-  const p=progress(c);const proj=byId('projects',c.projectId);
-  return`<button class="card tap" data-act="open" data-t="content" data-id="${c.id}">
-    <div class="row between"><h3 class="grow">${h(c.title)}</h3><span class="status ${statusClass(c.status)}">${h(c.status)}</span></div>
-    <div class="small muted">${proj?h(proj.name)+' · ':''}${arr(c.platforms).join(', ')}${c.pubDate?` · publica ${fmtShort(c.pubDate)} (${rel(c.pubDate)})`:''}</div>
-    ${p.total?`<div class="row"><div class="bar grow"><i style="width:${p.pct}%"></i></div><span class="small muted mono">${p.done}/${p.total}</span></div>`:''}
+  const p=progress(c);
+  const sub=[c.destino||arr(c.platforms).join(', '),c.janela&&c.janela!=='A definir'?c.janela:'',c.pubDate?'posta '+fmtShort(c.pubDate):''].filter(Boolean).join(' · ');
+  return`<button class="card tap" data-act="open" data-t="content" data-id="${c.id}" style="gap:6px">
+    <div class="row between" style="flex-wrap:nowrap;align-items:flex-start"><h3 class="grow">${h(c.title)}</h3><span class="status ${statusClass(c.status)}">${h(c.status)}</span></div>
+    ${sub?`<div class="small muted">${h(sub)}</div>`:''}
+    ${c.status==='Planejamento'&&p.total?`<div class="row"><div class="bar grow"><i style="width:${p.pct}%"></i></div><span class="small muted mono">${p.done}/${p.total}</span></div>`:''}
+    ${contentFlag(c)?`<div class="chips">${contentFlag(c)}</div>`:''}
   </button>`;
+}
+function contentFilter(){
+  const f=UI.contentF,j=UI.janelaF||'';
+  let list=S.contents.filter(c=>{
+    if(j&&c.janela!==j)return false;
+    if(!f)return c.status!=='Publicado';
+    if(f==='semtakes')return needsTakes(c);
+    if(f==='planejamento')return c.status==='Planejamento'&&!isRecorded(c);
+    if(f.startsWith('ev:'))return arr(byId('events',f.slice(3))?.contentIds).includes(c.id);
+    return c.status===f;
+  });
+  const ord={Postagem:0,'Edição':1,Planejamento:2,Publicado:3};
+  return list.sort((a,b)=>(ord[a.status]-ord[b.status])||(a.pubDate||'9').localeCompare(b.pubDate||'9')||(a.order||0)-(b.order||0));
 }
 function projStats(pr){
   const cs=S.contents.filter(c=>c.projectId===pr.id);const ids=new Set(cs.map(c=>c.id));
@@ -407,6 +441,8 @@ function vCaptar(){
   <div class="tabs" role="tablist">${[['cenario','Por cenário'],['atividade','Por ação'],['local','Por local']].map(([k,l])=>`<button class="${UI.grp===k?'on':''}" data-act="grp" data-k="${k}">${l}</button>`).join('')}</div></div>`;
   if(!r.scored.length)out+=`<div class="sec"><div class="empty">Nenhum take planejado para este contexto. Veja os produtos e as sugestões criativas abaixo, ou registre um take espontâneo.</div></div>`;
   Object.entries(r.groups).forEach(([g,rows])=>{out+=`<div class="sec"><div class="sec-h"><h2>${h(g)}</h2><span class="small muted">${rows.length} take${rows.length>1?'s':''}</span></div><div class="list">${rows.map(x=>takeCard(x.t,{cs:x.cs,dl:x.dl,capture:true})).join('')}</div></div>`});
+  const noT=S.contents.filter(c=>needsTakes(c)&&arr(c.contexts).some(x=>C.ctx.includes(x)));
+  if(noT.length)out+=`<div class="sec"><div class="sec-h"><h2>Também combinam com aqui</h2><span class="small muted">${noT.length} sem takes</span></div><div class="notice">Esses conteúdos ainda não têm takes definidos. Abra e escreva o que gravar, ou grave livre e registre depois.</div><div class="list">${noT.map(c=>`<button class="card tap" data-act="open" data-t="content" data-id="${c.id}" style="padding:10px 14px;flex-direction:row;justify-content:space-between;align-items:center"><span class="small" style="font-weight:600">${h(c.title)}</span><span class="chip warn">takes a definir</span></button>`).join('')}</div></div>`;
   const done=S.takes.filter(t=>t.status==='gravado'&&t.recordedAt===TODAY&&arr(t.contexts).some(c=>C.ctx.includes(c)));
   if(done.length)out+=`<div class="sec"><div class="sec-h"><h2>Gravados hoje aqui</h2></div><div class="list">${done.map(t=>takeCard(t,{capture:true})).join('')}</div></div>`;
   if(r.prods.length)out+=`<div class="sec"><div class="sec-h"><h2>Produtos para este contexto</h2></div><div class="list">${r.prods.map(({p,level})=>{const pt=S.takes.filter(t=>arr(t.productIds).includes(p.id)&&t.status!=='gravado');return`<button class="card tap" data-act="open" data-t="product" data-id="${p.id}"><div class="row between"><h3>${h(p.name)}</h3><span class="chip l-${level}">${level}</span></div><div class="small muted">${h(p.brand||'')} · ${pt.length?pt.length+' takes pendentes':'sem roteiro: gravação espontânea'}</div></button>`}).join('')}</div></div>`;
@@ -423,33 +459,62 @@ function aiBlock(){
 }
 function takeCard(t,o={}){
   const cs=o.cs||arr(t.contentIds).map(id=>byId('contents',id)).filter(Boolean);
-  const done=t.status==='gravado';const files=arr(t.fileIds).map(id=>byId('files',id)).filter(Boolean);
+  const done=t.status==='gravado';const files=arr(t.fileIds).length;
   const prods=arr(t.productIds).map(id=>byId('products',id)).filter(Boolean);
-  return`<div class="card take ${done?'done':''}">
-    <button class="chk ${done?'done':''}" data-act="take-toggle" data-id="${t.id}" aria-label="${done?'Desmarcar':'Marcar como gravado'}">${done?'✓':''}</button>
-    <div class="grow" style="display:flex;flex-direction:column;gap:5px">
-      <div class="row between"><button class="tdesc" style="border:0;background:none;padding:0;text-align:left;font-weight:600" data-act="open" data-t="take" data-id="${t.id}">${h(t.desc)}</button><span class="mono muted">${h(t.code||'')}</span></div>
-      <div class="chips">${t.framing?`<span class="chip">${h(t.framing)}</span>`:''}${t.participant?`<span class="chip">${h(t.participant)}</span>`:''}${prods.map(p=>`<span class="chip acc">${h(p.name)}</span>`).join('')}${t.fixedEventId?'<span class="chip warn">data fixa</span>':''}${t.priority==='alta'?'<span class="chip bad">prioridade alta</span>':''}${t.spontaneous?'<span class="chip">espontâneo</span>':''}</div>
-      ${cs.length?`<div class="serves">Serve para <b>${cs.length} conteúdo${cs.length>1?'s':''}</b>: ${cs.map(c=>h(c.title)).join(' · ')}</div>`:`<div class="serves">Ainda sem conteúdo vinculado</div>`}
-      ${o.dl?`<div class="small muted">Prazo mais próximo: ${fmtShort(o.dl)} (${rel(o.dl)})</div>`:''}
-      ${files.length?`<div class="small muted">${files.length} arquivo${files.length>1?'s':''}: ${files.map(f=>h(f.name)).join(', ')}</div>`:''}
-      ${o.capture?`<div class="row"><label class="btn sm" for="up-${t.id}">⬆ Enviar arquivo</label><input type="file" id="up-${t.id}" data-up="${t.id}" accept="video/*,image/*" multiple hidden></div>`:''}
-    </div></div>`;
+  const others=o.compact?cs.filter(c=>c.id!==o.compact):cs;
+  const meta=o.compact
+    ?[others.length?`também serve para ${others.length} outro${others.length>1?'s':''} conteúdo${others.length>1?'s':''}`:'',files?`${files} arquivo${files>1?'s':''}`:'',t.fixedEventId?'data fixa':''].filter(Boolean).join(' · ')
+    :'';
+  return`<div class="card take ${done?'done':''}" style="padding:12px">
+    <button class="chk ${done?'done':''}" data-act="take-toggle" data-id="${t.id}" aria-label="${done?'Desmarcar take':'Marcar take como gravado'}">${done?'✓':''}</button>
+    <div class="grow" style="display:flex;flex-direction:column;gap:4px;min-width:0">
+      <button class="tdesc" style="border:0;background:none;padding:0;text-align:left;font-weight:600" data-act="open" data-t="take" data-id="${t.id}">${h(t.desc)}</button>
+      ${!o.compact&&cs.length?`<div class="serves">${cs.length>1?`<b>${cs.length} conteúdos</b>: `:''}${cs.map(c=>h(c.title)).join(' · ')}</div>`:''}
+      ${!o.compact&&!cs.length?'<div class="serves">Sem conteúdo vinculado</div>':''}
+      ${meta?`<div class="serves">${h(meta)}</div>`:''}
+      ${!o.compact&&(prods.length||t.fixedEventId)?`<div class="chips">${prods.map(p=>`<span class="chip acc">${h(p.name)}</span>`).join('')}${t.fixedEventId?'<span class="chip warn">data fixa</span>':''}</div>`:''}
+      ${o.dl?`<div class="small muted">Postagem mais próxima: ${fmtShort(o.dl)} (${rel(o.dl)})</div>`:''}
+    </div>
+    ${o.capture&&!done?`<label class="icon-btn" for="up-${t.id}" title="Enviar arquivo" aria-label="Enviar arquivo" style="width:36px;height:36px;font-size:.95rem">⬆</label><input type="file" id="up-${t.id}" data-up="${t.id}" accept="video/*,image/*" multiple hidden>`:''}
+  </div>`;
 }
 
 /* ---------- IDEIAS (referências, ideias, planejamento) ---------- */
+const noteText=i=>i.text||[i.title,i.desc].filter(Boolean).join(' — ');
+const tagsOf=s=>[...new Set((String(s||'').match(/#[\p{L}\d_]+/gu)||[]).map(t=>norm(t)))];
+function notesFeed(){
+  const items=[...S.ideas.map(i=>({k:'note',i,txt:noteText(i),d:i.updatedAt||i.createdAt||''})),...S.refs.map(r=>({k:'ref',i:r,txt:[r.title,r.notes,r.why,r.adapt,allTags(r).join(' ')].join(' '),d:r.createdAt||''}))];
+  const q=UI.noteQ.trim();if(!q)return items.sort((a,b)=>String(b.d).localeCompare(String(a.d)));
+  const words=norm(q).split(/[^a-z0-9#]+/).filter(w=>w.length>1);
+  return items.map(x=>{const hay=norm(x.txt);let s=0;words.forEach(w=>{if(w.startsWith('#')){if(tagsOf(x.txt).includes(w))s+=5}else if(hay.includes(w))s+=w.length>3?3:1;Object.entries(SYN).forEach(([k,v])=>{if(w.startsWith(k))v.forEach(y=>{if(hay.includes(norm(y)))s+=1})})});return{...x,s}}).filter(x=>x.s>0).sort((a,b)=>b.s-a.s);
+}
+function noteCard(x){
+  const clamp='display:-webkit-box;-webkit-box-orient:vertical;overflow:hidden';
+  if(x.k==='note')return`<button class="card tap" data-act="open" data-t="idea" data-id="${x.i.id}" style="gap:4px"><div class="small" style="${clamp};-webkit-line-clamp:3;white-space:pre-line">${h(x.txt)}</div><div class="serves">${x.d?fmtShort(iso(new Date(x.d))):''}</div></button>`;
+  const r=x.i;let host='';try{host=r.url?new URL(r.url).hostname.replace('www.',''):''}catch(e){}
+  return`<button class="card tap" data-act="open" data-t="ref" data-id="${r.id}" style="gap:4px;border-color:var(--accent-soft)"><div class="row between"><span class="eyebrow" style="color:var(--accent)">Vídeo de referência</span><span class="serves">${h(host)}</span></div><h3>${h(r.title||'Referência')}</h3>${r.adapt?`<div class="small muted" style="${clamp};-webkit-line-clamp:2"><b>Adaptar:</b> ${h(r.adapt)}</div>`:''}</button>`;
+}
 function vIdeias(){
-  let out=topBar('Referências e ideias','Planejamento',`<button class="icon-btn" data-act="new" data-t="${UI.ideaTab==='ideias'?'idea':'ref'}" aria-label="Adicionar">＋</button>`);
-  out+=`<div class="tabs">${[['refs','Referências'],['ideias','Ideias'],['plano','Plano do mês']].map(([k,l])=>`<button class="${UI.ideaTab===k?'on':''}" data-act="itab" data-k="${k}">${l}</button>`).join('')}</div>`;
-  if(UI.ideaTab==='refs'){
-    const q=UI.refQ;let list=S.refs.map(r=>({r,s:refScore(r,q)}));if(q)list=list.filter(x=>x.s>0).sort((a,b)=>b.s-a.s);
-    out+=`<form class="sec" data-form="refq" style="margin-top:12px"><input type="search" id="ref-q" value="${h(q)}" placeholder="Busque pela intenção: conteúdo de branding para atrair marcas UGC"><div class="row"><button class="btn sm" type="submit">Buscar</button>${SAMPLE?`<button class="btn sm pri" type="button" data-act="ref-ai">Buscar com IA</button>`:''}${q?`<button class="btn sm ghost" type="button" data-act="ref-clear">Limpar</button>`:''}</div></form>`;
-    if(UI.refBusy)out+=`<div class="sec"><div class="card ai"><div class="eyebrow">IA</div><div class="small">Lendo suas observações e tags…</div></div></div>`;
-    if(UI.refAI)out+=`<div class="sec"><div class="card ai"><div class="eyebrow">Resultado da IA para "${h(UI.refAI.q)}"</div><div class="small muted">Baseado nas suas observações e tags. A IA não assistiu aos vídeos.</div>${UI.refAI.items.map(x=>{const r=byId('refs',x.id);return r?`<button class="card tap" data-act="open" data-t="ref" data-id="${r.id}" style="gap:4px"><b>${h(r.title)}</b><div class="small"><b>Por que:</b> ${h(x.motivo)}</div><div class="small muted"><b>Adaptação:</b> ${h(x.adaptacao)}</div></button>`:''}).join('')||'<div class="small">Nenhuma referência compatível.</div>'}</div></div>`;
-    out+=`<div class="sec"><div class="sec-h"><h2>${q?'Compatíveis':'Biblioteca'}</h2><span class="small muted">${list.length}</span></div><div class="list">${list.map(x=>refCard(x.r)).join('')||'<div class="empty">Nenhuma referência encontrada.</div>'}</div></div>`;
-  }else if(UI.ideaTab==='ideias'){
-    out+=`<div class="sec"><div class="list">${S.ideas.filter(i=>i.status!=='Descartada').map(i=>`<button class="card tap" data-act="open" data-t="idea" data-id="${i.id}"><div class="row between"><h3 class="grow">${h(i.title)}</h3><span class="status ${i.status==='Virou conteúdo'?'s-ok':''}">${h(i.status||'Nova')}</span></div><div class="small muted">${h(i.objective||'')}${i.audience?' · '+h(i.audience):''}${i.platform?' · '+h(i.platform):''}</div><div class="small">${h(i.desc||'')}</div></button>`).join('')||'<div class="empty">Nenhuma ideia ainda.</div>'}</div></div>`;
-  }else out+=vPlano();
+  let out=topBar('Bloco de notas','Ideias e referências');
+  out+=`<div class="tabs">${[['refs','Notas'],['plano','Plano do mês']].map(([k,l])=>`<button class="${UI.ideaTab===k?'on':''}" data-act="itab" data-k="${k}">${l}</button>`).join('')}</div>`;
+  if(UI.ideaTab==='plano')return out+vPlano();
+  const isRef=UI.noteKind==='ref';
+  out+=`<form class="card" data-form="note" style="margin-top:12px">
+    <div class="tabs" style="padding:3px"><button type="button" class="${!isRef?'on':''}" data-act="note-kind" data-k="note">Ideia rápida</button><button type="button" class="${isRef?'on':''}" data-act="note-kind" data-k="ref">Vídeo de referência</button></div>
+    ${isRef?`<input type="url" id="note-url" placeholder="Link do vídeo (TikTok, Instagram…)" value="${h(UI.noteDraft.url||'')}" data-notedraft="url">`:''}
+    <textarea id="note-text" placeholder="${isRef?'O que você gostou nesse vídeo?':'Anote a ideia… use #palavras para achar depois'}" data-notedraft="text" style="min-height:72px">${h(UI.noteDraft.text||'')}</textarea>
+    ${isRef?`<textarea id="note-adapt" placeholder="Como vou adaptar para mim" data-notedraft="adapt" style="min-height:60px">${h(UI.noteDraft.adapt||'')}</textarea>`:''}
+    <button class="btn pri" type="submit">Salvar</button>
+  </form>`;
+  const all=[...S.ideas.map(noteText),...S.refs.map(r=>[r.title,r.notes,r.adapt].join(' '))].flatMap(tagsOf);
+  const cnt={};all.forEach(t=>cnt[t]=(cnt[t]||0)+1);const tags=Object.entries(cnt).sort((a,b)=>b[1]-a[1]).slice(0,10).map(x=>x[0]);
+  const feed=notesFeed();
+  out+=`<form class="sec" data-form="noteq"><div class="cap-in"><input type="search" id="note-q" value="${h(UI.noteQ)}" placeholder="Buscar nas minhas ideias: natal, casal, #tiktokshop"><button class="btn" type="submit">Buscar</button></div>
+    ${tags.length?`<div class="scroll-x">${tags.map(t=>`<button type="button" class="chip btn ${norm(UI.noteQ)===t?'on':''}" data-act="note-tag" data-k="${h(t)}">${h(t)}</button>`).join('')}</div>`:''}
+    ${UI.noteQ&&SAMPLE?`<button type="button" class="btn sm" data-act="note-ai" style="align-self:flex-start">Pedir à IA ideias sobre "${h(UI.noteQ)}"</button>`:''}</form>`;
+  if(UI.refBusy)out+=`<div class="sec"><div class="card ai"><div class="eyebrow">IA</div><div class="small">Lendo suas notas…</div></div></div>`;
+  if(UI.noteAI&&UI.noteAI.q===UI.noteQ)out+=`<div class="sec"><div class="card ai"><div class="eyebrow">A IA encontrou nas suas notas</div>${UI.noteAI.items.map(x=>{const it=x.kind==='ref'?byId('refs',x.id):byId('ideas',x.id);return it?`<button class="card tap" data-act="open" data-t="${x.kind==='ref'?'ref':'idea'}" data-id="${it.id}" style="gap:3px"><b class="small">${h(x.kind==='ref'?it.title:noteText(it).slice(0,90))}</b><div class="small muted">${h(x.motivo||'')}</div></button>`:''}).join('')||'<div class="small">Nada relacionado nas suas notas.</div>'}${UI.noteAI.ideia?`<div class="small"><b>Ideia combinando suas notas:</b> ${h(UI.noteAI.ideia)}</div>`:''}</div></div>`;
+  out+=`<div class="sec"><div class="sec-h"><h2>${UI.noteQ?'Encontradas':'Suas notas'}</h2><span class="small muted">${feed.length}</span>${UI.noteQ?`<button class="btn ghost sm" data-act="note-clear">Limpar</button>`:''}</div><div class="list">${feed.map(noteCard).join('')||`<div class="empty">${UI.noteQ?'Nada encontrado com essas palavras.':'Nenhuma nota ainda. Anote a primeira ideia acima.'}</div>`}</div></div>`;
   return out;
 }
 function refCard(r){const cs=arr(r.contentIds).map(id=>byId('contents',id)).filter(Boolean);
@@ -484,8 +549,13 @@ function vProducao(){
   let out=topBar('Produção','Conteúdos, takes e edição',`<button class="icon-btn" data-act="new" data-t="${tab==='takes'||tab==='gravados'?'take':'content'}" aria-label="Adicionar">＋</button>`);
   out+=`<div class="tabs">${[['conteudos','Conteúdos'],['takes','Takes'],['gravados','Gravados'],['edicao','Edição']].map(([k,l])=>`<button class="${tab===k?'on':''}" data-act="ptab" data-k="${k}">${l}</button>`).join('')}</div>`;
   if(tab==='conteudos'){
-    const f=UI.contentF;const list=S.contents.filter(c=>!f||c.status===f).sort((a,b)=>(a.pubDate||'9').localeCompare(b.pubDate||'9'));
-    out+=`<div class="scroll-x" style="margin-top:12px"><button class="chip btn ${!f?'on':''}" data-act="cf" data-k="">Todos</button>${STATUS.filter(s=>S.contents.some(c=>c.status===s)).map(s=>`<button class="chip btn ${f===s?'on':''}" data-act="cf" data-k="${h(s)}">${h(s)}</button>`).join('')}</div><div class="sec"><div class="list">${list.map(contentCard).join('')||'<div class="empty">Nenhum conteúdo.</div>'}</div></div>`;
+    const f=UI.contentF;const list=contentFilter();const nt=S.contents.filter(needsTakes).length;
+    const ev=f.startsWith('ev:')?byId('events',f.slice(3)):null;
+    out+=`<div class="scroll-x" style="margin-top:12px"><button class="chip btn ${!f?'on':''}" data-act="cf" data-k="">Em aberto</button><button class="chip btn ${f==='semtakes'?'on':''}" data-act="cf" data-k="semtakes">Takes a definir · ${nt}</button>${['planejamento','Edição','Postagem','Publicado'].map(s=>`<button class="chip btn ${f===s?'on':''}" data-act="cf" data-k="${s}">${s==='planejamento'?'Para gravar':s}</button>`).join('')}</div>
+    <div class="row" style="margin-top:6px"><select id="janela-f" data-janelaf style="width:auto;min-height:34px;padding:4px 10px;font-size:.84rem"><option value="">Qualquer janela de gravação</option>${JANELAS.filter(j=>S.contents.some(c=>c.janela===j)).map(j=>`<option ${UI.janelaF===j?'selected':''}>${h(j)}</option>`).join('')}</select><span class="small muted">${list.length} conteúdo${list.length!==1?'s':''}</span></div>
+    ${ev?`<div class="notice info" style="margin-top:8px">Conteúdos ligados a: ${h(ev.title)}</div>`:''}
+    ${f==='semtakes'?'<div class="notice" style="margin-top:8px">Esses conteúdos ainda não têm takes. Abra cada um e escreva os takes em Captação.</div>':''}
+    <div class="sec"><div class="list">${list.map(contentCard).join('')||'<div class="empty">Nenhum conteúdo com esse filtro.</div>'}</div></div>`;
   }else if(tab==='takes'){
     const F=UI.takeF,q=norm(UI.takeQ);
     const list=S.takes.filter(t=>(!F.status||(F.status==='gravado'?t.status==='gravado':t.status!=='gravado'))&&(!F.ctx||arr(t.contexts).includes(F.ctx))&&(!q||norm([t.desc,t.setting,t.action,t.location,t.participant,t.code].join(' ')).includes(q)));
@@ -503,12 +573,13 @@ function vProducao(){
     out+=`<form class="sec" data-form="libq" style="margin-top:12px"><input type="search" id="lib-q" value="${h(UI.libQ)}" placeholder="Ex.: trabalhando no notebook durante uma viagem"></form><div class="row"><button class="chip btn ${UI.libUnused?'on':''}" data-act="lib-unused">Só sem utilização</button><span class="small muted">${list.length} takes gravados</span></div>
     <div class="sec"><div class="list">${list.map(({t})=>libCard(t)).join('')||'<div class="empty">Nenhum take gravado encontrado.</div>'}</div></div>`;
   }else{
-    const list=S.contents.filter(c=>stIdx(c.status)>=4&&stIdx(c.status)<9||readyForEdit(c)).sort((a,b)=>(a.pubDate||'9').localeCompare(b.pubDate||'9'));
-    out+=`<div class="sec"><div class="small muted">Captação concluída → Edição → Revisão → Finalização → Publicação</div><div class="list">${list.map(c=>{const p=progress(c);const ev=S.events.find(e=>e.type==='edicao'&&arr(e.contentIds).includes(c.id));const files=new Set();contentTakes(c).forEach(t=>arr(t.fileIds).forEach(f=>files.add(f)));
-      return`<button class="card tap" data-act="open" data-t="content" data-id="${c.id}"><div class="row between"><h3 class="grow">${h(c.title)}</h3><span class="status ${statusClass(c.status)}">${h(c.status)}</span></div>
-      <div class="row"><div class="bar grow"><i style="width:${p.pct}%"></i></div><span class="mono muted">${p.done}/${p.total}</span></div>
-      ${p.missing.length?`<div class="small" style="color:var(--warn)">Falta: ${p.missing.map(t=>h(t.desc)).join('; ')}</div>`:`<div class="small" style="color:var(--ok)">Todos os takes gravados · ${files.size} arquivos</div>`}
-      <div class="small muted">${ev?`Edição até ${fmtShort(ev.date)} (${rel(ev.date)}) · ${h(ev.responsible||'Julia')}`:'Sem prazo de edição'}${c.pubDate?` · publica ${fmtShort(c.pubDate)}`:''}</div></button>`}).join('')||'<div class="empty">Nada em pós-produção.</div>'}</div></div>`;
+    const ready=S.contents.filter(readyForEdit),ed=S.contents.filter(c=>c.status==='Edição'),po=S.contents.filter(c=>c.status==='Postagem');
+    const mini=c=>{const ev=S.events.find(e=>e.type==='edicao'&&arr(e.contentIds).includes(c.id)&&e.status!=='concluido');const pub=S.pubs.filter(p=>p.contentId===c.id&&p.status!=='Publicado').sort((a,b)=>a.date.localeCompare(b.date))[0];
+      return`<button class="card tap" data-act="open" data-t="content" data-id="${c.id}" style="gap:4px"><h3>${h(c.title)}</h3><div class="small muted">${[c.destino,ev?'editar até '+fmtShort(ev.date):'',pub?`postar ${fmtShort(pub.date)} no ${pub.platform}`:(c.status==='Postagem'?'sem data de postagem':'')].filter(Boolean).map(h).join(' · ')}</div></button>`};
+    out+=`<div class="sec"><div class="small muted">Gravação → Edição → Postagem. Cada etapa só avança quando você marca como completa.</div></div>
+    ${ready.length?`<div class="sec"><div class="sec-h"><h2>Prontos para editar</h2><span class="small muted">aguardando você marcar</span></div><div class="list">${ready.map(mini).join('')}</div></div>`:''}
+    <div class="sec"><div class="sec-h"><h2>Em edição</h2><span class="small muted">${ed.length}</span></div><div class="list">${ed.map(mini).join('')||'<div class="empty">Nada em edição.</div>'}</div></div>
+    <div class="sec"><div class="sec-h"><h2>Para postar</h2><span class="small muted">${po.length}</span></div><div class="list">${po.map(mini).join('')||'<div class="empty">Nada esperando postagem.</div>'}</div></div>`;
   }
   return out;
 }
@@ -614,36 +685,46 @@ function pContent(c){
   const p=progress(c);const tk=contentTakes(c);const refs=arr(c.refIds).map(id=>byId('refs',id)).filter(Boolean);
   const pubs=S.pubs.filter(x=>x.contentId===c.id).sort((a,b)=>a.date.localeCompare(b.date));
   const evs=S.events.filter(e=>arr(e.contentIds).includes(c.id)).sort((a,b)=>a.date.localeCompare(b.date));
-  const conf=contentConflicts(c);const lines=arr(c.script?.lines);
+  const conf=contentConflicts(c);const lines=arr(c.script?.lines);const si=STATUS.indexOf(c.status);const adv=canAdvance(c);
   let out=backBar(c.title,'content',c.id);
-  out+=`<div class="row"><select id="c-status" data-cstatus="${c.id}" style="width:auto;min-height:36px;padding:4px 10px">${STATUS.map(s=>`<option ${s===c.status?'selected':''}>${s}</option>`).join('')}</select><span class="small muted">${h(projName(c.projectId))}${c.format?' · '+h(c.format):''}</span></div>
-  <div class="chips" style="margin-top:8px">${arr(c.platforms).map(x=>`<span class="chip">${h(x)}</span>`).join('')}${arr(c.objectives).map(x=>`<span class="chip acc">${h(x)}</span>`).join('')}${arr(c.audiences).map(x=>`<span class="chip">${h(x)}</span>`).join('')}</div>
+  out+=`<div class="row" style="gap:4px;flex-wrap:nowrap">${STATUS.map((s,i)=>`<div class="grow" style="display:flex;flex-direction:column;gap:4px"><div style="height:5px;border-radius:9px;background:${i<=si?'var(--accent)':'var(--sunk)'}"></div><span class="small" style="font-weight:${i===si?800:500};color:${i===si?'var(--ink)':'var(--muted)'}">${s}</span></div>`).join('')}</div>
   ${conf.map(x=>`<div class="notice bad" style="margin-top:8px">Conflito: ${h(x)}</div>`).join('')}
-  <div class="card" style="margin-top:10px"><div class="row between"><h3>Captação</h3><span class="mono muted">${p.done}/${p.total} takes</span></div><div class="bar"><i style="width:${p.pct}%"></i></div>${readyForEdit(c)?'<div class="small" style="color:var(--ok)">Pronto para edição.</div>':p.missing.length?`<div class="small muted">Faltam: ${p.missing.map(t=>h(t.desc)).join('; ')}</div>`:''}</div>
-  <div class="tabs" style="margin-top:14px">${[['roteiro','Roteiro'],['captacao','Captação'],['edicao','Edição']].map(([k,l])=>`<button class="${UI.mode===k?'on':''}" data-act="cmode" data-k="${k}">${l}</button>`).join('')}</div>`;
-  if(UI.mode==='roteiro'){
-    out+=`<div class="sec"><div class="row between"><span class="small muted">Versão ${c.script?.version||1} · ${lines.length} falas</span><div class="row">${lines.length?`<button class="btn sm ink" data-act="reader" data-id="${c.id}">Modo leitura</button>`:''}<button class="btn sm" data-act="line-new" data-id="${c.id}">+ Fala</button></div></div>
-    <div class="card">${lines.map((l,i)=>`<button class="line-item" style="border:0;background:none;padding:6px 0;text-align:left" data-act="line-edit" data-id="${c.id}" data-i="${i}"><span class="sc">${h(l.scene||i+1)}</span><span class="grow"><span class="say">${h(l.text)}</span>${l.note?`<br><span class="dir">${h(l.note)}</span>`:''}</span></button>`).join('')||'<div class="small muted">Nenhuma fala. Este conteúdo pode ser só de takes (sem narração).</div>'}</div>`;
-    if(lines.length>1)out+=`<div class="row"><button class="btn sm ghost" data-act="script-version" data-id="${c.id}">Salvar como nova versão</button></div>`;
-    out+=`</div>`;
-  }else if(UI.mode==='captacao'){
-    const groups={};tk.forEach(t=>{const g=UI.grp==='atividade'?(t.action||'Outras ações'):UI.grp==='local'?(t.location||'Local livre'):(t.setting||ctxL(t.contexts?.[0]));(groups[g]=groups[g]||[]).push(t)});
-    out+=`<div class="sec"><div class="tabs">${[['cenario','Cenário'],['atividade','Ação'],['local','Local']].map(([k,l])=>`<button class="${UI.grp===k?'on':''}" data-act="grp" data-k="${k}">${l}</button>`).join('')}</div>
-    ${Object.entries(groups).map(([g,ts])=>`<div class="sec-h" style="margin-top:6px"><h3>${h(g)}</h3><span class="small muted">${ts.filter(t=>t.status==='gravado').length}/${ts.length}</span></div><div class="list">${ts.map(t=>takeCard(t,{capture:t.status!=='gravado'})).join('')}</div>`).join('')||'<div class="empty">Nenhum take ainda.</div>'}
-    <div class="row"><button class="btn sm pri" data-act="new" data-t="take" data-preset='${h(JSON.stringify({contentIds:[c.id],productIds:c.productIds||[]}))}'>+ Novo take</button><button class="btn sm" data-act="link-takes" data-id="${c.id}">Vincular take existente</button></div>`;
-    const cx=new Set();tk.forEach(t=>arr(t.contexts).forEach(x=>cx.add(x)));
+  ${c.status!=='Publicado'?`<div class="card" style="margin-top:12px">
+    ${c.status==='Planejamento'&&!isRecorded(c)?`<div class="row between"><h3>Takes</h3><span class="mono muted">${p.done}/${p.total}</span></div>${p.total?`<div class="bar"><i style="width:${p.pct}%"></i></div>`:''}`:''}
+    <button class="btn ${adv.ok?'pri':''} wide" data-act="stage-next" data-id="${c.id}" ${adv.ok?'':'aria-disabled="true" style="opacity:.55"'}>${STAGE_NEXT[c.status]}</button>
+    ${!adv.ok&&adv.why?`<div class="small muted">${h(adv.why)}</div>`:''}
+    ${si>0?`<button class="btn ghost sm" data-act="stage-back" data-id="${c.id}" style="align-self:flex-start">Voltar para ${STATUS[si-1]}</button>`:''}
+  </div>`:`<div class="notice ok" style="margin-top:12px">Publicado.<button class="btn ghost sm" data-act="stage-back" data-id="${c.id}">Voltar para Postagem</button></div>`}
+  <div class="tabs" style="margin-top:14px">${[['captacao','Takes'],['roteiro','Roteiro'],['edicao','Edição']].map(([k,l])=>`<button class="${UI.mode===k?'on':''}" data-act="cmode" data-k="${k}">${l}</button>`).join('')}</div>`;
+  if(UI.mode==='captacao'){
+    const pend=tk.filter(t=>t.status!=='gravado'),done=tk.filter(t=>t.status==='gravado');
+    out+=`<div class="sec">
+    ${isRecorded(c)?'<div class="notice ok">Material já gravado. Não há takes pendentes para este conteúdo.</div>':!tk.length?'<div class="notice">Takes a definir. Escreva abaixo cada take que você quer gravar.</div>':''}
+    <form class="cap-in" data-form="quicktake" data-cid="${c.id}"><input type="text" id="qt-${c.id}" placeholder="Escreva um take e toque em +" autocomplete="off"><button class="btn pri" type="submit" aria-label="Adicionar take">+</button></form>
+    ${pend.length?`<div class="list">${pend.map(t=>takeCard(t,{compact:c.id,capture:true})).join('')}</div>`:''}
+    ${done.length?`<div class="sec-h" style="margin-top:6px"><h3>Gravados</h3><span class="small muted">${done.length}</span></div><div class="list">${done.map(t=>takeCard(t,{compact:c.id})).join('')}</div>`:''}
+    <div><button class="btn sm ghost" data-act="link-takes" data-id="${c.id}">Usar um take que já existe</button></div>`;
+    const cx=new Set(arr(c.contexts));tk.forEach(t=>arr(t.contexts).forEach(x=>cx.add(x)));
     const reuse=S.takes.filter(t=>t.status==='gravado'&&!arr(t.contentIds).includes(c.id)&&arr(t.contexts).some(x=>cx.has(x)));
-    if(reuse.length)out+=`<div class="card"><h3>Takes já gravados que podem servir</h3><div class="small muted">Evite gravar de novo o que você já tem.</div>${reuse.map(t=>`<div class="row between"><span class="small grow">${h(t.desc)} <span class="muted mono">${h(t.code||'')}</span></span><button class="btn sm" data-act="reuse" data-c="${c.id}" data-t="${t.id}">Usar</button></div>`).join('')}</div>`;
+    if(reuse.length)out+=`<div class="card"><h3>Takes já gravados que podem servir</h3>${reuse.slice(0,6).map(t=>`<div class="row between"><span class="small grow">${h(t.desc)}</span><button class="btn sm" data-act="reuse" data-c="${c.id}" data-t="${t.id}">Usar</button></div>`).join('')}</div>`;
     out+=`</div>`;
+  }else if(UI.mode==='roteiro'){
+    out+=`<div class="sec"><div class="row between"><span class="small muted">${h(c.scriptState||'')}${lines.length?` · ${lines.length} falas`:''}</span><div class="row">${lines.length?`<button class="btn sm ink" data-act="reader" data-id="${c.id}">Modo leitura</button>`:''}<button class="btn sm" data-act="line-new" data-id="${c.id}">+ Fala</button></div></div>
+    ${c.scriptState==='Roteirizado (fora do app)'&&!lines.length?'<div class="notice info">Você já tem o roteiro deste vídeo fora do app. Cole as falas aqui com "+ Fala" para usar o modo leitura.</div>':''}
+    <div class="card">${lines.map((l,i)=>`<button class="line-item" style="border:0;background:none;padding:6px 0;text-align:left" data-act="line-edit" data-id="${c.id}" data-i="${i}"><span class="sc">${h(l.scene||i+1)}</span><span class="grow"><span class="say">${h(l.text)}</span>${l.note?`<br><span class="dir">${h(l.note)}</span>`:''}</span></button>`).join('')||'<div class="small muted">Nenhuma fala ainda.</div>'}</div>
+    ${lines.length>1?`<div class="row"><button class="btn sm ghost" data-act="script-version" data-id="${c.id}">Salvar como nova versão</button></div>`:''}</div>`;
   }else{
-    out+=`<div class="sec"><div class="small muted">Ordem de montagem: cada fala com seus takes, arquivos, transição e texto na tela.</div>${lines.map((l,i)=>{const ts=arr(l.takeIds).map(id=>byId('takes',id)).filter(Boolean);return`<button class="card tap" data-act="line-edit" data-id="${c.id}" data-i="${i}" style="gap:5px"><div class="row between"><span class="mono muted">${i+1}. ${h(l.scene||'')}</span>${l.transition?`<span class="chip">${h(l.transition)}</span>`:''}</div><div class="small"><b>${h(l.text)}</b></div>${ts.length?ts.map(t=>{const fs=arr(t.fileIds).map(id=>byId('files',id)).filter(Boolean);return`<div class="small">▸ ${h(t.desc)} ${t.status==='gravado'?`<span class="chip ok">${fs.length?fs.length+' arquivo(s)':'gravado'}</span>`:'<span class="chip warn">pendente</span>'}</div>`}).join(''):'<div class="small muted">Sem take associado</div>'}${l.overlay?`<div class="small">Texto na tela: “${h(l.overlay)}”</div>`:''}${l.editNote?`<div class="small muted">${h(l.editNote)}</div>`:''}</button>`}).join('')||'<div class="empty">Adicione falas no modo roteiro para montar a ordem de edição.</div>'}
-    ${c.editNotes?`<div class="card"><h3>Orientações gerais</h3><div class="small">${h(c.editNotes)}</div></div>`:''}</div>`;
+    out+=`<div class="sec">${lines.map((l,i)=>{const ts=arr(l.takeIds).map(id=>byId('takes',id)).filter(Boolean);return`<button class="card tap" data-act="line-edit" data-id="${c.id}" data-i="${i}" style="gap:5px"><span class="mono muted">${i+1}. ${h(l.scene||'')}${l.transition?' · '+h(l.transition):''}</span><div class="small"><b>${h(l.text)}</b></div>${ts.map(t=>`<div class="small">▸ ${h(t.desc)} ${t.status==='gravado'?'<span class="chip ok">gravado</span>':'<span class="chip warn">pendente</span>'}</div>`).join('')}${l.overlay?`<div class="small">Texto na tela: “${h(l.overlay)}”</div>`:''}${l.editNote?`<div class="small muted">${h(l.editNote)}</div>`:''}</button>`}).join('')||'<div class="empty">Sem roteiro de montagem. Adicione falas na aba Roteiro.</div>'}
+    <label class="f">Orientações de edição<textarea id="en-${c.id}" data-editnotes="${c.id}" placeholder="Música, ritmo, textos na tela, efeitos…">${h(c.editNotes||'')}</textarea></label></div>`;
   }
-  out+=`<div class="sec"><div class="sec-h"><h2>Datas</h2><button class="btn sm pri" data-act="plan-dates" data-id="${c.id}">Planejar a partir da publicação</button></div>
-    <div class="card">${evs.map(e=>`<button class="cal-item" style="border:0;background:none;padding:4px 0;text-align:left" data-act="cal-day" data-d="${e.date}"><span class="time">${fmtShort(e.date)}</span><span class="stripe t-${e.type} grow small"><b>${EVT[e.type]}</b>${e.type==='gravacao'?(e.fixed?' fixa':' flexível'):''} · ${h(e.title)}${e.status==='concluido'?' ✓':''}</span></button>`).join('')||'<span class="small muted">Sem tarefas no calendário.</span>'}</div>
-    <div class="sec-h"><h3>Publicações</h3><button class="btn sm" data-act="new" data-t="pub" data-preset='${h(JSON.stringify({contentId:c.id,date:c.pubDate||addDays(TODAY,7),platform:c.platforms?.[0]||"Instagram",status:"Programada"}))}'>+ Publicação</button></div>
-    <div class="list">${pubs.map(x=>`<button class="card tap stripe t-publicacao" data-act="open" data-t="pub" data-id="${x.id}" style="flex-direction:row;justify-content:space-between"><span><b>${h(x.platform)}</b> · ${fmtD(x.date)} ${h(x.time||'')}</span><span class="status ${x.status==='Publicado'?'s-ok':''}">${h(x.status||'Programada')}</span></button>`).join('')||'<span class="small muted">Nenhuma publicação. Um conteúdo pode ter várias, cada uma com data e status próprios.</span>'}</div></div>
-  <div class="sec"><div class="sec-h"><h2>Referências</h2></div><div class="list">${refs.map(refCard).join('')||'<span class="small muted">Nenhuma referência vinculada.</span>'}</div></div>`;
+  out+=`<div class="sec"><div class="sec-h"><h2>Datas</h2><button class="btn sm" data-act="plan-dates" data-id="${c.id}">Planejar datas</button></div>
+    ${evs.length||pubs.length?`<div class="card">${evs.map(e=>`<button class="cal-item" style="border:0;background:none;padding:4px 0;text-align:left" data-act="cal-day" data-d="${e.date}"><span class="time">${fmtShort(e.date)}</span><span class="stripe t-${e.type} grow small"><b>${EVT[e.type]}</b> · ${h(e.title)}${e.endDate?' até '+fmtShort(e.endDate):''}${e.status==='concluido'?' ✓':''}</span></button>`).join('')}${pubs.map(x=>`<button class="cal-item" style="border:0;background:none;padding:4px 0;text-align:left" data-act="open" data-t="pub" data-id="${x.id}"><span class="time">${fmtShort(x.date)}</span><span class="stripe t-publicacao grow small"><b>Postagem</b> · ${h(x.platform)} · ${h(x.status||'Programada')}</span></button>`).join('')}</div>`:'<div class="small muted">Sem datas ainda.</div>'}
+    <div><button class="btn sm ghost" data-act="new" data-t="pub" data-preset='${h(JSON.stringify({contentId:c.id,date:addDays(TODAY,7),platform:arr(c.platforms)[0]||"Instagram",status:"Programada"}))}'>+ Data de postagem</button></div></div>
+  <details class="sec"><summary class="btn wide" style="list-style:none">Detalhes do conteúdo</summary><div class="card" style="margin-top:8px;gap:10px">
+    ${[['Destino',c.destino||arr(c.platforms).join(', ')],['Objetivo',c.goal||arr(c.objectives).join(', ')],['Público',c.audienceText||arr(c.audiences).join(', ')],['Quando / cenário',c.when],['Janela de gravação',c.janela],['Etapa original',c.etapa],['Roteiro',c.scriptState],['Formato',c.formatNote||c.format],['Projeto',c.projectId?projName(c.projectId):''],['Contextos',arr(c.contexts).map(ctxL).join(', ')],['Observações',c.notes]].filter(x=>x[1]).map(([l,v])=>`<div><div class="eyebrow">${l}</div><div class="small">${h(v)}</div></div>`).join('')}
+    <div><div class="eyebrow">Link de referência</div>${c.refLink?`<a class="small" href="${h(c.refLink)}" target="_blank" rel="noopener" style="color:var(--accent);word-break:break-all">${h(c.refLink)}</a>`:'<div class="small muted">A inserir · toque em Editar</div>'}</div>
+    ${refs.length?`<div><div class="eyebrow">Referências salvas</div>${refs.map(r=>`<button class="small" style="border:0;background:none;padding:0;text-align:left;display:block" data-act="open" data-t="ref" data-id="${r.id}">${h(r.title)}</button>`).join('')}</div>`:''}
+  </div></details>`;
   return out;
 }
 function pProject(pr){
@@ -673,7 +754,7 @@ function pProduct(p){
   <div class="line-item"><span class="sc">3</span><span class="small"><b>Benefício:</b> ${h((p.benefits||'o principal benefício').split(/[.;\n]/)[0])}.</span></div>
   <div class="line-item"><span class="sc">4</span><span class="small"><b>Objeção:</b> ${h(refs.find(r=>r.ts?.objection)?.ts?.objection||'responda a dúvida mais comum (preço, durabilidade, se funciona mesmo)')}.</span></div>
   <div class="line-item"><span class="sc">5</span><span class="small"><b>CTA:</b> link no carrinho laranja.</span></div>
-  <div class="row"><button class="btn sm pri" data-act="new" data-t="content" data-preset='${h(JSON.stringify({title:"TikTok Shop — "+p.name,productIds:[p.id],platforms:["TikTok Shop"],objectives:["Vendas"],audiences:["Consumidores TikTok Shop"],format:"Demonstração",status:"Pronto para gravar"}))}'>Criar conteúdo com esta estrutura</button></div></div></div>
+  <div class="row"><button class="btn sm pri" data-act="new" data-t="content" data-preset='${h(JSON.stringify({title:"TikTok Shop — "+p.name,productIds:[p.id],platforms:["TikTok Shop"],objectives:["Vendas"],audiences:["Consumidores TikTok Shop"],format:"Demonstração",status:"Planejamento"}))}'>Criar conteúdo com esta estrutura</button></div></div></div>
   <div class="sec"><h2>Takes pendentes</h2><div class="list">${pend.map(t=>takeCard(t,{capture:true})).join('')||'<span class="small muted">Nenhum.</span>'}</div></div>
   ${done.length?`<div class="sec"><h2>Já gravado</h2><div class="list">${done.map(libCard).join('')}</div></div>`:''}
   <div class="sec"><h2>Conteúdos</h2><div class="list">${cs.map(contentCard).join('')||'<span class="small muted">Nenhum conteúdo ainda.</span>'}</div>${pubs.length?`<div class="small muted">${pubs.length} publicação(ões) feitas.</div>`:''}</div>
@@ -686,7 +767,7 @@ const opts=k=>()=>S[k].map(x=>[x.id,x.title||x.name||x.desc]);
 const FORMS={
   ref:{key:'refs',title:'Referência',fields:[['title','Título','text'],['url','Link do vídeo','url'],['notes','Observações pessoais','textarea'],['why','Por que gostei','textarea'],['adapt','Como pretendo adaptar','textarea'],['objectives','Objetivos','chips',OBJ],['audiences','Público','chips',AUD],['formats','Formato','chips',FMT],['traits','Características','chips',TRAITS],['platforms','Plataformas','chips',PLAT],['productIds','Produtos','rel','products'],['projectIds','Projetos','rel','projects'],['contentIds','Conteúdos','rel','contents'],['ts.hook','TikTok Shop · gancho comercial','text'],['ts.benefit','TikTok Shop · benefício','text'],['ts.objection','TikTok Shop · objeção de compra','text'],['ts.context','TikTok Shop · contexto de uso','text'],['ts.style','TikTok Shop · estilo de venda','text']]},
   idea:{key:'ideas',title:'Ideia',fields:[['title','Título','text'],['desc','Descrição','textarea'],['refIds','Referências','rel','refs'],['audience','Público-alvo','select',AUD],['objective','Objetivo estratégico','select',OBJ],['platform','Plataforma','select',PLAT],['format','Formato','select',FMT],['projectId','Projeto','one','projects'],['priority','Prioridade','select',PRIO],['status','Status','select',IDEA_ST],['date','Possível data de publicação','date']]},
-  content:{key:'contents',title:'Conteúdo',fields:[['title','Título','text'],['projectId','Projeto','one','projects'],['frontId','Frente do projeto','front'],['objectives','Objetivos','chips',OBJ],['audiences','Público','chips',AUD],['platforms','Plataformas','chips',PLAT],['format','Formato','select',FMT],['status','Status','select',STATUS],['refIds','Referências','rel','refs'],['productIds','Produtos','rel','products'],['pubDate','Data de publicação principal','date'],['editNotes','Orientações gerais de edição','textarea']]},
+  content:{key:'contents',title:'Conteúdo',fields:[['title','Título','text'],['refLink','Link de referência','url'],['destino','Destino','text'],['platforms','Plataformas','chips',PLAT],['goal','Objetivo','text'],['audienceText','Público / persona','text'],['when','Quando / cenário','text'],['janela','Janela de gravação','select',JANELAS],['notBefore','Não gravar antes de','date'],['contexts','Contextos (para o Captar agora)','ctx'],['scriptState','Roteiro','select',SCRIPT_ST],['formatNote','Formato / orientação','text'],['notes','Observações','textarea'],['projectId','Projeto','one','projects'],['frontId','Frente do projeto','front'],['productIds','Produtos','rel','products'],['refIds','Referências salvas','rel','refs'],['objectives','Objetivos (para o equilíbrio)','chips',OBJ],['audiences','Públicos (para o equilíbrio)','chips',AUD]]},
   take:{key:'takes',title:'Take',fields:[['desc','Descrição','text'],['action','Tipo de ação','text'],['framing','Enquadramento','text'],['setting','Cenário','text'],['contexts','Contextos (onde dá para gravar)','ctx'],['location','Localização','text'],['participant','Participante','text'],['productIds','Produtos','rel','products'],['contentIds','Conteúdos que usam este take','rel','contents'],['duration','Duração desejada','text'],['priority','Prioridade','select',PRIO],['status','Status','select',['pendente','gravado']],['fixedEventId','Data fixa: depende do compromisso','one','events'],['hardToRepeat','Oportunidade difícil de repetir','bool'],['notes','Observações','textarea']]},
   product:{key:'products',title:'Produto TikTok Shop',fields:[['name','Nome','text'],['brand','Marca','text'],['category','Categoria','text'],['link','Link','url'],['benefits','Benefícios','textarea'],['audience','Público','text'],['contexts','Contextos de uso (toque para alternar principal → recomendado → alternativo)','ctxlevel'],['refIds','Referências','rel','refs'],['priority','Prioridade','select',PRIO],['status','Status','select',['Disponível para gravar','Em produção','Concluído','Pausado']],['available','Tenho o produto em mãos','bool']]},
   project:{key:'projects',title:'Projeto',fields:[['name','Nome','text'],['start','Início','date'],['end','Fim','date'],['objectives','Objetivos','chips',OBJ],['participants','Participantes (separe por vírgula)','list']]},
@@ -736,7 +817,7 @@ function drawForm(){
   L.innerHTML=keep+html;
   const sh=L.querySelector('.sheet');if(sh)sh.scrollTop=sc;
 }
-function closeForm(){DRAFT=null;document.getElementById('layer').querySelectorAll('.scrim,.sheet').forEach(n=>n.remove());if(!UI.detail)document.getElementById('layer').innerHTML=''}
+function closeForm(){DRAFT=null;UI._delNote=null;if(UI.view==='ideias'&&!UI.detail)setTimeout(render,0);document.getElementById('layer').querySelectorAll('.scrim,.sheet').forEach(n=>n.remove());if(!UI.detail)document.getElementById('layer').innerHTML=''}
 function nextCode(){const n=S.takes.map(t=>+String(t.code||'').replace(/\D/g,'')||0);return'T-'+String(Math.max(0,...n)+1).padStart(3,'0')}
 function submitForm(){
   const D=DRAFT;const F=FORMS[D.type];const d=D.data;
@@ -757,7 +838,7 @@ function submitForm(){
     if(d.autoRec&&d.type==='compromisso'&&arr(d.contentIds).length&&!S.events.some(e=>e.sourceId===d.id&&e.type==='gravacao')){S.events.push({id:uid('e'),title:'Gravação: '+d.title,type:'gravacao',date:d.date,time:d.time,contexts:d.contexts,location:d.location,projectId:d.projectId,contentIds:d.contentIds,fixed:true,sourceId:d.id,status:'pendente'});contentTakesFixed(d)}
     delete d.autoRec;
   }
-  if(D.type==='pub'){const c=byId('contents',d.contentId);if(c){const first=S.pubs.filter(p=>p.contentId===c.id).map(p=>p.date).sort()[0];if(first)c.pubDate=first;if(S.pubs.filter(p=>p.contentId===c.id).every(p=>p.status==='Publicado'))c.status='Publicado';save('contents');if(contentConflicts(c).length)toast('Atenção: a nova data conflita com tarefas de produção')}}
+  if(D.type==='pub'){const c=byId('contents',d.contentId);if(c){const first=S.pubs.filter(p=>p.contentId===c.id).map(p=>p.date).sort()[0];if(first)c.pubDate=first;save('contents');if(contentConflicts(c).length)toast('Atenção: a nova data conflita com tarefas de produção')}}
   save(F.key);
   if(D.type==='take'&&old&&old.status!==d.status)setTakeStatus(d,d.status);
   closeForm();refresh();
@@ -795,10 +876,11 @@ function showRef(r){const cs=arr(r.contentIds).map(id=>byId('contents',id)).filt
   <div class="chips">${allTags(r).map(t=>`<span class="chip">${h(t)}</span>`).join('')}</div>
   ${ps.length?`<div class="small">Produtos: ${ps.map(p=>h(p.name)).join(', ')}</div>`:''}
   <div class="card"><h3>Conteúdos relacionados</h3>${cs.map(c=>`<button class="small" style="border:0;background:none;padding:0;text-align:left" data-act="open" data-t="content" data-id="${c.id}">${h(c.title)}</button>`).join('')||'<span class="small muted">Nenhum ainda.</span>'}</div>
-  <div class="row"><button class="btn pri grow" data-act="ref-to" data-to="idea" data-id="${r.id}">Virar ideia</button><button class="btn grow" data-act="ref-to" data-to="content" data-id="${r.id}">Virar conteúdo</button><button class="btn" data-act="edit" data-t="ref" data-id="${r.id}">Editar</button></div>`)}
-function showIdea(i){const refs=arr(i.refIds).map(id=>byId('refs',id)).filter(Boolean);
-  sheet('Ideia',`<h3 style="font-size:1.15rem">${h(i.title)}</h3><div>${h(i.desc||'')}</div><div class="chips">${[i.objective,i.audience,i.platform,i.format,i.priority&&('prioridade '+PRIO_L[i.priority]),i.date&&fmtShort(i.date)].filter(Boolean).map(x=>`<span class="chip">${h(x)}</span>`).join('')}</div>${refs.length?`<div class="card"><h3>Referências</h3>${refs.map(r=>`<div class="small">${h(r.title)}</div>`).join('')}</div>`:''}
-  <div class="row"><button class="btn pri grow" data-act="idea-to-content" data-id="${i.id}">Transformar em conteúdo</button><button class="btn" data-act="edit" data-t="idea" data-id="${i.id}">Editar</button></div>`)}
+  <div class="row"><button class="btn pri grow" data-act="ref-to" data-to="content" data-id="${r.id}">Virar conteúdo</button><button class="btn" data-act="edit" data-t="ref" data-id="${r.id}">Editar</button></div>`)}
+function showIdea(i){
+  sheet('Nota',`<textarea id="note-edit" data-noteedit="${i.id}" style="min-height:180px">${h(noteText(i))}</textarea>
+  <div class="small muted">Salva sozinha enquanto você escreve. Use #palavras para achar depois.</div>
+  <div class="row"><button class="btn pri grow" data-act="idea-to-content" data-id="${i.id}">Virar conteúdo</button><button class="btn danger" data-act="note-del" data-id="${i.id}">${UI._delNote===i.id?'Toque de novo para excluir':'Excluir'}</button></div>`)}
 function showPlanDates(c){
   const pub=c.pubDate||addDays(TODAY,10);
   sheet('Planejar datas',`<div class="small muted">${h(c.title)}</div><label class="f">Data de publicação<input type="date" id="pd-pub" value="${pub}"></label><button class="btn" data-act="pd-calc" data-id="${c.id}">Calcular sugestão</button><div id="pd-out"></div>`);
@@ -808,10 +890,11 @@ function busy(d){return S.events.filter(e=>e.date===d&&e.type==='compromisso').l
 function calcPlan(c,pub){
   const fixedEvIds=[...new Set(contentTakes(c).map(t=>t.fixedEventId).filter(Boolean))];const fixedEv=fixedEvIds.map(id=>byId('events',id)).filter(e=>e&&e.date<=pub).sort((a,b)=>b.date.localeCompare(a.date))[0];
   let rec,recFixed=false;
-  if(fixedEv){rec=fixedEv.date;recFixed=true}else{rec=addDays(pub,-5);let g=0;while((busy(rec)||rec<TODAY)&&g<10){rec=busy(rec)?addDays(rec,-1):addDays(rec,1);g++}}
+  const nb=c.notBefore&&c.notBefore>TODAY?c.notBefore:TODAY;
+  if(fixedEv){rec=fixedEv.date;recFixed=true}else{rec=addDays(pub,-5);let g=0;while((busy(rec)||rec<nb)&&g<40){rec=rec<nb?nb:addDays(rec,-1);g++}}
   let ed=addDays(rec,1);let rv=addDays(pub,-2);if(ed>=rv)ed=addDays(rv,-1);
   let g=0;while(busy(ed)&&ed<addDays(rv,-1)&&g<5){ed=addDays(ed,1);g++}
-  const warn=[];if(ed<=rec)warn.push('Pouco tempo entre gravação e publicação. Considere adiar a publicação.');if(rec<TODAY)warn.push('A data de gravação sugerida já passou.');
+  const warn=[];if(ed<=rec)warn.push('Pouco tempo entre gravação e publicação. Considere adiar a publicação.');if(rec<TODAY)warn.push('A data de gravação sugerida já passou.');if(c.notBefore&&rec<c.notBefore)warn.push('A gravação ficou antes de '+fmtShort(c.notBefore)+'. Escolha uma data de postagem mais tarde.');if(c.notBefore&&pub<=c.notBefore)warn.push('Este conteúdo só pode ser gravado a partir de '+fmtShort(c.notBefore)+'.');
   UI._pd={cid:c.id,pub,rows:[['gravacao',rec,recFixed],['edicao',ed],['revisao',rv]]};
   const out=document.getElementById('pd-out');if(!out)return;
   out.innerHTML=`<div class="card">${UI._pd.rows.map(([t,d,fx],i)=>`<div class="cal-item"><span class="time">${fmtShort(d)}</span><span class="stripe t-${t} grow"><b>${EVT[t]}</b>${t==='gravacao'?(fx?` fixa · durante ${h(fixedEv.title)}`:' flexível'):''}<br><input type="date" id="pd-${i}" data-pd="${i}" value="${d}" style="margin-top:4px;min-height:36px"></span></div>`).join('')}<div class="cal-item"><span class="time">${fmtShort(pub)}</span><span class="stripe t-publicacao grow"><b>Publicação</b></span></div></div>${warn.map(w=>`<div class="notice">${h(w)}</div>`).join('')}<div class="small muted">Respeita eventos fixos e evita dias com dois ou mais compromissos.</div><button class="btn pri wide" data-act="pd-save">Criar no calendário</button>`;
@@ -837,6 +920,14 @@ async function refAI(){
   try{const res=await SAMPLE.json(`Biblioteca de referências de vídeo de uma criadora (só as anotações dela; os vídeos não foram assistidos):\n${JSON.stringify(data)}\n\nIntenção: "${UI.refQ}".\nEscolha até 5 referências compatíveis pelo significado, não só por palavra igual. Responda só JSON: [{"id":"...","motivo":"por que serve para essa intenção","adaptacao":"como adaptar para essa intenção"}]. Português do Brasil.`,{modelTier:'quick'});
     UI.refAI={q:UI.refQ,items:arr(res).filter(x=>byId('refs',x.id))};
   }catch(e){toast('A IA não respondeu agora. A busca local continua disponível.')}
+  UI.refBusy=false;render();
+}
+async function noteAI(){
+  if(!SAMPLE||!UI.noteQ)return;UI.refBusy=true;render();
+  const data=[...S.ideas.map(i=>({id:i.id,kind:'note',texto:noteText(i)})),...S.refs.map(r=>({id:r.id,kind:'ref',titulo:r.title,obs:r.notes,adaptar:r.adapt}))];
+  try{const res=await SAMPLE.json(`Estas são as notas e referências de vídeo salvas por uma criadora de conteúdo (só as anotações dela; os vídeos não foram assistidos):\n${JSON.stringify(data)}\n\nEla pediu: "${UI.noteQ}".\nTraga as notas e referências DELA que têm relação com o pedido, pelo significado, não só pela palavra igual. Não invente notas. Se fizer sentido, sugira em uma frase uma ideia que combine as notas encontradas.\nResponda só JSON: {"itens":[{"id":"...","kind":"note|ref","motivo":"..."}],"ideia":"..."}. Português do Brasil.`,{modelTier:'quick'});
+    UI.noteAI={q:UI.noteQ,items:arr(res?.itens).filter(x=>x.kind==='ref'?byId('refs',x.id):byId('ideas',x.id)),ideia:res?.ideia||''};
+  }catch(e){toast(e.code==='not_granted'?'A IA não foi autorizada nesta página.':'A IA não respondeu agora. A busca por palavras continua funcionando.')}
   UI.refBusy=false;render();
 }
 function planRun(){
@@ -888,11 +979,21 @@ const ACT={
   'cap-addctx':()=>sheet('Adicionar contexto',`<div class="chips">${Object.keys(CTX).map(k=>`<button class="chip btn ${UI.captar.ctx.includes(k)?'on':''}" data-act="cap-ctx2" data-k="${k}">${CTX[k].l}</button>`).join('')}</div>`),
   'cap-ctx2':d=>{UI.captar.ctx=UI.captar.ctx.includes(d.k)?UI.captar.ctx.filter(k=>k!==d.k):[...UI.captar.ctx,d.k];closeForm();render()},
   'cap-ai':()=>capAI(),
+  reminders:()=>{const R=reminders();sheet('Lembretes',R.length?`<div class="list">${R.map(remRow).join('')}</div>`:'<div class="empty">Nada urgente agora.</div>')},
+  'go-filter':d=>{closeForm();UI.prodTab='conteudos';UI.contentF='ev:'+d.ev;UI.janelaF='';go('producao')},
+  'go-cf':d=>{UI.prodTab='conteudos';UI.contentF=d.k;UI.janelaF='';go('producao')},
+  'stage-next':d=>{const c=byId('contents',d.id);const a=canAdvance(c);if(!a.ok){toast(a.why||'Não dá para avançar ainda.');return}const i=STATUS.indexOf(c.status);c.status=STATUS[i+1];save('contents');renderDetail();toast(`${c.title.slice(0,40)} foi para ${c.status}`)},
+  'stage-back':d=>{const c=byId('contents',d.id);const i=STATUS.indexOf(c.status);if(i>0){c.status=STATUS[i-1];save('contents');renderDetail();toast('Voltou para '+c.status)}},
+  'note-kind':d=>{UI.noteKind=d.k;render();document.getElementById('note-text')?.focus()},
+  'note-tag':d=>{UI.noteQ=norm(UI.noteQ)===d.k?'':d.k;UI.noteAI=null;render()},
+  'note-clear':()=>{UI.noteQ='';UI.noteAI=null;render()},
+  'note-ai':()=>noteAI(),
+  'note-del':d=>{if(UI._delNote!==d.id){UI._delNote=d.id;showIdea(byId('ideas',d.id));return}S.ideas=S.ideas.filter(x=>x.id!==d.id);UI._delNote=null;save('ideas');closeForm();render();toast('Nota excluída')},
   'cap-event':d=>{const e=byId('events',d.id);UI.captar={text:e.title,ctx:arr(e.contexts),ai:null,aiBusy:false};go('captar')},
   'ai-add':d=>{const s=UI.captar.ai[+d.i];const ids=S.contents.filter(c=>arr(s.conteudos).some(x=>norm(x)===norm(c.title))).map(c=>c.id);S.takes.push({id:uid('t'),code:nextCode(),desc:s.take,framing:s.enquadramento||'',contexts:[...UI.captar.ctx],contentIds:ids,status:'pendente',priority:'media',notes:'Sugestão criativa da IA: '+(s.motivo||''),fromAI:true});save('takes');UI.captar.ai.splice(+d.i,1);toast('Take adicionado ao banco');render()},
   grp:d=>{UI.grp=d.k;refresh()},
   'take-toggle':d=>{const t=byId('takes',d.id);setTakeStatus(t,t.status==='gravado'?'pendente':'gravado');toast(t.status==='gravado'?`${t.code} gravado · ${arr(t.contentIds).length} conteúdo(s) atualizados`:`${t.code} voltou para pendente`);if(document.querySelector('.sheet'))showTake(t);render()},
-  open:d=>{if(!d.id)return;closeForm();if(['content','project','product'].includes(d.t)){UI.detail={t:d.t,id:d.id};if(d.t==='content')UI.mode='roteiro';renderDetail();document.querySelector('.page')?.scrollTo(0,0)}else if(d.t==='take')showTake(byId('takes',d.id));else if(d.t==='ref')showRef(byId('refs',d.id));else if(d.t==='idea')showIdea(byId('ideas',d.id));else if(d.t==='event')openForm('event',byId('events',d.id));else if(d.t==='pub')openForm('pub',byId('pubs',d.id))},
+  open:d=>{if(!d.id)return;closeForm();if(['content','project','product'].includes(d.t)){UI.detail={t:d.t,id:d.id};if(d.t==='content')UI.mode='captacao';renderDetail();document.querySelector('.page')?.scrollTo(0,0)}else if(d.t==='take')showTake(byId('takes',d.id));else if(d.t==='ref')showRef(byId('refs',d.id));else if(d.t==='idea')showIdea(byId('ideas',d.id));else if(d.t==='event')openForm('event',byId('events',d.id));else if(d.t==='pub')openForm('pub',byId('pubs',d.id))},
   edit:d=>openForm(d.t,byId(FORMS[d.t].key,d.id)),
   new:d=>openForm(d.t,null,d.preset?JSON.parse(d.preset):null),
   'close-detail':()=>{UI.detail=null;document.getElementById('layer').innerHTML='';render()},
@@ -907,7 +1008,7 @@ const ACT={
   'ref-ai':()=>{UI.refQ=document.getElementById('ref-q').value.trim();refAI()},
   'ref-clear':()=>{UI.refQ='';UI.refAI=null;render()},
   'ref-to':d=>{const r=byId('refs',d.id);closeForm();if(d.to==='idea')openForm('idea',null,{title:r.title,desc:r.adapt||r.notes,refIds:[r.id],objective:arr(r.objectives)[0],audience:arr(r.audiences)[0],platform:arr(r.platforms)[0],format:arr(r.formats)[0],status:'Nova'});else openForm('content',null,{title:r.title,refIds:[r.id],objectives:arr(r.objectives),audiences:arr(r.audiences),platforms:arr(r.platforms),format:arr(r.formats)[0],productIds:arr(r.productIds),status:'Planejamento'})},
-  'idea-to-content':d=>{const i=byId('ideas',d.id);closeForm();openForm('content',null,{title:i.title,refIds:arr(i.refIds),objectives:i.objective?[i.objective]:[],audiences:i.audience?[i.audience]:[],platforms:i.platform?[i.platform]:[],format:i.format,projectId:i.projectId,pubDate:i.date,status:'Planejamento'});DRAFT.fromIdea=i.id},
+  'idea-to-content':d=>{const i=byId('ideas',d.id);closeForm();openForm('content',null,{title:i.title||noteText(i).split('\n')[0].slice(0,80),notes:noteText(i),refIds:arr(i.refIds),objectives:i.objective?[i.objective]:[],audiences:i.audience?[i.audience]:[],platforms:i.platform?[i.platform]:[],format:i.format,projectId:i.projectId,pubDate:i.date,status:'Planejamento'});DRAFT.fromIdea=i.id},
   'plan-run':()=>planRun(),'plan-create':()=>planCreate(),
   calmode:d=>{UI.calMode=d.k;render()},
   calsel:d=>{UI.calSel=d.d;render()},
@@ -916,7 +1017,7 @@ const ACT={
   'cal-day':d=>{UI.calSel=d.d;UI.calDate=d.d;UI.calMode='dia';UI.detail=null;closeForm();go('calendario')},
   calf:d=>{const a=UI.calF[d.k];UI.calF[d.k]=a.includes(d.v)?a.filter(x=>x!==d.v):[...a,d.v];render()},
   'calf-clear':()=>{UI.calF={types:[],plat:[],proj:''};render()},
-  'ev-done':d=>{const e=byId('events',d.id);e.status=e.status==='concluido'?'pendente':'concluido';if(e.status==='concluido'){arr(e.contentIds).forEach(cid=>{const c=byId('contents',cid);if(!c)return;if(e.type==='edicao'&&stIdx(c.status)<7)c.status='Em revisão';if(e.type==='revisao'&&stIdx(c.status)<8)c.status='Pronto para publicar'});save('contents')}save('events');render()},
+  'ev-done':d=>{const e=byId('events',d.id);e.status=e.status==='concluido'?'pendente':'concluido';save('events');render()},
   cmode:d=>{UI.mode=d.k;renderDetail()},
   reader:d=>openReader(byId('contents',d.id)),
   'reader-next':()=>UI._reader.next(),'reader-prev':()=>UI._reader.prev(),'reader-close':()=>UI._reader.close(),
@@ -943,12 +1044,22 @@ document.addEventListener('submit',e=>{e.preventDefault();const f=e.target.datas
   else if(f==='takeq'){UI.takeQ=document.getElementById('take-q').value;render()}
   else if(f==='libq'){UI.libQ=document.getElementById('lib-q').value;render()}
   else if(f==='entity')submitForm();
+  else if(f==='note'){const D=UI.noteDraft;const text=(D.text||'').trim(),url=(D.url||'').trim(),adapt=(D.adapt||'').trim();const now=new Date().toISOString();
+    if(UI.noteKind==='ref'){if(!url&&!text&&!adapt)return toast('Cole o link ou escreva algo sobre o vídeo.');let host='';try{host=new URL(url).hostname.replace('www.','')}catch(_){}S.refs.unshift({id:uid('r'),title:(text.split('\n')[0]||adapt.split('\n')[0]||('Vídeo '+host)).slice(0,90),url,notes:text,adapt,createdAt:now,contentIds:[]});save('refs');toast('Referência salva')}
+    else{if(!text)return toast('Escreva a ideia antes de salvar.');S.ideas.unshift({id:uid('n'),kind:'note',text,createdAt:now,updatedAt:now});save('ideas');toast('Ideia salva')}
+    UI.noteDraft={};render()}
+  else if(f==='noteq'){UI.noteQ=document.getElementById('note-q').value.trim();UI.noteAI=null;render()}
+  else if(f==='quicktake'){const cid=e.target.dataset.cid;const inp=document.getElementById('qt-'+cid);const v=(inp.value||'').trim();if(!v)return;const c=byId('contents',cid);
+    S.takes.push({id:uid('t'),code:nextCode(),desc:v,contexts:[...arr(c.contexts)],contentIds:[cid],productIds:[...arr(c.productIds)],status:'pendente',priority:'media',createdAt:new Date().toISOString()});save('takes');renderDetail();const n=document.getElementById('qt-'+cid);if(n)n.focus()}
 });
 document.addEventListener('input',e=>{const el=e.target;
   if(DRAFT&&el.dataset.f){const k=el.dataset.f;let v=el.dataset.bool?el.checked:el.dataset.list?el.value.split(',').map(s=>s.trim()).filter(Boolean):el.value;setP(DRAFT.data,k,v);if(k==='projectId'&&DRAFT.type==='content')drawForm()}
   if(DRAFT&&el.dataset.relq){DRAFT.q[el.dataset.relq]=el.value;const pos=el.selectionStart;drawForm();const n=document.getElementById(el.id);if(n){n.focus();try{n.setSelectionRange(pos,pos)}catch(_){}}}
   if(el.dataset.planObj!==undefined){UI.plan.counts[el.dataset.planObj]=+el.value||0}
   if(el.dataset.plan==='month')UI.plan.month=el.value;
+  if(el.dataset.notedraft)UI.noteDraft[el.dataset.notedraft]=el.value;
+  if(el.dataset.noteedit){const it=byId('ideas',el.dataset.noteedit);if(it){it.text=el.value;delete it.title;delete it.desc;it.updatedAt=new Date().toISOString();save('ideas');clearTimeout(timers._nr);timers._nr=setTimeout(()=>{if(!document.querySelector('.sheet'))render()},50)}}
+  if(el.dataset.editnotes){const c=byId('contents',el.dataset.editnotes);if(c){c.editNotes=el.value;save('contents')}}
 });
 document.addEventListener('change',e=>{const el=e.target;
   if(DRAFT&&el.dataset.rel){const k=el.dataset.rel;const v=arr(getP(DRAFT.data,k));setP(DRAFT.data,k,el.checked?[...v,el.value]:v.filter(x=>x!==el.value))}
@@ -956,6 +1067,7 @@ document.addEventListener('change',e=>{const el=e.target;
   if(el.dataset.up)handleUpload(el);
   if(el.dataset.cstatus){const c=byId('contents',el.dataset.cstatus);c.status=el.value;save('contents');renderDetail();toast('Status atualizado')}
   if(el.dataset.calproj!==undefined){UI.calF.proj=el.value;render()}
+  if(el.dataset.janelaf!==undefined){UI.janelaF=el.value;render()}
   if(el.dataset.planSel!==undefined){UI.plan.sel[+el.dataset.planSel]=el.checked}
   if(el.dataset.pd!==undefined&&UI._pd){UI._pd.rows[+el.dataset.pd][1]=el.value}
 });
