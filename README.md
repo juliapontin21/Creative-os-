@@ -10,9 +10,16 @@ O diferencial: transformar momentos reais da rotina em oportunidades organizadas
 |---|---|
 | `docs/ARQUITETURA.md` | Análise do briefing, modelo de dados, fluxos, lacunas, MVP × integrações, plano por fases |
 | `app/index.html` | Fase 1: aplicativo interativo mobile-first (um arquivo) |
-| `app/seed/` | Dados de demonstração (viagem a Ubatuba, produtos TikTok Shop, conteúdos UGC) e o script que os gera |
+| `app/seed/` | Scripts e dados: demonstração e o inventário real (`real/`) |
+| `web/` | Fase 2: app web (Vercel). `index.html` é gerado de `app/index.html` por `web/build.py`; `api/` tem login com Google, token do Drive e IA |
+| `supabase/schema.sql` | Tabelas do banco (Supabase) com acesso só da dona |
+| `docs/FASE2-SETUP.md` | Passo a passo para colocar a Fase 2 no ar |
 
-## Fase atual: 1 (MVP interativo)
+## Fase 2 (em configuração)
+
+O mesmo app roda fora do Claude, com login Google, banco próprio, backup diário, microfone e upload real para o Google Drive (original em Biblioteca de Takes, atalhos nas pastas dos conteúdos). Siga `docs/FASE2-SETUP.md`.
+
+## Fase 1 (MVP interativo, artefato no Claude)
 
 Funciona de verdade: projetos e frentes, referências com busca por intenção, ideias e plano mensal, conteúdos com roteiro em 3 modos (roteiro, captação, edição) e modo leitura, banco universal de takes, Captar agora, catálogo contextual de produtos, calendário unificado com filtros, planejamento reverso e reagendamento, indicadores.
 

@@ -323,6 +323,8 @@ const VIEWS=[['inicio','Início'],['ideias','Notas'],['producao','Produção'],[
 function render(){
   const app=document.getElementById('app');
   if(MODE==='loading'){app.innerHTML=`<div class="wrap"><div class="boot"><div><span class="rec-dot"></span></div><div>Abrindo seu Creative OS…</div></div></div>`;return}
+  if(MODE==='login'){app.innerHTML=`<div class="wrap">${vLogin()}</div>`;return}
+  if(MODE==='error'){app.innerHTML=`<div class="wrap"><div class="boot"><div class="notice bad">${h(UI._err||'Algo deu errado.')}</div><button class="btn" onclick="location.reload()">Tentar de novo</button></div></div>`;return}
   const body={falar:vFalar,inicio:vInicio,ideias:vIdeias,producao:vProducao,captar:vCaptar,calendario:vCalendario,projetos:vProjetos}[UI.view]();
   app.innerHTML=`<div class="wrap">${body}</div>
   <nav class="bottom" aria-label="Navegação"><div class="in">${VIEWS.map(([k,l])=>k==='captar'
@@ -371,7 +373,7 @@ function vInicio(){
   const noTakes=S.contents.filter(needsTakes).length;
   const inEdit=S.contents.filter(c=>c.status==='Edição').length;
   return topBar(`${['Bom dia','Boa tarde','Boa noite'][d.getHours()<12?0:d.getHours()<18?1:2]}, Julia`,fmtD(TODAY))+modeNote()+
-  (emptyAll()?`<div class="empty" style="margin-top:12px">Seu Creative OS está vazio. Comece por um conteúdo.<div style="margin-top:10px"><button class="btn sm pri" data-act="new" data-t="content">Novo conteúdo</button></div></div>`:'')+
+  (emptyAll()?`<div class="empty" style="margin-top:12px">Seu Creative OS está vazio.${MODE==='web'?' Importe o backup que você baixou do Creative OS do Claude, ou comece do zero.':' Comece por um conteúdo.'}<div class="row" style="margin-top:10px;justify-content:center">${MODE==='web'?'<button class="btn sm pri" data-act="import-file">Importar backup</button><input type="file" id="import-input" data-import="1" accept="application/json,.json" hidden>':''}<button class="btn sm" data-act="new" data-t="content">Novo conteúdo</button></div></div>`:'')+
   (top3.length?`<div class="sec" style="margin-top:4px"><div class="sec-h"><h2>Lembretes</h2>${R.length>top3.length?`<button class="btn ghost sm" data-act="reminders">Ver todos (${R.length})</button>`:''}</div><div class="list">${top3.map(remRow).join('')}</div></div>`:'')+
   `<div class="cap-hero" style="margin-top:16px">
     <div class="row"><span class="rec-dot"></span><span class="eyebrow" style="color:inherit">Captar agora</span></div>
@@ -497,7 +499,7 @@ function applyActions(){
 function vFalar(){
   let out=topBar('Falar','Cadastro por voz');
   out+=`<div class="card" style="margin-top:4px">
-    <div class="small muted">Toque na caixa e use o <b>microfone do teclado</b> do celular para ditar. Depois toque em Interpretar.</div>
+    ${MODE==='web'&&(window.SpeechRecognition||window.webkitSpeechRecognition)?`<button class="btn ${REC?'pri':''} wide" data-act="mic" style="min-height:56px;font-size:1.05rem">${REC?'⏺ Ouvindo… toque para parar':'🎙 Toque e fale'}</button>`:`<div class="small muted">Toque na caixa e use o <b>microfone do teclado</b> do celular para ditar. Depois toque em Interpretar.</div>`}
     <textarea id="voice-text" data-voice="1" placeholder="Ex.: no pote plástico cadastre um take pra eu gravar na rua" style="min-height:110px;font-size:1.05rem">${h(V.text)}</textarea>
     <button class="btn pri" data-act="voice-go" ${V.busy?'aria-disabled="true"':''}>${V.busy?'Interpretando…':'Interpretar'}</button>
   </div>`;
@@ -662,7 +664,7 @@ function vProducao(){
   return out;
 }
 function libCard(t){const cs=arr(t.contentIds).map(id=>byId('contents',id)).filter(Boolean);const fs=arr(t.fileIds).map(id=>byId('files',id)).filter(Boolean);
-  return`<button class="card tap" data-act="open" data-t="take" data-id="${t.id}"><div class="row between"><h3 class="grow">${h(t.desc)}</h3><span class="mono muted">${h(t.code||'')}</span></div><div class="chips">${arr(t.contexts).map(k=>`<span class="chip">${ctxL(k)}</span>`).join('')}${t.framing?`<span class="chip">${h(t.framing)}</span>`:''}${t.recordedAt?`<span class="chip">${fmtShort(t.recordedAt)}</span>`:''}</div>${fs.map(f=>`<div class="folder">${h(drivePath(f,t))}</div>`).join('')||'<div class="small muted">Marcado como gravado, sem arquivo enviado</div>'}<div class="serves">${cs.length?`Usado em: ${cs.map(c=>h(c.title)).join(' · ')}`:'<b>Sem utilização</b> · disponível para novos conteúdos'}</div></button>`}
+  return`<button class="card tap" data-act="open" data-t="take" data-id="${t.id}"><div class="row between"><h3 class="grow">${h(t.desc)}</h3><span class="mono muted">${h(t.code||'')}</span></div><div class="chips">${arr(t.contexts).map(k=>`<span class="chip">${ctxL(k)}</span>`).join('')}${t.framing?`<span class="chip">${h(t.framing)}</span>`:''}${t.recordedAt?`<span class="chip">${fmtShort(t.recordedAt)}</span>`:''}</div>${fs.map(f=>f.webViewLink?`<div class="small" style="color:var(--accent)">${h(f.name)} · no Drive</div>`:`<div class="folder">${h(drivePath(f,t))}</div>`).join('')||'<div class="small muted">Marcado como gravado, sem arquivo enviado</div>'}<div class="serves">${cs.length?`Usado em: ${cs.map(c=>h(c.title)).join(' · ')}`:'<b>Sem utilização</b> · disponível para novos conteúdos'}</div></button>`}
 function drivePath(f,t){return`Creative OS/Biblioteca de Takes/${(t?.code||'TAKE')}_${f.name}`}
 
 /* ---------- CALENDÁRIO ---------- */
@@ -719,12 +721,13 @@ function dayView(d,items,compact){
 function vProjetos(){
   const tab=UI.projTab;
   let out=topBar('Projetos','Experiências, produtos e números',`<button class="icon-btn" data-act="new" data-t="${tab==='produtos'?'product':'project'}" aria-label="Adicionar">＋</button>`);
-  out+=`<div class="tabs">${[['projetos','Projetos'],['produtos','TikTok Shop'],['numeros','Indicadores']].map(([k,l])=>`<button class="${tab===k?'on':''}" data-act="jtab" data-k="${k}">${l}</button>`).join('')}</div>`;
+  out+=`<div class="tabs">${[['projetos','Projetos'],['produtos','TikTok Shop'],['numeros','Números'],...(MODE==='web'?[['conta','Conta']]:[])].map(([k,l])=>`<button class="${tab===k?'on':''}" data-act="jtab" data-k="${k}">${l}</button>`).join('')}</div>`;
   if(tab==='projetos')out+=`<div class="sec"><div class="list">${S.projects.map(projMini).join('')||'<div class="empty">Nenhum projeto. Crie um para viagens, eventos ou campanhas.</div>'}</div></div>`;
   else if(tab==='produtos'){
     out+=`<div class="sec"><div class="list">${S.products.map(p=>{const tk=S.takes.filter(t=>arr(t.productIds).includes(p.id));const pend=tk.filter(t=>t.status!=='gravado').length;const cs=S.contents.filter(c=>arr(c.productIds).includes(p.id));
       return`<button class="card tap" data-act="open" data-t="product" data-id="${p.id}"><div class="row between"><h3 class="grow">${h(p.name)}</h3>${p.available===false?'<span class="chip">sem amostra</span>':'<span class="chip ok">em mãos</span>'}</div><div class="small muted">${h(p.brand||'')} · ${h(p.category||'')}</div><div class="chips">${arr(p.contexts).map(c=>`<span class="chip l-${c.level}">${ctxL(c.ctx)}</span>`).join('')}</div><div class="serves">${cs.length} conteúdos · ${pend} takes pendentes · ${arr(p.refIds).length} referências</div></button>`}).join('')||'<div class="empty">Nenhum produto cadastrado.</div>'}</div></div>`;
-  }else out+=vNumeros();
+  }else if(tab==='conta')out+=vConta();
+  else out+=vNumeros();
   return out;
 }
 function vNumeros(){
@@ -944,7 +947,7 @@ function showTake(t){const cs=arr(t.contentIds).map(id=>byId('contents',id)).fil
   sheet(`${h(t.code||'Take')}`,`<h3 style="font-size:1.1rem">${h(t.desc)}</h3><div class="chips">${[t.action,t.framing,t.setting,t.location,t.participant,t.duration].filter(Boolean).map(x=>`<span class="chip">${h(x)}</span>`).join('')}${arr(t.contexts).map(k=>`<span class="chip acc">${ctxL(k)}</span>`).join('')}</div>
   ${ev?`<div class="notice">Data fixa: ${h(ev.title)} · ${fmtD(ev.date)}</div>`:'<div class="small muted">Gravação flexível: aparece em qualquer momento compatível.</div>'}
   <div class="card"><h3>Conteúdos (${cs.length})</h3>${cs.map(c=>`<button class="row between" style="border:0;background:none;padding:0;text-align:left" data-act="open" data-t="content" data-id="${c.id}"><span class="small">${h(c.title)}</span><span class="status ${statusClass(c.status)}">${h(c.status)}</span></button>`).join('')||'<span class="small muted">Nenhum. Vincule a conteúdos atuais ou futuros.</span>'}</div>
-  <div class="card"><div class="row between"><h3>Arquivos (${fs.length})</h3><span class="sim">Simulação</span></div>${fs.map(f=>`<div class="folder">${h(drivePath(f,t))}</div><div class="small muted">${(f.size/1048576).toFixed(1)} MB · enviado ${fmtShort(f.date)}</div>`).join('')||'<span class="small muted">Nenhum arquivo.</span>'}<label class="btn sm" for="up2-${t.id}">⬆ Enviar arquivo</label><input type="file" id="up2-${t.id}" data-up="${t.id}" accept="video/*,image/*" multiple hidden></div>
+  <div class="card"><div class="row between"><h3>Arquivos (${fs.length})</h3>${MODE!=='web'?'<span class="sim">Simulação</span>':''}</div>${fs.map(f=>f.webViewLink?`<a class="small" href="${h(f.webViewLink)}" target="_blank" rel="noopener" style="color:var(--accent)">${h(f.name)} ↗</a><div class="small muted">${(f.size/1048576).toFixed(1)} MB · no Drive desde ${fmtShort(f.date)}${arr(f.shortcuts).length?` · atalho em ${f.shortcuts.length} pasta(s)`:''}</div>`:`<div class="folder">${h(drivePath(f,t))}</div><div class="small muted">${(f.size/1048576).toFixed(1)} MB · ${f.simulated?'registro simulado':'enviado'} ${fmtShort(f.date)}</div>`).join('')||'<span class="small muted">Nenhum arquivo.</span>'}<label class="btn sm" for="up2-${t.id}">⬆ Enviar arquivo</label><input type="file" id="up2-${t.id}" data-up="${t.id}" accept="video/*,image/*" multiple hidden></div>
   ${t.notes?`<div class="small">${h(t.notes)}</div>`:''}
   <div class="row"><button class="btn ${t.status==='gravado'?'ok':'pri'} grow" data-act="take-toggle" data-id="${t.id}">${t.status==='gravado'?'✓ Gravado (desfazer)':'Marcar como gravado'}</button><button class="btn" data-act="edit" data-t="take" data-id="${t.id}">Editar</button></div>`)}
 function showRef(r){const cs=arr(r.contentIds).map(id=>byId('contents',id)).filter(Boolean);const ps=arr(r.productIds).map(id=>byId('products',id)).filter(Boolean);
@@ -980,6 +983,7 @@ function calcPlan(c,pub){
 
 /* ============ AÇÕES ============ */
 function refresh(){render()}
+function refreshKeepSheet(){const d=UI.detail;UI.detail=null;render();UI.detail=d;if(d){const pg=document.querySelector('#layer .page');const fn={content:pContent,project:pProject,product:pProduct}[d.t];const coll={content:'contents',project:'projects',product:'products'}[d.t];if(pg&&fn)pg.innerHTML=`<div class="wrap" style="padding-bottom:40px">${fn(byId(coll,d.id))}</div>`}}
 function go(v){UI.view=v;UI.detail=null;document.getElementById('layer').innerHTML='';render();window.scrollTo(0,0);try{history.replaceState(null,'','#'+v)}catch(e){}}
 function runCaptar(text){UI.captar.text=text;UI.captar.ctx=parseCtx(text);UI.captar.ai=null;go('captar')}
 async function capAI(){
@@ -1031,6 +1035,7 @@ function planCreate(){
 }
 function handleUpload(input){
   const t=byId('takes',input.dataset.up);const files=[...input.files];if(!t||!files.length)return;
+  if(MODE==='web'){realUpload(t,files);input.value='';return}
   const recs=files.map(f=>{const r={id:uid('f'),name:f.name,size:f.size,type:f.type,date:TODAY,takeIds:[t.id],driveId:null,simulated:true};S.files.push(r);return r});
   t.fileIds=[...arr(t.fileIds),...recs.map(r=>r.id)];
   saveAll('files');if(t.status!=='gravado')setTakeStatus(t,'gravado');else save('takes');
@@ -1041,7 +1046,7 @@ function handleUpload(input){
   <div class="card"><h3>Atalhos nas pastas dos conteúdos</h3>${cs.map(c=>`<div class="folder">Creative OS/Projetos/${h(projName(c.projectId))}/${h(c.title)}/↪ ${h(t.code)}</div>`).join('')||'<span class="small muted">Take sem conteúdo: fica em Biblioteca de Takes como não classificado.</span>'}</div>
   <div class="card"><h3>Progresso atualizado</h3>${cs.map(c=>{const p=progress(c);return`<div class="row"><span class="small grow">${h(c.title)}</span><span class="mono muted">${p.done}/${p.total}</span></div>`}).join('')||'<span class="small muted">—</span>'}</div>
   <button class="btn pri" data-act="close-form">Continuar gravando</button>`);
-  render();
+  refreshKeepSheet();
 }
 let WAKE=null;
 function openReader(c){const lines=arr(c.script?.lines);let i=0;const L=document.getElementById('layer');const div=document.createElement('div');div.className='reader';L.appendChild(div);
@@ -1057,6 +1062,11 @@ const ACT={
   'cap-addctx':()=>sheet('Adicionar contexto',`<div class="chips">${Object.keys(CTX).map(k=>`<button class="chip btn ${UI.captar.ctx.includes(k)?'on':''}" data-act="cap-ctx2" data-k="${k}">${CTX[k].l}</button>`).join('')}</div>`),
   'cap-ctx2':d=>{UI.captar.ctx=UI.captar.ctx.includes(d.k)?UI.captar.ctx.filter(k=>k!==d.k):[...UI.captar.ctx,d.k];closeForm();render()},
   'cap-ai':()=>capAI(),
+  login:()=>{UI._err='';SB.auth.signInWithOAuth({provider:'google',options:{scopes:GSCOPES,redirectTo:location.origin,queryParams:{access_type:'offline',prompt:'consent'}}})},
+  logout:async()=>{await SB?.auth.signOut();location.reload()},
+  'mic':()=>toggleMic(),
+  'import-file':()=>document.getElementById('import-input')?.click(),
+  export:()=>exportData(),
   'voice-go':()=>{if(!V.busy)interpret()},'voice-apply':()=>applyActions(),'voice-cancel':()=>{V.plan=null;render();document.getElementById('voice-text')?.focus()},
   'voice-ex':d=>{V.text=d.q;render()},
   reminders:()=>{const R=reminders();sheet('Lembretes',R.length?`<div class="list">${R.map(remRow).join('')}</div>`:'<div class="empty">Nada urgente agora.</div>')},
@@ -1146,6 +1156,7 @@ document.addEventListener('change',e=>{const el=e.target;
   if(DRAFT&&el.dataset.rel){const k=el.dataset.rel;const v=arr(getP(DRAFT.data,k));setP(DRAFT.data,k,el.checked?[...v,el.value]:v.filter(x=>x!==el.value))}
   if(DRAFT&&el.dataset.f&&(el.tagName==='SELECT'||el.type==='checkbox'||el.type==='date')){const k=el.dataset.f;setP(DRAFT.data,k,el.dataset.bool?el.checked:el.value);if(k==='projectId'&&DRAFT.type==='content')drawForm()}
   if(el.dataset.up)handleUpload(el);
+  if(el.dataset.import&&el.files[0])importData(el.files[0]);
   if(el.dataset.cstatus){const c=byId('contents',el.dataset.cstatus);c.status=el.value;save('contents');renderDetail();toast('Status atualizado')}
   if(el.dataset.calproj!==undefined){UI.calF.proj=el.value;render()}
   if(el.dataset.janelaf!==undefined){UI.janelaF=el.value;render()}
@@ -1154,10 +1165,113 @@ document.addEventListener('change',e=>{const el=e.target;
   if(el.dataset.pd!==undefined&&UI._pd){UI._pd.rows[+el.dataset.pd][1]=el.value}
 });
 
+/* ============ MODO WEB (Fase 2): Supabase + Google Drive ============ */
+let SB=null,SESSION=null,WEBCFG=null,GTOK=null;const DRIVE={folders:{},checked:{}};
+const GSCOPES='https://www.googleapis.com/auth/drive.file';
+async function api(path,opt={}){const r=await fetch(path,{...opt,headers:{'Content-Type':'application/json',Authorization:'Bearer '+(SESSION?.access_token||''),...(opt.headers||{})}});let j={};try{j=await r.json()}catch(_){}if(!r.ok)throw Object.assign(new Error(j.error||('Erro '+r.status)),{code:j.code||r.status});return j}
+async function webInit(){
+  try{WEBCFG=await fetch('/api/config').then(r=>r.json())}catch(e){MODE='error';UI._err='Não consegui falar com o servidor do app. Confira sua internet e recarregue.';return false}
+  if(!WEBCFG.supabaseUrl){MODE='error';UI._err='O app ainda não foi configurado: faltam as variáveis do Supabase na Vercel.';return false}
+  SB=window.supabase.createClient(WEBCFG.supabaseUrl,WEBCFG.supabaseAnonKey,{auth:{persistSession:true,detectSessionInUrl:true,flowType:'pkce'}});
+  const {data}=await SB.auth.getSession();SESSION=data.session;
+  SB.auth.onAuthStateChange((_e,s)=>{if(s)SESSION=s});
+  if(!SESSION){MODE='login';return false}
+  if(WEBCFG.allowedEmail&&norm(SESSION.user.email)!==norm(WEBCFG.allowedEmail)){await SB.auth.signOut();MODE='login';UI._err='Esta conta não tem acesso a este Creative OS.';return false}
+  if(SESSION.provider_refresh_token){try{await api('/api/google-token',{method:'POST',body:JSON.stringify({refresh_token:SESSION.provider_refresh_token})})}catch(e){console.warn('token',e)}}
+  if(SESSION.provider_token)GTOK={t:SESSION.provider_token,exp:Date.now()+50*60e3};
+  const uidv=SESSION.user.id;
+  const {data:rows,error}=await SB.from('os_docs').select('key,items');
+  if(error){MODE='error';UI._err='Não consegui ler seus dados: '+error.message;return false}
+  arr(rows).forEach(r=>{if(KEYS.includes(r.key))S[r.key]=arr(r.items);if(r.key==='drive'&&r.items&&!Array.isArray(r.items))Object.assign(DRIVE.folders,r.items.folders||{})});
+  DB={doc:path=>({set:async({items})=>{const {error}=await SB.from('os_docs').upsert({user_id:uidv,key:path.split('/').pop(),items,updated_at:new Date().toISOString()});if(error)throw Object.assign(new Error(error.message),{code:error.code})}})};
+  if(WEBCFG.ai)SAMPLE={json:async(prompt,opts={})=>{const j=await api('/api/ai',{method:'POST',body:JSON.stringify({prompt,tier:opts.modelTier||'default'})});return j.result}};
+  // backup diário
+  try{const {data:b}=await SB.from('os_backups').select('created_at').order('created_at',{ascending:false}).limit(1);if(!b?.length||Date.now()-new Date(b[0].created_at)>864e5){const snap={};KEYS.forEach(k=>snap[k]=S[k]);await SB.from('os_backups').insert({user_id:uidv,data:snap})}}catch(e){}
+  MODE='web';return true;
+}
+function saveDrive(){if(MODE==='web'&&SB)SB.from('os_docs').upsert({user_id:SESSION.user.id,key:'drive',items:{folders:DRIVE.folders},updated_at:new Date().toISOString()}).then(()=>{})}
+async function gToken(){if(GTOK&&GTOK.exp>Date.now()+60e3)return GTOK.t;const j=await api('/api/google-token');GTOK={t:j.access_token,exp:Date.now()+(j.expires_in||3000)*1000};return GTOK.t}
+async function gdrive(path,opt={}){const t=await gToken();const r=await fetch('https://www.googleapis.com/drive/v3/'+path,{...opt,headers:{Authorization:'Bearer '+t,'Content-Type':'application/json; charset=UTF-8'}});if(!r.ok){const tx=await r.text();throw Object.assign(new Error('Google Drive '+r.status+': '+tx.slice(0,160)),{status:r.status})}return r.json()}
+const safeName=s=>String(s||'Sem nome').replace(/[\\/]/g,'-').slice(0,120);
+async function driveFolder(names){
+  let parent='root',key='';
+  for(const raw of names){const name=safeName(raw);key+='/'+name;let id=DRIVE.folders[key];
+    if(id&&!DRIVE.checked[key]){try{const f=await gdrive(`files/${id}?fields=id,trashed`);if(f.trashed)id=null}catch(e){id=null}DRIVE.checked[key]=true}
+    if(!id){const f=await gdrive('files?fields=id',{method:'POST',body:JSON.stringify({name,mimeType:'application/vnd.google-apps.folder',parents:[parent]})});id=f.id;DRIVE.folders[key]=id;DRIVE.checked[key]=true;saveDrive()}
+    parent=id}
+  return parent;
+}
+async function driveUpload(file,parent,onProg){
+  let t=await gToken();
+  const init=await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&fields=id,name,size,webViewLink',{method:'POST',headers:{Authorization:'Bearer '+t,'Content-Type':'application/json; charset=UTF-8','X-Upload-Content-Type':file.type||'application/octet-stream','X-Upload-Content-Length':String(file.size)},body:JSON.stringify({name:file.name,parents:[parent]})});
+  if(!init.ok)throw new Error('Não consegui iniciar o envio ('+init.status+').');
+  const loc=init.headers.get('Location');if(!loc)throw new Error('O Google não devolveu o endereço de envio.');
+  const CH=8*1024*1024;let start=0,fails=0;
+  while(true){
+    const end=Math.min(start+CH,file.size);
+    try{
+      const r=await fetch(loc,{method:'PUT',headers:{'Content-Range':`bytes ${start}-${end-1}/${file.size}`},body:file.slice(start,end)});
+      if(r.status===308){const rg=r.headers.get('Range');start=rg?(+rg.split('-')[1]+1):end;fails=0;onProg(start/file.size);continue}
+      if(r.ok){onProg(1);return r.json()}
+      if(r.status>=500&&fails<4){fails++;await new Promise(z=>setTimeout(z,1500*fails));continue}
+      throw new Error('O envio falhou ('+r.status+').');
+    }catch(e){
+      if(fails>=4)throw new Error('A conexão caiu durante o envio. Tente de novo com internet melhor.');
+      fails++;await new Promise(z=>setTimeout(z,2000*fails));
+      try{const q=await fetch(loc,{method:'PUT',headers:{'Content-Range':`bytes */${file.size}`}});if(q.ok)return q.json();if(q.status===308){const rg=q.headers.get('Range');start=rg?(+rg.split('-')[1]+1):0}}catch(_){}
+    }
+  }
+}
+async function realUpload(t,files){
+  const cs=arr(t.contentIds).map(id=>byId('contents',id)).filter(Boolean);
+  const box=()=>document.getElementById('up-box');
+  sheet('Enviando para o Drive',`<div id="up-box" class="list"></div><div class="notice info">Não feche o app nem apague o vídeo do celular até aparecer "Concluído".</div>`);
+  const done=[];
+  for(const [i,file] of files.entries()){
+    const row=document.createElement('div');row.className='card';row.innerHTML=`<b class="small">${h(file.name)}</b><div class="bar acc"><i style="width:0%"></i></div><span class="small muted">Preparando pastas…</span>`;box()?.appendChild(row);
+    const bar=row.querySelector('i'),lab=row.querySelector('span');
+    try{
+      const lib=await driveFolder(['Creative OS','Biblioteca de Takes']);
+      lab.textContent='Enviando… 0%';
+      const up=await driveUpload(file,lib,p=>{bar.style.width=Math.round(p*100)+'%';lab.textContent='Enviando… '+Math.round(p*100)+'%'});
+      lab.textContent='Criando atalhos nas pastas dos conteúdos…';
+      const shortcuts=[];
+      for(const c of cs){try{const pf=await driveFolder(['Creative OS','Projetos',c.projectId?projName(c.projectId):'Sem projeto',c.title]);const sc=await gdrive('files?fields=id',{method:'POST',body:JSON.stringify({name:`${t.code||'TAKE'} ${file.name}`,mimeType:'application/vnd.google-apps.shortcut',shortcutDetails:{targetId:up.id},parents:[pf]})});shortcuts.push({contentId:c.id,id:sc.id})}catch(e){console.warn('atalho',e)}}
+      const rec={id:uid('f'),name:file.name,size:file.size,type:file.type,date:TODAY,takeIds:[t.id],driveId:up.id,webViewLink:up.webViewLink||`https://drive.google.com/file/d/${up.id}/view`,shortcuts,simulated:false};
+      S.files.push(rec);t.fileIds=[...arr(t.fileIds),rec.id];done.push(rec);save('files');
+      row.innerHTML=`<b class="small">✓ ${h(file.name)}</b><div class="small" style="color:var(--ok)">Concluído no Drive${shortcuts.length?` · atalho em ${shortcuts.length} pasta${shortcuts.length>1?'s':''}`:''}. Pode apagar do celular.</div><a class="small" href="${h(rec.webViewLink)}" target="_blank" rel="noopener" style="color:var(--accent)">Abrir no Drive</a>`;
+    }catch(e){row.innerHTML=`<b class="small">${h(file.name)}</b><div class="small" style="color:var(--bad)">Não enviado: ${h(e.message)}</div><div class="small muted">O vídeo continua só no seu celular. Não apague.</div>`}
+  }
+  if(done.length){if(t.status!=='gravado')setTakeStatus(t,'gravado');else save('takes');toast(done.length+' arquivo(s) no Drive');refreshKeepSheet();
+    box()?.insertAdjacentHTML('afterend','<button class="btn pri" data-act="close-form">Continuar gravando</button>')}
+}
+let REC=null;
+function toggleMic(){
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;if(!SR)return toast('Este navegador não tem reconhecimento de voz. Use o microfone do teclado.');
+  if(REC){REC.stop();return}
+  const base=V.text?V.text.trim()+' ':'';REC=new SR();REC.lang='pt-BR';REC.continuous=true;REC.interimResults=true;
+  REC.onresult=e=>{let txt='';for(const r of e.results)txt+=r[0].transcript;V.text=base+txt;const ta=document.getElementById('voice-text');if(ta)ta.value=V.text};
+  REC.onerror=e=>{toast(e.error==='not-allowed'?'Libere o microfone para o Creative OS nas configurações do navegador.':'O microfone parou ('+e.error+').')};
+  REC.onend=()=>{REC=null;render()};
+  try{REC.start();render()}catch(e){REC=null;toast('Não consegui ligar o microfone.')}
+}
+function importData(file){
+  const fr=new FileReader();fr.onload=()=>{try{const j=JSON.parse(fr.result);const src=j.collections||j;let n=0;
+    KEYS.forEach(k=>{const v=src[k];const items=Array.isArray(v)?v:arr(v?.items);if(items.length||Array.isArray(v)){S[k]=items;save(k);n+=items.length}});
+    toast(n?`${n} registros importados`:'Arquivo sem dados reconhecidos.');render()}catch(e){toast('Arquivo inválido: use o backup .json do Creative OS.')}};fr.readAsText(file)}
+function exportData(){const snap={app:'creative-os',exportedAt:new Date().toISOString(),collections:{}};KEYS.forEach(k=>snap.collections[k]=S[k]);const b=new Blob([JSON.stringify(snap)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=`creative-os-backup-${TODAY}.json`;document.body.appendChild(a);a.click();a.remove()}
+function vConta(){
+  if(MODE!=='web')return`<div class="sec"><div class="notice info">Conta, backup e importação ficam disponíveis no app web (Fase 2).</div></div>`;
+  return`<div class="sec"><div class="card"><h3>Conta</h3><div class="small">${h(SESSION?.user?.email||'')}</div><div class="small muted">Drive: pastas em "Creative OS" no seu Google Drive.</div><button class="btn sm" data-act="logout" style="align-self:flex-start">Sair</button></div>
+  <div class="card"><h3>Dados</h3><div class="small muted">Backup automático diário no banco. Você também pode baixar uma cópia.</div><div class="row"><button class="btn sm" data-act="export">Baixar backup</button><button class="btn sm" data-act="import-file">Importar backup</button><input type="file" id="import-input" data-import="1" accept="application/json,.json" hidden></div></div></div>`;
+}
+function vLogin(){return`<div class="boot" style="min-height:80vh"><div style="display:flex;flex-direction:column;gap:14px;align-items:center;max-width:320px"><span class="rec-dot" style="width:16px;height:16px"></span><h1 style="font-family:var(--f-display);font-size:2rem;margin:0">Creative OS</h1><div class="muted">Entre com sua conta Google. O app vai pedir acesso ao seu Google Drive, só aos arquivos e pastas que ele mesmo criar.</div>${UI._err?`<div class="notice bad">${h(UI._err)}</div>`:''}<button class="btn pri wide" data-act="login">Entrar com Google</button></div></div>`}
+
 /* ============ BOOT ============ */
 (async function boot(){
   const tok=(location.hash||'').slice(1);if(VIEWS.some(v=>v[0]===tok))UI.view=tok;
   render();
+  if(window.COS_WEB){await webInit();render();return}
   const use=n=>window.claude?.use?window.claude.use(n).catch(()=>null):Promise.resolve(null);
   const [db,sample]=await Promise.all([use('db'),use('sample')]);
   SAMPLE=sample||null;

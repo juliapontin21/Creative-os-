@@ -1,0 +1,6 @@
+{
+  "name": "creative-os-web",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=18" }
+}
