@@ -196,7 +196,8 @@ const CTX={
   mercado:{l:'Mercado / delivery',s:['mercado','supermercado','delivery','compras de mercado']},
   barco:{l:'Barco',s:['barco','lancha','escuna','piér','pier']},
   pesca:{l:'Pesca',s:['pesca','pescando','pescar','vara','carretilha']},
-  carro:{l:'Carro / estrada',s:['carro','estrada','dirigindo']}
+  carro:{l:'Carro / estrada',s:['carro','estrada','dirigindo']},
+  rua:{l:'Rua',s:['na rua','calcada','pela cidade','andando na rua']}
 };
 const CAP_QUICK=['Estou na praia','Estou na academia','Estou cozinhando','Estou em um restaurante','Estou em um evento','Estou no notebook','Estou arrumando a mala','Estou em reunião'];
 
@@ -322,7 +323,7 @@ const VIEWS=[['inicio','Início'],['ideias','Notas'],['producao','Produção'],[
 function render(){
   const app=document.getElementById('app');
   if(MODE==='loading'){app.innerHTML=`<div class="wrap"><div class="boot"><div><span class="rec-dot"></span></div><div>Abrindo seu Creative OS…</div></div></div>`;return}
-  const body={inicio:vInicio,ideias:vIdeias,producao:vProducao,captar:vCaptar,calendario:vCalendario,projetos:vProjetos}[UI.view]();
+  const body={falar:vFalar,inicio:vInicio,ideias:vIdeias,producao:vProducao,captar:vCaptar,calendario:vCalendario,projetos:vProjetos}[UI.view]();
   app.innerHTML=`<div class="wrap">${body}</div>
   <nav class="bottom" aria-label="Navegação"><div class="in">${VIEWS.map(([k,l])=>k==='captar'
     ?`<button class="cap" data-act="go" data-v="captar" aria-label="Captar agora"><span class="rec"><i></i></span>Captar</button>`
@@ -354,7 +355,7 @@ function reminders(){
 }
 function bell(){const n=reminders().filter(r=>r.lvl!=='info').length;return`<button class="icon-btn" data-act="reminders" aria-label="Lembretes" style="position:relative">🔔${n?`<span style="position:absolute;top:-4px;right:-4px;background:var(--accent);color:var(--on-accent);border-radius:99px;font-size:.66rem;font-weight:800;min-width:18px;height:18px;display:grid;place-items:center;padding:0 4px">${n}</span>`:''}</button>`}
 function remRow(r){return`<button class="notice ${r.lvl==='acc'?'':r.lvl} card tap" style="border:0;text-align:left;display:block;line-height:1.4" ${r.act}><span>${r.text}</span></button>`}
-function topBar(title,eyebrow,right=''){return`<header class="top"><div class="grow"><div class="eyebrow">${eyebrow||''}</div><h1>${title}</h1></div>${UI.view!=='inicio'?bell():''}${right}</header>`}
+function topBar(title,eyebrow,right=''){return`<header class="top"><div class="grow"><div class="eyebrow">${eyebrow||''}</div><h1>${title}</h1></div>${UI.view!=='falar'?`<button class="icon-btn" data-act="go" data-v="falar" aria-label="Falar um comando">🎙</button>`:''}${UI.view!=='inicio'?bell():''}${right}</header>`}
 function modeNote(){
   if(MODE==='local')return`<div class="notice info">Modo local: os dados ficam só neste navegador. Abra pelo app do Claude, com sua conta, para salvar no seu banco.</div>`;
   return'';
@@ -376,6 +377,7 @@ function vInicio(){
     <div class="row"><span class="rec-dot"></span><span class="eyebrow" style="color:inherit">Captar agora</span></div>
     <form class="cap-in" data-form="captar-home"><input type="text" id="cap-home" placeholder="Onde você está? Ex.: na praia" autocomplete="off"><button class="btn pri" type="submit">Ver</button></form>
   </div>
+  <button class="card tap" data-act="go" data-v="falar" style="margin-top:10px;flex-direction:row;align-items:center;gap:12px"><span class="icon-btn" style="background:var(--accent-soft);border-color:transparent">🎙</span><span class="grow"><b>Falar um comando</b><br><span class="small muted">Cadastre vídeo, take, nota ou compromisso falando</span></span></button>
   <div class="kpis" style="margin-top:12px">
     <button class="kpi card tap" data-act="go-cf" data-k="planejamento"><b>${toRec}</b><span>para gravar</span></button>
     <button class="kpi card tap" data-act="go-cf" data-k="semtakes"><b style="${noTakes?'color:var(--warn)':''}">${noTakes}</b><span>takes a definir</span></button>
@@ -429,6 +431,82 @@ function projMini(pr){const s=projStats(pr);const pct=s.tk.length?Math.round(s.g
   return`<button class="card tap" data-act="open" data-t="project" data-id="${pr.id}"><div class="row between"><h3>${h(pr.name)}</h3><span class="small muted">${pr.start?fmtShort(pr.start)+(pr.end?'–'+fmtShort(pr.end):''):''}</span></div><div class="row"><div class="bar acc grow"><i style="width:${pct}%"></i></div><span class="small muted mono">${s.g.length}/${s.tk.length} takes</span></div><div class="small muted">${s.cs.length} conteúdos · ${s.multi} takes servem a mais de um conteúdo</div></button>`}
 
 /* ---------- CAPTAR AGORA ---------- */
+/* ---------- FALAR: cadastro por voz (ditado do teclado) ---------- */
+const V={text:'',busy:false,plan:null,sel:{},done:[],src:''};
+const VEX=['Cadastra um vídeo novo chamado bastidores da viagem na etapa de edição','No pote plástico cadastre um take pra eu gravar na rua','No vlog da viagem inclua os takes de eu na cachoeira','Anota a ideia: vídeo de Natal com o método UTI'];
+function words(s){return norm(s).split(/[^a-z0-9]+/).filter(w=>w.length>2&&!['para','com','que','dos','das','uma','pra','meu','minha','video','videos','conteudo'].includes(w)).map(w=>w.length>4?w.replace(/(oes|aes|ns|es|s)$/,''):w.replace(/s$/,''))}
+function bestMatch(q,list,key){const qw=words(q);if(!qw.length)return null;let best=null,bs=0;list.forEach(x=>{const n=norm(x[key]);const xw=new Set(words(x[key]));let s=0;qw.forEach(w=>{if(xw.has(w))s+=1;else if([...xw].some(y=>y.startsWith(w.slice(0,5))&&w.length>4))s+=.7});s=s/qw.length+(n.includes(norm(q))?.5:0);if(s>bs){bs=s;best=x}});return bs>=.5?best:null}
+function findTarget(name){const c=bestMatch(name,S.contents,'title');const p=bestMatch(name,S.products,'name');if(c&&p){const sc=words(name).filter(w=>norm(c.title).includes(w)).length,sp=words(name).filter(w=>norm(p.name).includes(w)).length;return sp>sc?{k:'produto',it:p}:{k:'conteudo',it:c}}return c?{k:'conteudo',it:c}:p?{k:'produto',it:p}:null}
+function stageFrom(t){const n=norm(t);return /edica|editar/.test(n)?'Edição':/postagem|postar/.test(n)?'Postagem':/publicad/.test(n)?'Publicado':'Planejamento'}
+function localParse(text){
+  const t=text.trim().replace(/\s+/g,' ');const n=norm(t);let m;
+  if((m=n.match(/^(?:anota|anote|salva|salve|guarda|guarde)(?: a| uma)? (?:ideia|nota)?[:,]?\s*(.+)$/)))return[{tipo:'nota',texto:t.slice(t.length-m[1].length)}];
+  if((m=n.match(/(?:cadastr|cri|adicion|coloc|inclu)\w*\s+(?:um |uma )?(?:novo |nova )?(?:video|conteudo|post)\s*(?:novo|nova)?\s*(?:chamado|chamada|sobre|de|com o titulo)?\s*(.+)$/))){
+    let title=t.slice(t.length-m[1].length).replace(/\s*,?\s*(?:na|para a|pra) etapa d[ea] \w+.*$/i,'').replace(/\s*(?:em|para|pra) (?:edição|edicao|postagem)\s*$/i,'').trim();
+    return[{tipo:'novo_conteudo',titulo:title.charAt(0).toUpperCase()+title.slice(1),etapa:stageFrom(n.slice(n.indexOf(m[1])+title.length)||''),takes:[]}];
+  }
+  if((m=t.match(/^(?:no|na|nos|nas|pro|pra|para o|para a|dentro d[oa])\s+(.+?)[,:]?\s+(?:inclua|incluir|inclui|cadastre|cadastra|cadastrar|adicione|adiciona|adicionar|coloque|coloca|colocar|bota|acrescenta|acrescente)\s+(.+)$/i))){
+    const tg=findTarget(m[1]);if(!tg)return[{tipo:'pergunta',texto:`Não encontrei "${m[1]}" entre seus conteúdos e produtos.`}];
+    let d=m[2].replace(/^(?:os |o |um |uns |uma )?takes?\s*(?:de|com|do|da|pra eu gravar|para eu gravar)?\s*/i,'').replace(/^(?:pra|para) eu gravar\s*(?:um take)?\s*/i,'').replace(/^(?:um )?take\s*/i,'').trim();
+    const ds=d.split(/\s*(?:;|,| e também | e depois )\s*/).filter(Boolean);
+    return[{tipo:'adicionar_takes',alvo:tg.k,id:tg.it.id,takes:ds.map(x=>({desc:x.charAt(0).toUpperCase()+x.slice(1),contextos:parseCtx(x)}))}];
+  }
+  return[{tipo:'nota',texto:t}];
+}
+async function interpret(){
+  const text=V.text.trim();if(!text)return toast('Fale ou escreva o que você quer cadastrar.');
+  V.busy=true;V.plan=null;render();
+  let plan=null;V.src='local';
+  if(SAMPLE){
+    const cat={hoje:TODAY,conteudos:S.contents.filter(c=>c.status!=='Publicado').map(c=>({id:c.id,titulo:c.title,etapa:c.status})),produtos:S.products.map(p=>({id:p.id,nome:p.name})),contextos:Object.keys(CTX),etapas:STATUS,janelas:JANELAS,plataformas:PLAT};
+    try{
+      const res=await SAMPLE.json(`Você transforma um comando falado (ditado, pode ter erros de digitação) de uma criadora de conteúdo em ações no app dela.\nCatálogo atual: ${JSON.stringify(cat)}\nComando: "${text}"\n\nAções possíveis (use só estas):\n- {"tipo":"novo_conteudo","titulo":"...","etapa":"Planejamento|Edição|Postagem","destino":"texto livre ou vazio","plataformas":[...],"janela":"uma das janelas ou vazio","observacoes":"...","contextos":[...],"takes":[{"desc":"...","contextos":[...]}]}\n- {"tipo":"adicionar_takes","alvo":"conteudo|produto","id":"id exato do catálogo","takes":[{"desc":"...","contextos":[...]}]}\n- {"tipo":"marcar_gravado","alvo":"conteudo|produto","id":"...","take":"texto do take"}\n- {"tipo":"nota","texto":"..."}\n- {"tipo":"referencia","link":"...","texto":"o que gostou","adaptar":"como vai adaptar"}\n- {"tipo":"compromisso","titulo":"...","data":"AAAA-MM-DD","dataFim":"","hora":"HH:MM ou vazio","contextos":[...]}\n- {"tipo":"pergunta","texto":"o que ficou ambíguo"}\nRegras: escolha o conteúdo ou produto do catálogo pelo significado (ex.: "pote plástico" = produto Potes plásticos; "vlog da viagem" pode ser mais de um: se houver dúvida real entre dois, use "pergunta" citando as opções). Escreva cada take curto, em português, começando com maiúscula, sem inventar takes que ela não pediu. contextos só da lista. Não invente datas: se ela não disse a data, não crie compromisso. Etapa padrão: Planejamento.\nResponda só JSON: {"acoes":[...]}`,{modelTier:'default',cache:false});
+      plan=arr(res?.acoes);V.src='ia';
+    }catch(e){if(e.code==='not_granted')toast('A IA não foi autorizada. Usei a leitura simples do comando.')}
+  }
+  if(!plan||!plan.length)plan=localParse(text);
+  // valida ids
+  plan=plan.map(a=>{if(a.tipo==='adicionar_takes'||a.tipo==='marcar_gravado'){const ok=a.alvo==='produto'?byId('products',a.id):byId('contents',a.id);if(!ok){const tg=findTarget(a.nome||'');if(tg){a.alvo=tg.k;a.id=tg.it.id}else return{tipo:'pergunta',texto:'Não identifiquei em qual conteúdo ou produto incluir. Diga o nome como está no app.'}}}if(a.tipo==='novo_conteudo'&&!STATUS.includes(a.etapa))a.etapa='Planejamento';return a}).filter(a=>a&&a.tipo);
+  V.plan=plan;V.sel={};V.busy=false;render();
+}
+function actionText(a){
+  const tk=t=>`<li>${h(t.desc)}${arr(t.contextos).length?` <span class="muted">· ${arr(t.contextos).map(ctxL).join(', ')}</span>`:''}</li>`;
+  if(a.tipo==='novo_conteudo')return`<span class="eyebrow">Novo conteúdo</span><b>${h(a.titulo)}</b><div class="small muted">Etapa: ${h(a.etapa)}${a.destino?' · '+h(a.destino):''}${a.janela?' · '+h(a.janela):''}</div>${arr(a.takes).length?`<ul class="small" style="margin:0;padding-left:18px">${a.takes.map(tk).join('')}</ul>`:'<div class="small muted">Sem takes (fica com a etiqueta "takes a definir").</div>'}`;
+  if(a.tipo==='adicionar_takes'){const it=a.alvo==='produto'?byId('products',a.id):byId('contents',a.id);const cs=a.alvo==='produto'?S.contents.filter(c=>arr(c.productIds).includes(a.id)):[];return`<span class="eyebrow">Novos takes em ${a.alvo==='produto'?'produto':'conteúdo'}</span><b>${h(it?.name||it?.title)}</b>${cs.length?`<div class="small muted">Também entra em: ${cs.map(c=>h(c.title)).join(', ')}</div>`:''}<ul class="small" style="margin:0;padding-left:18px">${arr(a.takes).map(tk).join('')}</ul>`}
+  if(a.tipo==='marcar_gravado'){const it=a.alvo==='produto'?byId('products',a.id):byId('contents',a.id);return`<span class="eyebrow">Riscar take como gravado</span><b>${h(a.take)}</b><div class="small muted">em ${h(it?.name||it?.title||'')}</div>`}
+  if(a.tipo==='nota')return`<span class="eyebrow">Nota no bloco</span><div class="small" style="white-space:pre-line">${h(a.texto)}</div>`;
+  if(a.tipo==='referencia')return`<span class="eyebrow">Vídeo de referência</span>${a.link?`<div class="small" style="word-break:break-all">${h(a.link)}</div>`:''}<div class="small">${h(a.texto||'')}</div>${a.adaptar?`<div class="small muted">Adaptar: ${h(a.adaptar)}</div>`:''}`;
+  if(a.tipo==='compromisso')return`<span class="eyebrow">Compromisso na agenda</span><b>${h(a.titulo)}</b><div class="small muted">${fmtD(a.data)}${a.dataFim?' até '+fmtD(a.dataFim):''}${a.hora?' · '+h(a.hora):''}</div>`;
+  if(a.tipo==='pergunta')return`<span class="eyebrow" style="color:var(--warn)">Preciso que você esclareça</span><div class="small">${h(a.texto)}</div>`;
+  return h(JSON.stringify(a));
+}
+function applyActions(){
+  const now=new Date().toISOString();const out=[];
+  V.plan.forEach((a,i)=>{if(V.sel[i]===false||a.tipo==='pergunta')return;
+    const mkTakes=(list,cids,pids,baseCtx)=>arr(list).forEach(t=>{if(!t?.desc)return;S.takes.push({id:uid('t'),code:nextCode(),desc:t.desc,contexts:arr(t.contextos).filter(k=>CTX[k]).length?arr(t.contextos).filter(k=>CTX[k]):[...baseCtx],contentIds:cids,productIds:pids,status:'pendente',priority:'media',fileIds:[],notes:'Cadastrado por voz.',createdAt:now})});
+    if(a.tipo==='novo_conteudo'){const c={id:uid('c'),title:a.titulo||'Novo conteúdo',status:a.etapa||'Planejamento',destino:a.destino||'',platforms:arr(a.plataformas).filter(p=>PLAT.includes(p)),janela:JANELAS.includes(a.janela)?a.janela:'A definir',notes:a.observacoes||'',contexts:arr(a.contextos).filter(k=>CTX[k]),objectives:[],audiences:[],productIds:[],refIds:[],refLink:'',scriptState:a.etapa&&a.etapa!=='Planejamento'?'Material já gravado':'Não roteirizado',script:{version:1,lines:[]},createdAt:now};S.contents.push(c);mkTakes(a.takes,[c.id],[],c.contexts);out.push(['content',c.id,'Conteúdo criado: '+c.title])}
+    if(a.tipo==='adicionar_takes'){if(a.alvo==='produto'){const p=byId('products',a.id);const cids=S.contents.filter(c=>arr(c.productIds).includes(p.id)).map(c=>c.id);mkTakes(a.takes,cids,[p.id],arr(p.contexts).map(x=>x.ctx).slice(0,1));out.push(['product',p.id,`${arr(a.takes).length} take(s) em ${p.name}`])}else{const c=byId('contents',a.id);mkTakes(a.takes,[c.id],[...arr(c.productIds)],arr(c.contexts));out.push(['content',c.id,`${arr(a.takes).length} take(s) em ${c.title}`])}}
+    if(a.tipo==='marcar_gravado'){const pool=a.alvo==='produto'?S.takes.filter(t=>arr(t.productIds).includes(a.id)):S.takes.filter(t=>arr(t.contentIds).includes(a.id));const t=bestMatch(a.take,pool.filter(x=>x.status!=='gravado'),'desc');if(t){setTakeStatus(t,'gravado');out.push(['take',t.id,'Take riscado: '+t.desc])}else out.push(['',null,'Não achei o take "'+a.take+'"'])}
+    if(a.tipo==='nota'){S.ideas.unshift({id:uid('n'),kind:'note',text:a.texto,createdAt:now,updatedAt:now});out.push(['idea',S.ideas[0].id,'Nota salva'])}
+    if(a.tipo==='referencia'){S.refs.unshift({id:uid('r'),title:(a.texto||a.adaptar||'Referência').slice(0,90),url:a.link||'',notes:a.texto||'',adapt:a.adaptar||'',createdAt:now,contentIds:[]});out.push(['ref',S.refs[0].id,'Referência salva'])}
+    if(a.tipo==='compromisso'&&/^\d{4}-\d\d-\d\d$/.test(a.data||'')){S.events.push({id:uid('e'),title:a.titulo,type:'compromisso',date:a.data,endDate:/^\d{4}-\d\d-\d\d$/.test(a.dataFim||'')?a.dataFim:'',time:a.hora||'',contexts:arr(a.contextos).filter(k=>CTX[k]),contentIds:[],status:'pendente'});out.push(['day',a.data,'Compromisso: '+a.titulo])}
+  });
+  saveAll('contents','takes','ideas','refs','events');
+  V.done=[...out,...V.done].slice(0,8);V.plan=null;V.text='';render();toast(out.length?'Cadastrado':'Nada para cadastrar');
+}
+function vFalar(){
+  let out=topBar('Falar','Cadastro por voz');
+  out+=`<div class="card" style="margin-top:4px">
+    <div class="small muted">Toque na caixa e use o <b>microfone do teclado</b> do celular para ditar. Depois toque em Interpretar.</div>
+    <textarea id="voice-text" data-voice="1" placeholder="Ex.: no pote plástico cadastre um take pra eu gravar na rua" style="min-height:110px;font-size:1.05rem">${h(V.text)}</textarea>
+    <button class="btn pri" data-act="voice-go" ${V.busy?'aria-disabled="true"':''}>${V.busy?'Interpretando…':'Interpretar'}</button>
+  </div>`;
+  if(V.plan)out+=`<div class="sec"><div class="sec-h"><h2>Vou fazer isto</h2><span class="small muted">${V.src==='ia'?'lido pela IA':'leitura simples'}</span></div><div class="list">${V.plan.map((a,i)=>`<label class="card" style="flex-direction:row;gap:10px;align-items:flex-start">${a.tipo!=='pergunta'?`<input type="checkbox" data-vsel="${i}" ${V.sel[i]!==false?'checked':''} style="width:20px;height:20px;accent-color:var(--accent);flex:none;margin-top:2px">`:''}<div class="grow" style="display:flex;flex-direction:column;gap:3px;min-width:0">${actionText(a)}</div></label>`).join('')}</div>
+    <div class="row">${V.plan.some(a=>a.tipo!=='pergunta')?'<button class="btn pri grow" data-act="voice-apply">Confirmar</button>':''}<button class="btn" data-act="voice-cancel">${V.plan.some(a=>a.tipo!=='pergunta')?'Cancelar':'Corrigir o comando'}</button></div></div>`;
+  if(!V.plan&&!V.busy)out+=`<div class="sec"><div class="sec-h"><h2>Exemplos</h2></div><div class="list">${VEX.map(x=>`<button class="card tap small" data-act="voice-ex" data-q="${h(x)}" style="padding:10px 14px">“${h(x)}”</button>`).join('')}</div></div>`;
+  if(V.done.length)out+=`<div class="sec"><div class="sec-h"><h2>Cadastrado agora</h2></div><div class="list">${V.done.map(([t,id,txt])=>`<button class="card tap small" style="padding:10px 14px" ${t==='day'?`data-act="cal-day" data-d="${id}"`:t&&id?`data-act="open" data-t="${t}" data-id="${id}"`:''}>✓ ${h(txt)}</button>`).join('')}</div></div>`;
+  return out;
+}
 function vCaptar(){
   const C=UI.captar;const r=C.ctx.length?captarResults(C.ctx):null;
   let out=topBar('Captar agora','<span class="rec-dot"></span> Contexto');
@@ -979,6 +1057,8 @@ const ACT={
   'cap-addctx':()=>sheet('Adicionar contexto',`<div class="chips">${Object.keys(CTX).map(k=>`<button class="chip btn ${UI.captar.ctx.includes(k)?'on':''}" data-act="cap-ctx2" data-k="${k}">${CTX[k].l}</button>`).join('')}</div>`),
   'cap-ctx2':d=>{UI.captar.ctx=UI.captar.ctx.includes(d.k)?UI.captar.ctx.filter(k=>k!==d.k):[...UI.captar.ctx,d.k];closeForm();render()},
   'cap-ai':()=>capAI(),
+  'voice-go':()=>{if(!V.busy)interpret()},'voice-apply':()=>applyActions(),'voice-cancel':()=>{V.plan=null;render();document.getElementById('voice-text')?.focus()},
+  'voice-ex':d=>{V.text=d.q;render()},
   reminders:()=>{const R=reminders();sheet('Lembretes',R.length?`<div class="list">${R.map(remRow).join('')}</div>`:'<div class="empty">Nada urgente agora.</div>')},
   'go-filter':d=>{closeForm();UI.prodTab='conteudos';UI.contentF='ev:'+d.ev;UI.janelaF='';go('producao')},
   'go-cf':d=>{UI.prodTab='conteudos';UI.contentF=d.k;UI.janelaF='';go('producao')},
@@ -1057,6 +1137,7 @@ document.addEventListener('input',e=>{const el=e.target;
   if(DRAFT&&el.dataset.relq){DRAFT.q[el.dataset.relq]=el.value;const pos=el.selectionStart;drawForm();const n=document.getElementById(el.id);if(n){n.focus();try{n.setSelectionRange(pos,pos)}catch(_){}}}
   if(el.dataset.planObj!==undefined){UI.plan.counts[el.dataset.planObj]=+el.value||0}
   if(el.dataset.plan==='month')UI.plan.month=el.value;
+  if(el.dataset.voice)V.text=el.value;
   if(el.dataset.notedraft)UI.noteDraft[el.dataset.notedraft]=el.value;
   if(el.dataset.noteedit){const it=byId('ideas',el.dataset.noteedit);if(it){it.text=el.value;delete it.title;delete it.desc;it.updatedAt=new Date().toISOString();save('ideas');clearTimeout(timers._nr);timers._nr=setTimeout(()=>{if(!document.querySelector('.sheet'))render()},50)}}
   if(el.dataset.editnotes){const c=byId('contents',el.dataset.editnotes);if(c){c.editNotes=el.value;save('contents')}}
@@ -1068,6 +1149,7 @@ document.addEventListener('change',e=>{const el=e.target;
   if(el.dataset.cstatus){const c=byId('contents',el.dataset.cstatus);c.status=el.value;save('contents');renderDetail();toast('Status atualizado')}
   if(el.dataset.calproj!==undefined){UI.calF.proj=el.value;render()}
   if(el.dataset.janelaf!==undefined){UI.janelaF=el.value;render()}
+  if(el.dataset.vsel!==undefined)V.sel[+el.dataset.vsel]=el.checked;
   if(el.dataset.planSel!==undefined){UI.plan.sel[+el.dataset.planSel]=el.checked}
   if(el.dataset.pd!==undefined&&UI._pd){UI._pd.rows[+el.dataset.pd][1]=el.value}
 });
