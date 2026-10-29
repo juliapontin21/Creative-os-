@@ -918,17 +918,33 @@ function pContent(c){
     ${pend.length?`<div class="list">${pend.map(t=>takeCard(t,{compact:c.id,capture:true})).join('')}</div>`:''}
     ${done.length?`<div class="sec-h" style="margin-top:6px"><h3>Gravados</h3><span class="small muted">${done.length}</span></div><div class="list">${done.map(t=>takeCard(t,{compact:c.id})).join('')}</div>`:''}
     <div><button class="btn sm ghost" data-act="link-takes" data-id="${c.id}">Usar um take que já existe</button></div>`;
+    const ins=lines.flatMap((l,i)=>arr(l.inserts).map(x=>({x,sc:l.scene||i+1})));
+    if(ins.length)out+=`<div class="card" style="gap:4px"><h3>Inserir de fora</h3><div class="small muted">Não precisa gravar: separe esses materiais para a edição.</div>${ins.map(o=>`<div class="small">↳ ${h(o.x)} <span class="muted">· cena ${h(o.sc)}</span></div>`).join('')}</div>`;
     const cx=new Set(arr(c.contexts));tk.forEach(t=>arr(t.contexts).forEach(x=>cx.add(x)));
     const reuse=S.takes.filter(t=>t.status==='gravado'&&!arr(t.contentIds).includes(c.id)&&arr(t.contexts).some(x=>cx.has(x)));
     if(reuse.length)out+=`<div class="card"><h3>Takes já gravados que podem servir</h3>${reuse.slice(0,6).map(t=>`<div class="row between"><span class="small grow">${h(t.desc)}</span><button class="btn sm" data-act="reuse" data-c="${c.id}" data-t="${t.id}">Usar</button></div>`).join('')}</div>`;
     out+=`</div>`;
   }else if(UI.mode==='roteiro'){
-    out+=`<div class="sec"><div class="row between"><span class="small muted">${h(c.scriptState||'')}${lines.length?` · ${lines.length} falas`:''}</span><div class="row">${lines.length?`<button class="btn sm ink" data-act="reader" data-id="${c.id}">Modo leitura</button>`:''}<button class="btn sm" data-act="line-new" data-id="${c.id}">+ Fala</button></div></div>
-    ${c.scriptState==='Roteirizado (fora do app)'&&!lines.length?'<div class="notice info">Você já tem o roteiro deste vídeo fora do app. Cole as falas aqui com "+ Fala" para usar o modo leitura.</div>':''}
-    <div class="card">${lines.map((l,i)=>`<button class="line-item" style="border:0;background:none;padding:6px 0;text-align:left" data-act="line-edit" data-id="${c.id}" data-i="${i}"><span class="sc">${h(l.scene||i+1)}</span><span class="grow"><span class="say">${h(l.text)}</span>${l.note?`<br><span class="dir">${h(l.note)}</span>`:''}</span></button>`).join('')||'<div class="small muted">Nenhuma fala ainda.</div>'}</div>
+    out+=`<div class="sec">
+    <button class="btn ${lines.length?'':'pri'} wide" data-act="paste-open" data-id="${c.id}">📋 Colar roteiro do ChatGPT</button>
+    ${lines.length?`<div class="row between"><span class="small muted">${lines.length} cena${lines.length!==1?'s':''}${c.script?.version>1?` · versão ${c.script.version}`:''}</span><div class="row"><button class="btn sm ink" data-act="reader" data-id="${c.id}">Modo leitura</button><button class="btn sm" data-act="line-new" data-id="${c.id}">+ Cena</button></div></div>`:`<div class="small muted">Ou escreva cena por cena: <button class="btn sm ghost" data-act="line-new" data-id="${c.id}">+ Cena</button></div>`}
+    ${lines.map((l,i)=>{const nt=arr(l.takeIds).length,ni=arr(l.inserts).length;return`<button class="card tap" data-act="line-edit" data-id="${c.id}" data-i="${i}" style="gap:6px">
+      <div class="row between"><span class="eyebrow">Cena ${h(l.scene||i+1)}</span><span class="chip ${l.mode==='narrado'?'acc':''}">${MODE_ICON[l.mode]||'🎥'} ${h(MODE_L[l.mode]||MODE_L.camera)}</span></div>
+      ${l.text?`<div class="say">${h(l.text)}</div>`:''}${l.note?`<div class="dir">${h(l.note)}</div>`:''}
+      ${l.overlay?`<div class="small"><span class="chip">T</span> “${h(l.overlay)}”</div>`:''}
+      ${nt||ni?`<div class="serves">${nt?`🎬 ${nt} take${nt>1?'s':''}`:''}${nt&&ni?' · ':''}${ni?`↳ ${ni} de fora`:''}</div>`:''}
+    </button>`}).join('')}
     ${lines.length>1?`<div class="row"><button class="btn sm ghost" data-act="script-version" data-id="${c.id}">Salvar como nova versão</button></div>`:''}</div>`;
   }else{
-    out+=`<div class="sec">${lines.map((l,i)=>{const ts=arr(l.takeIds).map(id=>byId('takes',id)).filter(Boolean);return`<button class="card tap" data-act="line-edit" data-id="${c.id}" data-i="${i}" style="gap:5px"><span class="mono muted">${i+1}. ${h(l.scene||'')}${l.transition?' · '+h(l.transition):''}</span><div class="small"><b>${h(l.text)}</b></div>${ts.map(t=>`<div class="small">▸ ${h(t.desc)} ${t.status==='gravado'?'<span class="chip ok">gravado</span>':'<span class="chip warn">pendente</span>'}</div>`).join('')}${l.overlay?`<div class="small">Texto na tela: “${h(l.overlay)}”</div>`:''}${l.editNote?`<div class="small muted">${h(l.editNote)}</div>`:''}</button>`}).join('')||'<div class="empty">Sem roteiro de montagem. Adicione falas na aba Roteiro.</div>'}
+    out+=`<div class="sec"><div class="small muted">Ordem de montagem, cena por cena.</div>${lines.map((l,i)=>{const ts=arr(l.takeIds).map(id=>byId('takes',id)).filter(Boolean);return`<button class="card tap" data-act="line-edit" data-id="${c.id}" data-i="${i}" style="gap:6px">
+      <div class="row between"><span class="eyebrow">Cena ${h(l.scene||i+1)}</span><span class="small muted">${MODE_ICON[l.mode]||'🎥'} ${h(MODE_L[l.mode]||MODE_L.camera)}</span></div>
+      ${l.text?`<div class="small"><b>${h(l.text)}</b></div>`:''}
+      ${ts.map(t=>`<div class="small">🎬 ${h(t.desc)} ${t.status==='gravado'?`<span class="chip ok">${arr(t.fileIds).length?'no Drive':'gravado'}</span>`:'<span class="chip warn">falta gravar</span>'}</div>`).join('')}
+      ${arr(l.inserts).map(x=>`<div class="small">↳ ${h(x)} <span class="chip">inserir de fora</span></div>`).join('')}
+      ${l.overlay?`<div class="small"><span class="chip">Texto na tela</span> “${h(l.overlay)}”</div>`:''}
+      ${l.editNote?`<div class="small" style="color:var(--accent)">✂️ ${h(l.editNote)}</div>`:''}
+    </button>`}).join('')||'<div class="empty">Sem roteiro. Cole o roteiro na aba Roteiro.</div>'}
+    ${c.caption?`<div class="card" style="gap:4px"><span class="eyebrow">Legenda do post</span><div class="small" style="white-space:pre-line">${h(c.caption)}</div></div>`:''}
     <label class="f">Orientações de edição<textarea id="en-${c.id}" data-editnotes="${c.id}" placeholder="Música, ritmo, textos na tela, efeitos…">${h(c.editNotes||'')}</textarea></label></div>`;
   }
   out+=`<div class="sec"><div class="sec-h"><h2>Datas</h2><button class="btn sm" data-act="plan-dates" data-id="${c.id}">Planejar datas</button></div>
@@ -968,12 +984,175 @@ function pProduct(p){
   <div class="line-item"><span class="sc">3</span><span class="small"><b>Benefício:</b> ${h((p.benefits||'o principal benefício').split(/[.;\n]/)[0])}.</span></div>
   <div class="line-item"><span class="sc">4</span><span class="small"><b>Objeção:</b> ${h(refs.find(r=>r.ts?.objection)?.ts?.objection||'responda a dúvida mais comum (preço, durabilidade, se funciona mesmo)')}.</span></div>
   <div class="line-item"><span class="sc">5</span><span class="small"><b>CTA:</b> link no carrinho laranja.</span></div>
-  <div class="row"><button class="btn sm pri" data-act="new" data-t="content" data-preset='${h(JSON.stringify({title:"TikTok Shop — "+p.name,productIds:[p.id],platforms:["TikTok Shop"],objectives:["Vendas"],audiences:["Consumidores TikTok Shop"],format:"Demonstração",status:"Planejamento"}))}'>Criar conteúdo com esta estrutura</button></div></div></div>
+  <div class="row"><button class="btn sm" data-act="paste-product" data-id="${p.id}">📋 Colar roteiro</button><button class="btn sm pri" data-act="new" data-t="content" data-preset='${h(JSON.stringify({title:"TikTok Shop — "+p.name,productIds:[p.id],platforms:["TikTok Shop"],objectives:["Vendas"],audiences:["Consumidores TikTok Shop"],format:"Demonstração",status:"Planejamento"}))}'>Criar conteúdo com esta estrutura</button></div></div></div>
   <div class="sec"><h2>Takes pendentes</h2><div class="list">${pend.map(t=>takeCard(t,{capture:true})).join('')||'<span class="small muted">Nenhum.</span>'}</div></div>
   ${done.length?`<div class="sec"><h2>Já gravado</h2><div class="list">${done.map(libCard).join('')}</div></div>`:''}
   <div class="sec"><h2>Conteúdos</h2><div class="list">${cs.map(contentCard).join('')||'<span class="small muted">Nenhum conteúdo ainda.</span>'}</div>${pubs.length?`<div class="small muted">${pubs.length} publicação(ões) feitas.</div>`:''}</div>
   <div class="sec"><h2>Referências</h2><div class="list">${refs.map(refCard).join('')||'<span class="small muted">Nenhuma referência vinculada.</span>'}</div></div>`;
   return out;
+}
+
+/* ---------- COLAR ROTEIRO: organizar automaticamente por cena ---------- */
+const MODE_L={camera:'Olhando para a câmera',narrado:'Narrado (voz em off)',semfala:'Sem fala'};
+const MODE_ICON={camera:'🎥',narrado:'🎙',semfala:'🔇'};
+const SECTION_WORDS='gancho|hook|abertura|introdu[cç][aã]o|intro|contexto|apresenta[cç][aã]o|problema|dor|agita[cç][aã]o|virada|solu[cç][aã]o|demonstra[cç][aã]o|demo|prova|prova social|benef[ií]cios?|diferencial|obje[cç][aã]o|quebra de obje[cç][aã]o|oferta|cta|chamada (?:para|pra) a[cç][aã]o|fechamento|encerramento|final|conclus[aã]o|desenvolvimento|resultado|antes|depois|unboxing|review|teste|storytelling|hist[oó]ria|cl[ií]max|revela[cç][aã]o|transforma[cç][aã]o|bastidores|tutorial|passo a passo|dica|dicas|loop';
+const RX={
+  scene:/^(cena|parte|bloco|momento|scene|etapa|trecho)\s*(\d{1,2}|[ivx]{1,4})\b\s*[:\-–—.)|]*\s*(.*)$/i,
+  section:new RegExp('^('+SECTION_WORDS+')\\b\\s*(\\([^)]*\\)|[-–—]\\s*\\d.*?s\\b)?\\s*[:\\-–—.]?\\s*(.*)$','i'),
+  time:/^\(?\s*\d{1,3}\s*(s|seg)?\s*(a|-|–|—|até)\s*\d{1,3}\s*(s|seg|segundos)?\s*\)?/i,
+  camera:/olhando (pra|para|na|à|a)?\s*(a\s*)?c[aâ]mera|fala(ndo)? (pra|para|com) (a\s*)?c[aâ]mera|direto (pra|para|na) (a\s*)?c[aâ]mera|selfie|de frente (pra|para) (a\s*)?c[aâ]mera|talking ?head|olho no olho|olhar (pra|para) (a\s*)?c[aâ]mera|encarando a c[aâ]mera/i,
+  narr:/narra(da|do|[cç][aã]o|ndo)|voz em off|\boff\b|voice ?over|\bv\.?o\.?\b|locu[cç][aã]o|em off|narrador/i,
+  insert:/b-?roll|inser[cç][aã]o|inserir|\binsert|de fora\b|imagem de apoio|v[ií]deo de apoio|material de apoio|print|captura de tela|grava[cç][aã]o de tela|screen ?record|stock|banco de (imagens|v[ií]deos)|imagem (da|tirada da) internet|v[ií]deo baixado|v[ií]deo da marca|imagem da marca|site da marca|p[aá]gina do produto|meme|manchete|not[ií]cia|foto antiga|arquivo pessoal|recorte|gif\b|figurinha/i,
+  visual:/mostr|close|plano|c[aâ]mera|enquadr|pov\b|segurando|abrindo|aplicando|usando|passando|grav(a|e|ar)|cena de|take|detalhe|zoom|m[aã]os?|corta para|corte para|câmera lenta|slow/i,
+};
+function labelKind(lbl){const l=norm(lbl).replace(/\(.*?\)/g,'').replace(/[^a-z0-9 \-]/g,' ').trim();
+  if(!l||l.length>34)return null;
+  if(/^legendas?( sugerida| do video| do post| para o post| final| pronta)?$/.test(l))return /post/.test(l)?'caption':'legenda';
+  if(/^(legenda do post|caption|descricao( do post)?|hashtags?|legenda para (o )?post|copy do post)$/.test(l))return'caption';
+  if(/^(texto (na|em) tela|texto( de)? tela|texto|lettering|overlay|on ?-?screen( text)?|titulo na tela|letreiro|frase na tela|legenda na tela|tela)$/.test(l))return'overlay';
+  if(/^(fala|falas|texto falado|dialogo|voce diz|voce fala|frase|o que falar|o que dizer|audio falado|speech)\b/.test(l))return'fala';
+  if(/^(narracao|locucao|voz( em)? off|off|vo|voiceover|voice over|narrador|narrado|audio|voz)\b/.test(l))return'narr';
+  if(/^(b ?-?roll|insert|inserir|insercao|insercoes|apoio|imagem de apoio|video de apoio|material de apoio|prints?|imagens? de fora|recursos? visuais|referencia visual|material externo|cortes de apoio)\b/.test(l))return'insert';
+  if(/^(edicao|efeitos?|transicao|transicoes|cortes?|ritmo|musica|trilha|som|sons|sfx|efeito sonoro|zoom|edit|pos|dica de edicao|observacao de edicao|obs de edicao|montagem)\b/.test(l))return'edit';
+  if(/^(interpretacao|tom|tom de voz|indicacao|expressao|emocao|direcao|atuacao|postura|energia|como falar|entonacao|camera|modo)\b/.test(l))return'note';
+  if(/^(visual|imagem|imagens|cena|takes?|o que gravar|gravar|gravacao|captacao|plano|planos|enquadramento|acao|video|mostrar|mostra|filmagem|filmar|cenario|composicao|angulo)\b/.test(l))return'take';
+  if(/^(duracao|tempo|tempo estimado|objetivo|formato|plataforma|persona|publico|estilo|titulo|nome|produto|gancho visual|roteiro|script|tema|video|ideia|conceito|referencia)\b/.test(l))return'meta';
+  return null;
+}
+const stripMd=s=>String(s||'').replace(/\*\*|__|`/g,'').replace(/^\s*#{1,6}\s*/,'').replace(/^\s*(?:[-•*·▪︎◦–]|\d{1,2}[.)])\s+/,'').replace(/^[\s\u{1F000}-\u{1FAFF}☀-➿️]+/u,'').trim();
+const unq=s=>String(s||'').trim().replace(/^["“”'‘’«»]+|["“”'‘’«»]+$/g,'').trim();
+function splitItems(v){return String(v||'').split(/\s*(?:;|\s\+\s|\s\|\s|\n)\s*/).map(x=>unq(stripMd(x)).replace(/[.]+$/,'')).filter(x=>x.length>1)}
+function cap1(s){s=String(s||'').trim();return s.charAt(0).toUpperCase()+s.slice(1)}
+function newScene(label){return{scene:label||'',text:'',mode:'',note:'',takes:[],inserts:[],overlay:'',editNote:'',_last:'fala'}}
+function addTo(sc,kind,val,lbl=''){
+  val=String(val||'').trim();if(!val)return;
+  const paren=(lbl.match(/\(([^)]*)\)/)||[])[1]||'';if(paren)setModeFrom(sc,paren,true);
+  if(kind==='fala'||kind==='narr'){if(kind==='narr'&&!/musica|trend|trilha|som de fundo|beat/i.test(norm(val)))sc.mode=sc.mode||'narrado';else if(kind==='narr'){sc.editNote=join(sc.editNote,val);return}
+    const {say,dirs}=pullDirections(val);dirs.forEach(d=>classifyDirection(sc,d));if(say)sc.text=join(sc.text,unq(say),' ');}
+  else if(kind==='take'){if(RX.camera.test(val)&&val.length<60&&!RX.visual.test(val.replace(RX.camera,''))){setModeFrom(sc,val,true);return}splitItems(val).forEach(x=>(RX.insert.test(x)?sc.inserts:sc.takes).push(cap1(x)))}
+  else if(kind==='insert')splitItems(val).forEach(x=>sc.inserts.push(cap1(x)));
+  else if(kind==='overlay')sc.overlay=join(sc.overlay,unq(val),' / ');
+  else if(kind==='edit')sc.editNote=join(sc.editNote,val);
+  else if(kind==='note')setModeFrom(sc,val,false);
+  else if(kind==='legenda')sc.overlay=join(sc.overlay,unq(val),' / ');
+  sc._last=kind==='narr'?'fala':kind;
+}
+const join=(a,b,sep=' · ')=>a?a+sep+b:b;
+function setModeFrom(sc,v,onlyMode){
+  if(RX.camera.test(v))sc.mode='camera';else if(RX.narr.test(v))sc.mode=sc.mode||'narrado';
+  const rest=v.replace(RX.camera,'').replace(/^[\s,;:–-]+|[\s,;:–-]+$/g,'');
+  const restN=rest.replace(RX.narr,'').replace(/^[\s,;:–-]+|[\s,;:–-]+$/g,'');
+  if(restN.length>3){if(onlyMode&&RX.visual.test(restN)&&!/sorri|anima|empolg|tom|voz|energia|s[eé]ri/i.test(restN))sc.takes.push(cap1(restN));else sc.note=join(sc.note,restN)}
+}
+function pullDirections(v){const dirs=[];const say=v.replace(/\(([^)]{2,160})\)|\[([^\]]{2,160})\]/g,(m,a,b)=>{dirs.push(a||b);return' '}).replace(/\s{2,}/g,' ').trim();return{say,dirs}}
+function classifyDirection(sc,d){
+  if(RX.camera.test(d)||RX.narr.test(d)){setModeFrom(sc,d,true);return}
+  if(/texto na tela|lettering|na tela:/i.test(d)){sc.overlay=join(sc.overlay,unq(d.replace(/.*?(texto na tela|lettering|na tela)\s*:?/i,'')),' / ');return}
+  if(RX.insert.test(d)){sc.inserts.push(cap1(d));return}
+  if(/corte|zoom|efeito|transi|m[uú]sica|som|acelera|câmera lenta|slow|transição/i.test(d)&&!/mostr|segur|aplic/i.test(d)){sc.editNote=join(sc.editNote,d);return}
+  if(RX.visual.test(d)){sc.takes.push(cap1(d));return}
+  sc.note=join(sc.note,d);
+}
+function headerOf(raw){
+  const base=String(raw||'').replace(/\*\*|__|`/g,'').replace(/^\s*#{1,6}\s*/,'').replace(/^[\s\u{1F000}-\u{1FAFF}☀-➿️]+/u,'').replace(/[:]+$/,'').trim();
+  const numm=base.match(/^(\d{1,2})\s*[.)\-–]\s+(.{2,70})$/);
+  const line=stripMd(raw).replace(/[:]+$/,'').trim();if(!line||line.length>90)return null;
+  const noTime=x=>x.replace(/\([^)]*\)/g,'').replace(/[-–—]\s*\d+\s*(s|seg).*$/i,'').trim();
+  const isCaps=x=>{const y=noTime(x);return /^[A-ZÀ-Ú0-9 \-–—:!?/&+]{3,45}$/.test(y)&&/[A-ZÀ-Ú]{3}/.test(y)&&y.split(/\s+/).length<=6&&!/^[A-Z]{2,4}$/.test(y)||/^cta$/i.test(y)};
+  const secRx=new RegExp('^(?:'+SECTION_WORDS+')\\b','i');
+  if(numm){const t=numm[2];const lead=t.split(':')[0];if(secRx.test(t)||isCaps(lead)||/\(\s*\d+\s*(s|seg)?\s*[-–a]/.test(t)){const rest=t.includes(':')?t.slice(t.indexOf(':')+1).trim():'';return{label:numm[1]+' · '+lead.trim(),rest}}}
+  let m=line.match(RX.scene);if(m){let rest=m[3]||'';const lbl=rest.split(/[:]/)[0];const after=rest.includes(':')?rest.slice(rest.indexOf(':')+1).trim():'';return{label:(m[2]+(lbl.trim()?' · '+lbl.trim():'')).trim(),rest:after}}
+  const br=line.match(/^\[(.{2,60})\]\s*(.*)$/);if(br&&!RX.visual.test(br[1])&&!RX.camera.test(br[1])&&!RX.narr.test(br[1]))return{label:br[1].trim(),rest:br[2]};
+  if(secRx.test(line)){const ci=line.indexOf(':');const lead=ci>0?line.slice(0,ci):line;const tail=ci>0?line.slice(ci+1).trim():'';
+    if(lead.length<=50&&(!tail||ci>0))return{label:cap1(lead.trim()),rest:tail}}
+  if(isCaps(line))return{label:cap1(line.toLowerCase()).replace(/\bcta\b/i,'CTA'),rest:''};
+  return null;
+}
+function parseTable(rows){
+  const cells=r=>r.trim().replace(/^\||\|$/g,'').split('|').map(x=>stripMd(x).trim());
+  const head=cells(rows[0]).map(x=>({kind:/^(cena|#|n|n[oº°]|parte|bloco|momento|etapa|trecho|secao|se[cç][aã]o)$/i.test(norm(x).trim())?'scene':labelKind(x),raw:x}));
+  const out=[];rows.slice(1).filter(r=>!/^\s*\|?\s*:?-{2,}/.test(r)).forEach((r,i)=>{const cs=cells(r);const sc=newScene(String(i+1));
+    cs.forEach((v,j)=>{const k=head[j]?.kind;if(!v||v==='-'||v==='—')return;if(k==='scene')sc.scene=v;else if(k==='caption'||k==='meta')return;else{const vv=v.replace(/<br\s*\/?>/gi,'; ');const lm=vv.match(/^([^:"“]{2,30}?)\s*:\s*(.+)$/);const k2=lm?labelKind(lm[1]):null;if(k2&&k2!=='meta'&&k2!=='caption'&&k2!=='legenda')addTo(sc,k2,lm[2],lm[1]);else addTo(sc,k||'fala',vv,head[j]?.raw||'')}});out.push(sc)});
+  return out;
+}
+function parseScript(text){
+  const lines=String(text||'').replace(/\r/g,'').split('\n');const scenes=[];let cur=null,caption='',inCaption=false,tableBuf=[];
+  const flushTable=()=>{if(tableBuf.length>=2){parseTable(tableBuf).forEach(s=>scenes.push(s));cur=null}tableBuf=[]};
+  for(const raw of lines){
+    if(/^\s*\|.*\|\s*$/.test(raw)){tableBuf.push(raw);continue}else if(tableBuf.length)flushTable();
+    const t=raw.trim();if(!t||/^[-—_=*]{3,}$/.test(t))continue;
+    const s=stripMd(t);
+    const lm=s.match(/^([^:"“]{2,40}?)\s*:\s*(.*)$/);const lk=lm?labelKind(lm[1]):null;
+    if(lk==='legenda'){if(/#/.test(lm[2])||lm[2].length>70||!cur){inCaption=true;caption=join(caption,lm[2],'\n')}else if(cur)addTo(cur,'overlay',lm[2]);continue}
+    if(lk==='caption'||(inCaption&&!headerOf(t))){if(lk==='caption'){inCaption=true;caption=join(caption,lm[2],'\n')}else caption=join(caption,s,'\n');continue}
+    const hd=lk&&lk!=='meta'?null:headerOf(t);
+    if(hd){if(cur&&isEmptyScene(cur)&&!cur.scene.match(/\d/))cur.scene=hd.label;else{cur=newScene(hd.label);scenes.push(cur)}if(hd.rest){const lm2=hd.rest.match(/^([^:"“]{2,40}?)\s*:\s*(.*)$/);const k2=lm2?labelKind(lm2[1]):null;if(k2&&k2!=='meta'&&k2!=='caption')addTo(cur,k2,lm2[2],lm2[1]);else addTo(cur,'fala',hd.rest)}continue}
+    if(lk==='meta'){if(cur&&/dura|tempo/.test(norm(lm[1]))&&lm[2])cur.scene=join(cur.scene,'('+lm[2]+')',' ');continue}
+    if(!cur){if(lk&&lk!=='meta'){cur=newScene('');scenes.push(cur)}else if(/^(roteiro|t[ií]tulo|v[ií]deo|ideia|conceito)\b/i.test(s)||s.length<4)continue;else{cur=newScene('');scenes.push(cur)}}
+    if(lk){if(lm[2])addTo(cur,lk,lm[2],lm[1]);else cur._last=lk==='narr'?'fala':lk;if(lk==='narr')cur.mode=cur.mode||'narrado';continue}
+    const isBullet=/^\s*(?:[-•*·▪︎◦–]|\d{1,2}[.)])\s+/.test(t);
+    if(/^\(.*\)$|^\[.*\]$/.test(s)){classifyDirection(cur,s.slice(1,-1));continue}
+    if(/^["“].*["”]$/.test(s)){addTo(cur,'fala',s);continue}
+    if(isBullet&&['take','insert','edit','overlay','note'].includes(cur._last)){addTo(cur,cur._last,s);continue}
+    if(isBullet&&!/^["“]/.test(s)){addTo(cur,RX.insert.test(s)?'insert':'take',s);cur._last='fala';continue}
+    addTo(cur,cur._last==='narr'?'fala':(['take','insert','edit','overlay','note'].includes(cur._last)&&!isBullet?cur._last:'fala'),s);
+  }
+  flushTable();
+  let out=scenes.filter(sc=>!isEmptyScene(sc));
+  if(out.length<=1&&!lines.some(l=>headerOf(l))){const paras=String(text).split(/\n\s*\n/).map(p=>p.trim()).filter(Boolean);if(paras.length>1&&!/\|/.test(text)){out=[];paras.forEach(p=>{const sc=newScene('');p.split('\n').forEach(l=>{const s=stripMd(l);const lm=s.match(/^([^:"“]{2,40}?)\s*:\s*(.*)$/);const k=lm?labelKind(lm[1]):null;if(k&&k!=='meta'&&k!=='caption')addTo(sc,k,lm[2],lm[1]);else if(/^\(.*\)$|^\[.*\]$/.test(s))classifyDirection(sc,s.slice(1,-1));else addTo(sc,'fala',s)});if(!isEmptyScene(sc))out.push(sc)})}}
+  out.forEach((sc,i)=>{sc.text=cap1(sc.text);if(!sc.scene)sc.scene=String(i+1);else if(!/^\d/.test(sc.scene))sc.scene=(i+1)+' · '+sc.scene;
+    if(!sc.text&&!sc.mode)sc.mode='semfala';else if(sc.text&&!sc.mode)sc.mode='camera';sc.takes=[...new Set(sc.takes)];sc.inserts=[...new Set(sc.inserts)];delete sc._last});
+  return{scenes:out,caption:caption.trim()};
+}
+const isEmptyScene=sc=>!sc.text&&!sc.takes.length&&!sc.inserts.length&&!sc.overlay&&!sc.editNote&&!sc.note;
+
+const PASTE={cid:null,text:'',res:null,busy:false,src:'',mode:'replace'};
+function openPaste(cid){PASTE.cid=cid;PASTE.res=null;PASTE.text=PASTE.cid===cid?PASTE.text:'';drawPaste()}
+function drawPaste(){
+  const c=byId('contents',PASTE.cid);if(!c)return;const has=arr(c.script?.lines).length;const R=PASTE.res;
+  let body='';
+  if(!R){body=`<div class="small muted">Cole o roteiro do jeito que veio do ChatGPT. O app separa cada cena em fala, interpretação, takes para gravar, inserções de fora, texto na tela e edição.</div>
+    <textarea id="paste-text" data-pastetext="1" placeholder="Cena 1 – Gancho&#10;Fala: …&#10;Takes: …&#10;Texto na tela: …" style="min-height:44vh;font-size:.95rem">${h(PASTE.text)}</textarea>
+    <button class="btn pri wide" data-act="paste-go" ${PASTE.busy?'aria-disabled="true"':''}>${PASTE.busy?'Organizando…':'Organizar roteiro'}</button>`}
+  else{
+    const ex=contentTakes(c);let newT=0,reuse=0;R.scenes.forEach(sc=>sc.takes.forEach(t=>{matchTake(t,ex)?reuse++:newT++}));const ins=R.scenes.reduce((a,s)=>a+s.inserts.length,0);
+    body=`<div class="notice ok">${R.scenes.length} cena${R.scenes.length!==1?'s':''} · ${newT} take${newT!==1?'s':''} novo${newT!==1?'s':''} para gravar${reuse?` · ${reuse} já existia${reuse>1?'m':''}`:''} · ${ins} inserç${ins!==1?'ões':'ão'} de fora</div>
+    <div class="small muted">${PASTE.src==='ia'?'Organizado pela IA.':'Organizado automaticamente.'} Confira antes de salvar. Depois você pode editar cada cena.</div>
+    <div class="list">${R.scenes.map((sc,i)=>sceneCard(sc,i)).join('')}</div>
+    ${R.caption?`<div class="card" style="gap:4px"><span class="eyebrow">Legenda do post</span><div class="small" style="white-space:pre-line">${h(R.caption)}</div></div>`:''}
+    ${has?`<div class="tabs"><button class="${PASTE.mode==='replace'?'on':''}" data-act="paste-mode" data-k="replace">Substituir roteiro atual</button><button class="${PASTE.mode==='append'?'on':''}" data-act="paste-mode" data-k="append">Adicionar ao final</button></div>${PASTE.mode==='replace'?'<div class="small muted">O roteiro atual fica guardado no histórico. Takes já gravados nunca são apagados.</div>':''}`:''}
+    <div class="row"><button class="btn pri grow" data-act="paste-apply">Salvar no conteúdo</button><button class="btn" data-act="paste-back">Corrigir o texto</button></div>`}
+  sheet('Colar roteiro',`<div class="small" style="font-weight:700">${h(c.title)}</div>${body}`);
+}
+function sceneCard(sc,i){
+  const row=(lbl,v)=>v?`<div><div class="eyebrow">${lbl}</div><div class="small">${v}</div></div>`:'';
+  return`<div class="card" style="gap:6px"><div class="row between"><h3>Cena ${h(sc.scene||i+1)}</h3><span class="chip ${sc.mode==='narrado'?'acc':''}">${MODE_ICON[sc.mode]||''} ${h(MODE_L[sc.mode]||'')}</span></div>
+    ${row('Fala',sc.text?`<b>${h(sc.text)}</b>`:'')}${row('Interpretação',h(sc.note))}
+    ${row('Takes para gravar',sc.takes.map(t=>'▸ '+h(t)).join('<br>'))}${row('Inserir de fora',sc.inserts.map(t=>'↳ '+h(t)).join('<br>'))}
+    ${row('Texto na tela',sc.overlay?'“'+h(sc.overlay)+'”':'')}${row('Edição',h(sc.editNote))}</div>`;
+}
+function matchTake(desc,list){const n=norm(desc).replace(/[^a-z0-9 ]/g,'').trim();return list.find(t=>{const m=norm(t.desc).replace(/[^a-z0-9 ]/g,'').trim();return m===n||similar(t.desc,desc)>=.8})}
+async function pasteGo(){
+  const text=(PASTE.text||'').trim();if(text.length<10)return toast('Cole o roteiro antes de organizar.');
+  PASTE.busy=true;drawPaste();let res=null;PASTE.src='local';
+  if(SAMPLE){try{const r=await SAMPLE.json(`Organize este roteiro de vídeo curto (feito pelo ChatGPT para uma creator de UGC/TikTok Shop) em cenas. Não invente nada que não esteja no texto; só separe e classifique.\nPara cada cena:\n- titulo: nome curto da cena (ex.: "Gancho (0–3s)")\n- fala: só o texto que ela vai falar ou narrar, sem aspas\n- modo: "camera" se fala olhando para a câmera, "narrado" se é voz em off/narração, "semfala" se não tem fala\n- interpretacao: indicações de tom/expressão/postura (não as ações visuais)\n- takes: lista de cenas visuais que ELA precisa gravar\n- inserir: lista de materiais que vêm de fora e não são gravados por ela (prints, vídeos da marca, imagens da internet, gravações de tela, memes)\n- texto_tela: texto que aparece escrito no vídeo\n- edicao: orientações de edição, efeitos, cortes, música, transições\nE "legenda": a legenda/caption do post, se houver.\nResponda só JSON: {"cenas":[{"titulo":"","fala":"","modo":"","interpretacao":"","takes":[],"inserir":[],"texto_tela":"","edicao":""}],"legenda":""}\n\nROTEIRO:\n${text}`,{modelTier:'default',cache:false});
+    const cs=arr(r?.cenas);if(cs.length){res={scenes:cs.map((x,i)=>({scene:/^\d/.test(x.titulo||'')?x.titulo:(i+1)+(x.titulo?' · '+x.titulo:''),text:x.fala||'',mode:MODE_L[x.modo]?x.modo:(x.fala?'camera':'semfala'),note:x.interpretacao||'',takes:arr(x.takes).filter(Boolean).map(cap1),inserts:arr(x.inserir).filter(Boolean).map(cap1),overlay:x.texto_tela||'',editNote:x.edicao||''})),caption:r.legenda||''};PASTE.src='ia'}}catch(e){}}
+  if(!res)res=parseScript(text);
+  PASTE.busy=false;
+  if(!res.scenes.length){toast('Não encontrei cenas nesse texto. Confira se colou o roteiro inteiro.');drawPaste();return}
+  PASTE.res=res;drawPaste();document.querySelector('#layer .sheet')?.scrollTo(0,0);
+}
+function pasteApply(){
+  const c=byId('contents',PASTE.cid);const R=PASTE.res;if(!c||!R)return;const now=new Date().toISOString();
+  const replace=PASTE.mode==='replace'||!arr(c.script?.lines).length;
+  if(replace&&arr(c.script?.lines).length)c.scriptHistory=[...arr(c.scriptHistory),JSON.parse(JSON.stringify(c.script))];
+  const pool=contentTakes(c);const used=new Set();
+  const lines=R.scenes.map(sc=>{const ids=sc.takes.map(d=>{let t=matchTake(d,pool.filter(x=>!used.has(x.id)));if(t&&t.status!=='gravado'&&!arr(t.fileIds).length&&d.length>t.desc.length+3){t.notes=join(t.notes||'','Antes: '+t.desc);t.desc=d}if(!t){t={id:uid('t'),code:nextCode(),desc:d,contexts:[...arr(c.contexts)],contentIds:[c.id],productIds:[...arr(c.productIds)],status:'pendente',priority:'media',fileIds:[],fromScript:c.id,scene:sc.scene,createdAt:now};S.takes.push(t);pool.push(t)}used.add(t.id);return t.id});
+    return{scene:sc.scene,text:sc.text,mode:sc.mode,note:sc.note,takeIds:ids,inserts:sc.inserts,overlay:sc.overlay,editNote:sc.editNote}});
+  if(replace){const keep=new Set(lines.flatMap(l=>l.takeIds));S.takes=S.takes.filter(t=>!(t.fromScript===c.id&&t.status!=='gravado'&&!keep.has(t.id)&&arr(t.contentIds).length<=1&&!arr(t.fileIds).length))}
+  c.script={version:replace?((c.script?.version||0)+(arr(c.script?.lines).length?1:0)||1):(c.script?.version||1),lines:replace?lines:[...arr(c.script?.lines),...lines]};
+  c.scriptState='Roteiro no app';if(R.caption)c.caption=R.caption;
+  saveAll('takes','contents');PASTE.text='';PASTE.res=null;closeForm();UI.mode='roteiro';renderDetail();toast(`Roteiro organizado em ${lines.length} cena${lines.length!==1?'s':''}`);
 }
 
 /* ============ FORMULÁRIOS GENÉRICOS ============ */
@@ -987,7 +1166,7 @@ const FORMS={
   project:{key:'projects',title:'Projeto',fields:[['name','Nome','text'],['start','Início','date'],['end','Fim','date'],['objectives','Objetivos','chips',OBJ],['participants','Participantes (separe por vírgula)','list']]},
   event:{key:'events',title:'Agenda',fields:[['title','Título','text'],['type','Tipo','select',Object.keys(EVT).filter(k=>k!=='publicacao')],['date','Data','date'],['endDate','Até (para vários dias)','date'],['time','Horário','time'],['contexts','Contextos do lugar','ctx'],['location','Local','text'],['projectId','Projeto','one','projects'],['contentIds','Conteúdos relacionados','rel','contents'],['fixed','Gravação fixa (depende desta data)','bool'],['autoRec','Criar gravação fixa vinculada neste dia','bool'],['responsible','Responsável','text'],['status','Status','select',['pendente','concluido']]]},
   pub:{key:'pubs',title:'Publicação',fields:[['contentId','Conteúdo','one','contents'],['platform','Plataforma','select',PLAT],['date','Data','date'],['time','Horário','time'],['format','Formato','select',['Reels','Carrossel','Vídeo','Stories','Vídeo TikTok Shop','Live']],['status','Status','select',['Programada','Pronta','Publicado','Adiada']],['link','Link da publicação','url'],['finalFile','Arquivo final (nome ou link)','text']]},
-  line:{title:'Fala',fields:[['scene','Cena','text'],['text','Fala / narração','textarea'],['note','Indicação de interpretação','text'],['takeIds','Takes desta parte (montagem)','linetakes'],['transition','Transição','text'],['overlay','Texto na tela','text'],['editNote','Orientação de edição / efeitos','text']]}
+  line:{title:'Cena',fields:[['scene','Cena','text'],['text','Fala / narração','textarea'],['mode','Como falar','select',['camera','narrado','semfala']],['note','Indicação de interpretação','text'],['takeIds','Takes para gravar nesta cena','linetakes'],['inserts','Inserir de fora (um por linha: prints, vídeos da marca…)','lines'],['overlay','Texto na tela','text'],['editNote','Indicações de edição desta cena','textarea']]}
 };
 const getP=(o,k)=>k.split('.').reduce((a,p)=>a?.[p],o);
 const setP=(o,k,v)=>{const ps=k.split('.');let a=o;ps.slice(0,-1).forEach(p=>{a[p]=a[p]||{};a=a[p]});a[ps.at(-1)]=v};
@@ -1002,9 +1181,10 @@ function fieldHTML(f){
   const [k,label,type,src]=f;const d=DRAFT.data;const v=getP(d,k);const id='f-'+k.replace('.','-');
   if(type==='text'||type==='url'||type==='date'||type==='time')return`<label class="f">${label}<input type="${type==='url'?'url':type}" id="${id}" data-f="${k}" value="${h(v||'')}"></label>`;
   if(type==='textarea')return`<label class="f">${label}<textarea id="${id}" data-f="${k}">${h(v||'')}</textarea></label>`;
+  if(type==='lines')return`<label class="f">${label}<textarea id="${id}" data-f="${k}" data-lines="1" style="min-height:70px">${h(arr(v).join('\n'))}</textarea></label>`;
   if(type==='list')return`<label class="f">${label}<input type="text" id="${id}" data-f="${k}" data-list="1" value="${h(arr(v).join(', '))}"></label>`;
   if(type==='bool')return`<label class="row small" style="font-weight:600"><input type="checkbox" id="${id}" data-f="${k}" data-bool="1" ${v?'checked':''} style="width:20px;height:20px;accent-color:var(--accent)"> ${label}</label>`;
-  if(type==='select')return`<label class="f">${label}<select id="${id}" data-f="${k}"><option value="">—</option>${src.map(o=>`<option value="${h(o)}" ${o===v?'selected':''}>${h(PRIO_L[o]||EVT[o]||o)}</option>`).join('')}</select></label>`;
+  if(type==='select')return`<label class="f">${label}<select id="${id}" data-f="${k}"><option value="">—</option>${src.map(o=>`<option value="${h(o)}" ${o===v?'selected':''}>${h(PRIO_L[o]||EVT[o]||MODE_L[o]||o)}</option>`).join('')}</select></label>`;
   if(type==='one'){const list=opts(src)().filter(([i])=>i!==DRAFT.id);return`<label class="f">${label}<select id="${id}" data-f="${k}"><option value="">—</option>${list.map(([i,n])=>`<option value="${i}" ${i===v?'selected':''}>${h(n)}</option>`).join('')}</select></label>`}
   if(type==='front'){const pr=byId('projects',d.projectId);return pr&&arr(pr.fronts).length?`<label class="f">${label}<select id="${id}" data-f="${k}"><option value="">—</option>${pr.fronts.map(fr=>`<option value="${fr.id}" ${fr.id===v?'selected':''}>${h(fr.name)}</option>`).join('')}</select></label>`:''}
   if(type==='chips')return`<div class="f"><span class="small" style="font-weight:600;color:var(--muted)">${label}</span><div class="chips">${src.map(o=>`<button type="button" class="chip btn ${arr(v).includes(o)?'on':''}" data-act="f-chip" data-k="${k}" data-v="${h(o)}">${h(o)}</button>`).join('')}</div></div>`;
@@ -1183,7 +1363,7 @@ function handleUpload(input){
 }
 let WAKE=null;
 function openReader(c){const lines=arr(c.script?.lines);let i=0;const L=document.getElementById('layer');const div=document.createElement('div');div.className='reader';L.appendChild(div);
-  const draw=()=>{const l=lines[i];div.innerHTML=`<div class="row between" style="color:#aaa"><span class="mono">${i+1}/${lines.length} · ${h(l.scene||'')}</span><button data-act="reader-close" style="min-height:40px;padding:0 14px;font-size:.9rem">Fechar</button></div><div class="txt"><div>${h(l.text)}${l.note?`<div class="note">${h(l.note)}</div>`:''}</div></div><div class="ctl"><button data-act="reader-prev">‹ Anterior</button><button data-act="reader-next" style="background:var(--accent);color:var(--on-accent)">Próxima ›</button></div>`};
+  const draw=()=>{const l=lines[i];div.innerHTML=`<div class="row between" style="color:#aaa"><span class="mono">${i+1}/${lines.length} · ${h(l.scene||'')} · ${MODE_ICON[l.mode]||'🎥'} ${h(MODE_L[l.mode]||MODE_L.camera)}</span><button data-act="reader-close" style="min-height:40px;padding:0 14px;font-size:.9rem">Fechar</button></div><div class="txt"><div>${h(l.text||'(sem fala)')}${l.note?`<div class="note">${h(l.note)}</div>`:''}</div></div><div class="ctl"><button data-act="reader-prev">‹ Anterior</button><button data-act="reader-next" style="background:var(--accent);color:var(--on-accent)">Próxima ›</button></div>`};
   UI._reader={next:()=>{if(i<lines.length-1){i++;draw()}},prev:()=>{if(i>0){i--;draw()}},close:()=>{div.remove();try{WAKE?.release()}catch(e){}WAKE=null}};
   draw();try{navigator.wakeLock?.request('screen').then(w=>WAKE=w).catch(()=>{})}catch(e){}}
 
@@ -1252,6 +1432,13 @@ const ACT={
   cmode:d=>{UI.mode=d.k;renderDetail()},
   reader:d=>openReader(byId('contents',d.id)),
   'reader-next':()=>UI._reader.next(),'reader-prev':()=>UI._reader.prev(),'reader-close':()=>UI._reader.close(),
+  'paste-open':d=>openPaste(d.id),'paste-go':()=>{if(!PASTE.busy)pasteGo()},'paste-apply':()=>pasteApply(),'paste-back':()=>{PASTE.res=null;drawPaste()},'paste-mode':d=>{PASTE.mode=d.k;drawPaste()},
+  'paste-product':d=>{const p=byId('products',d.id);let cs=S.contents.filter(c=>arr(c.productIds).includes(p.id)&&c.status!=='Publicado');
+    const go=c=>{closeForm();UI.detail={t:'content',id:c.id};UI.mode='roteiro';renderDetail();openPaste(c.id)};
+    if(cs.length===1)return go(cs[0]);
+    if(!cs.length){const c={id:uid('c'),title:p.name,productIds:[p.id],platforms:['TikTok Shop'],destino:'TikTok Shop',objectives:['Vendas'],audiences:['Consumidores TikTok Shop'],status:'Planejamento',contexts:arr(p.contexts).map(x=>x.ctx),projectId:'',refIds:[],janela:'A definir',scriptState:'Não roteirizado',script:{version:1,lines:[]},createdAt:new Date().toISOString()};S.contents.push(c);save('contents');return go(c)}
+    sheet('Para qual vídeo é o roteiro?',`<div class="list">${cs.map(c=>`<button class="card tap" data-act="paste-pick" data-id="${c.id}"><b>${h(c.title)}</b><span class="small muted">${h(c.status)}</span></button>`).join('')}</div>`)},
+  'paste-pick':d=>{const c=byId('contents',d.id);closeForm();UI.detail={t:'content',id:c.id};UI.mode='roteiro';renderDetail();openPaste(c.id)},
   'line-new':d=>{UI._lineCtx={cid:d.id,i:null};openForm('line',null,{})},
   'line-edit':d=>{UI._lineCtx={cid:d.id,i:+d.i};const c=byId('contents',d.id);openForm('line',c.script.lines[+d.i])},
   'script-version':d=>{const c=byId('contents',d.id);c.scriptHistory=[...arr(c.scriptHistory),JSON.parse(JSON.stringify(c.script))];c.script.version=(c.script.version||1)+1;save('contents');toast(`Versão ${c.script.version} criada. A anterior ficou no histórico.`);renderDetail()},
@@ -1284,11 +1471,12 @@ document.addEventListener('submit',e=>{e.preventDefault();const f=e.target.datas
     S.takes.push({id:uid('t'),code:nextCode(),desc:v,contexts:[...arr(c.contexts)],contentIds:[cid],productIds:[...arr(c.productIds)],status:'pendente',priority:'media',createdAt:new Date().toISOString()});save('takes');renderDetail();const n=document.getElementById('qt-'+cid);if(n)n.focus()}
 });
 document.addEventListener('input',e=>{const el=e.target;
-  if(DRAFT&&el.dataset.f){const k=el.dataset.f;let v=el.dataset.bool?el.checked:el.dataset.list?el.value.split(',').map(s=>s.trim()).filter(Boolean):el.value;setP(DRAFT.data,k,v);if(k==='projectId'&&DRAFT.type==='content')drawForm()}
+  if(DRAFT&&el.dataset.f){const k=el.dataset.f;let v=el.dataset.bool?el.checked:el.dataset.lines?el.value.split('\n').map(x=>x.trim()).filter(Boolean):el.dataset.list?el.value.split(',').map(s=>s.trim()).filter(Boolean):el.value;setP(DRAFT.data,k,v);if(k==='projectId'&&DRAFT.type==='content')drawForm()}
   if(DRAFT&&el.dataset.relq){DRAFT.q[el.dataset.relq]=el.value;const pos=el.selectionStart;drawForm();const n=document.getElementById(el.id);if(n){n.focus();try{n.setSelectionRange(pos,pos)}catch(_){}}}
   if(el.dataset.planObj!==undefined){UI.plan.counts[el.dataset.planObj]=+el.value||0}
   if(el.dataset.plan==='month')UI.plan.month=el.value;
   if(el.dataset.voice)V.text=el.value;
+  if(el.dataset.pastetext)PASTE.text=el.value;
   if(el.dataset.notedraft)UI.noteDraft[el.dataset.notedraft]=el.value;
   if(el.dataset.noteedit){const it=byId('ideas',el.dataset.noteedit);if(it){it.text=el.value;delete it.title;delete it.desc;it.updatedAt=new Date().toISOString();save('ideas');clearTimeout(timers._nr);timers._nr=setTimeout(()=>{if(!document.querySelector('.sheet'))render()},50)}}
   if(el.dataset.editnotes){const c=byId('contents',el.dataset.editnotes);if(c){c.editNotes=el.value;save('contents')}}
