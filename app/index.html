@@ -227,10 +227,10 @@ const CTX={
 const CAP_QUICK=['Estou na praia','Estou na academia','Estou cozinhando','Estou em um restaurante','Estou em um evento','Estou no notebook','Estou arrumando a mala','Estou em reunião'];
 
 /* ============ ESTADO E PERSISTÊNCIA ============ */
-const KEYS=['refs','ideas','contents','takes','products','projects','events','pubs','files'];
+const KEYS=['refs','ideas','contents','takes','products','projects','events','pubs','files','ctxs'];
 const S={}; KEYS.forEach(k=>S[k]=[]);
 let DB=null, MODE='loading', SAMPLE=null;
-const UI={view:'inicio',dayNet:'',tipoF:'',noteQ:'',noteKind:'note',noteDraft:{},noteAI:null,janelaF:'',prodTab:'conteudos',ideaTab:'refs',projTab:'projetos',calMode:'mes',calDate:null,calSel:null,calF:{types:[],plat:[],proj:''},captar:{text:'',ctx:[],ai:null,aiBusy:false},refQ:'',refAI:null,refBusy:false,takeQ:'',takeF:{ctx:'',status:'pendente'},libQ:'',libUnused:false,contentF:'',plan:null,detail:null,mode:'roteiro',grp:'cenario'};
+const UI={view:'inicio',shopF:{nicho:'',cen:'',date:'',st:''},dayNet:'',tipoF:'',noteQ:'',noteKind:'note',noteDraft:{},noteAI:null,janelaF:'',prodTab:'conteudos',ideaTab:'refs',projTab:'projetos',calMode:'mes',calDate:null,calSel:null,calF:{types:[],plat:[],proj:''},captar:{text:'',ctx:[],ai:null,aiBusy:false},refQ:'',refAI:null,refBusy:false,takeQ:'',takeF:{ctx:'',status:'pendente'},libQ:'',libUnused:false,contentF:'',plan:null,detail:null,mode:'roteiro',grp:'cenario'};
 const timers={};
 function save(k){
   S[k].forEach(x=>{if(x&&!x.createdAt)x.createdAt=new Date().toISOString()});
@@ -346,6 +346,7 @@ const I={
 /* ============ RENDER PRINCIPAL ============ */
 const VIEWS=[['inicio','Início'],['ideias','Notas'],['producao','Produção'],['captar','Captar'],['calendario','Agenda'],['projetos','Projetos']];
 function render(){
+  applyCtxs();
   const app=document.getElementById('app');
   if(MODE==='loading'){app.innerHTML=`<div class="wrap"><div class="boot"><div><span class="rec-dot"></span></div><div>Abrindo seu Creative OS…</div></div></div>`;return}
   if(MODE==='login'){app.innerHTML=`<div class="wrap">${vLogin()}</div>`;return}
@@ -429,7 +430,8 @@ function contentFlag(c){
 }
 function contentCard(c){
   const p=progress(c);
-  const sub=[c.destino||arr(c.platforms).join(', '),c.janela&&c.janela!=='A definir'?c.janela:'',c.pubDate?'posta '+fmtShort(c.pubDate):''].filter(Boolean).join(' · ');
+  const sp=c.shop;const nh=sp?sp.hooks.filter(x=>x.text.trim()).length:0;
+  const sub=(sp?[sp.nicho,FORMATOS.find(f=>f[0]===sp.formato)?.[1],nh?nh+' gancho'+(nh>1?'s':''):'']:[arr(c.platforms).join(', '),c.janela&&c.janela!=='A definir'?c.janela:'']).concat([c.pubDate?'posta '+fmtShort(c.pubDate):'']).filter(Boolean).join(' · ');
   return`<button class="card tap" data-act="open" data-t="content" data-id="${c.id}" style="gap:6px">
     <div class="row between" style="flex-wrap:nowrap;align-items:flex-start"><h3 class="grow">${h(c.title)}</h3><span class="status ${statusClass(c.status)}">${h(c.status)}</span></div>
     ${sub?`<div class="small muted">${h(sub)}</div>`:''}
@@ -442,10 +444,10 @@ function tiposOf(c){const p=arr(c.platforms),d=norm(c.destino),t=[];
   if(p.includes('Portfólio')||/ugc|portfolio/.test(d))t.push('ugc');
   if(p.includes('Instagram')||/instagram/.test(d))t.push('insta');
   if(p.includes('TikTok')||/tiktok(?! shop)/.test(d.replace('tiktok shop','')))t.push('tiktok');
-  if(p.includes('TikTok Shop')||/tiktok shop/.test(d))t.push('shop');
+  if(c.shop||p.includes('TikTok Shop')||/tiktok shop/.test(d))t.push('shop');
   return t}
 const tipoOk=(c,tp=UI.tipoF)=>!tp||tiposOf(c).includes(tp);
-const takeTipoOk=t=>!UI.tipoF||arr(t.contentIds).some(id=>{const c=byId('contents',id);return c&&tipoOk(c)});
+const takeTipoOk=t=>!UI.tipoF||arr(t.contentIds).some(id=>{const c=byId('contents',id);return c&&tipoOk(c)&&shopOk(c)&&(UI.tipoF!=='shop'||!UI.shopF.cen||arr(t.contexts).includes(UI.shopF.cen))});
 function stageOk(c,f=UI.contentF){
   if(!f)return c.status!=='Publicado';
   if(f==='semtakes')return needsTakes(c);
@@ -455,7 +457,7 @@ function stageOk(c,f=UI.contentF){
 }
 function contentFilter(){
   const j=UI.janelaF||'';
-  let list=S.contents.filter(c=>(!j||c.janela===j)&&tipoOk(c)&&stageOk(c));
+  let list=S.contents.filter(c=>(!j||c.janela===j)&&tipoOk(c)&&stageOk(c)&&shopOk(c));
   const ord={Postagem:0,'Edição':1,Planejamento:2,Publicado:3};
   return list.sort((a,b)=>(ord[a.status]-ord[b.status])||(a.pubDate||'9').localeCompare(b.pubDate||'9')||(a.order||0)-(b.order||0));
 }
@@ -551,7 +553,7 @@ function vCaptar(){
   let out=topBar('Captar agora','<span class="rec-dot"></span> Contexto');
   out+=`<form class="cap-in" data-form="captar"><input type="search" id="cap-text" value="${h(C.text)}" placeholder="O que você está fazendo agora?" autocomplete="off"><button class="btn pri" type="submit">Buscar</button></form>
   <div class="scroll-x" style="margin-top:8px">${CAP_QUICK.map(q=>`<button class="chip btn" data-act="cap-quick" data-q="${h(q)}">${h(q.replace('Estou ',''))}</button>`).join('')}</div>`;
-  if(C.text&&!C.ctx.length)out+=`<div class="sec"><div class="notice">Não reconheci um contexto em "${h(C.text)}". Escolha um abaixo ou use as sugestões da IA.</div><div class="chips">${Object.keys(CTX).map(k=>`<button class="chip btn" data-act="cap-ctx" data-k="${k}">${CTX[k].l}</button>`).join('')}</div>${aiBlock()}</div>`;
+  if(C.text&&!C.ctx.length)out+=`<div class="sec"><div class="notice">Não reconheci um contexto em "${h(C.text)}". Escolha um abaixo ou use as sugestões da IA.</div><div class="chips">${ctxKeys().map(k=>`<button class="chip btn" data-act="cap-ctx" data-k="${k}">${CTX[k].l}</button>`).join('')}</div>${aiBlock()}</div>`;
   if(!r){if(!C.text)out+=`<div class="sec"><div class="empty">Diga onde você está. O Creative OS cruza esse momento com todos os roteiros, takes pendentes e produtos.</div></div>`;return out}
   out+=`<div class="sec"><div class="row">${C.ctx.map(k=>`<span class="chip on">${ctxL(k)} <span data-act="cap-rm" data-k="${k}" aria-label="remover" style="cursor:pointer">×</span></span>`).join('')}<button class="chip btn" data-act="cap-addctx">+ contexto</button></div>
   <div class="card" style="background:var(--ink);color:var(--bg);border-color:var(--ink)"><div class="row between"><div><b style="font-family:var(--f-display);font-size:1.6rem">${r.scored.length}</b> takes</div><div><b style="font-family:var(--f-display);font-size:1.6rem">${r.contents}</b> conteúdos</div><div><b style="font-family:var(--f-display);font-size:1.6rem">${r.prods.length}</b> produtos</div></div></div>
@@ -664,9 +666,10 @@ function vPlano(){
 /* ---------- PRODUÇÃO ---------- */
 function vProducao(){
   const tab=UI.prodTab;
-  let out=topBar('Produção','Conteúdos, takes e edição',`<button class="icon-btn" data-act="new" data-t="${tab==='takes'||tab==='gravados'?'take':'content'}" aria-label="Adicionar">＋</button>`);
+  let out=topBar('Produção','Conteúdos, takes e edição',tab==='takes'||tab==='gravados'?`<button class="icon-btn" data-act="new" data-t="take" aria-label="Novo take">＋</button>`:`<button class="icon-btn" data-act="new-choose" aria-label="Novo conteúdo">＋</button>`);
   const baseTipo=c=>(tab!=='conteudos'||((!UI.janelaF||c.janela===UI.janelaF)&&stageOk(c)));
   out+=`<div class="scroll-x" style="margin-bottom:10px"><button class="chip btn ${!UI.tipoF?'on':''}" data-act="tipof" data-k="">Todos os tipos</button>${TIPOS.map(([k,l])=>{const n=S.contents.filter(c=>baseTipo(c)&&tipoOk(c,k)).length;return`<button class="chip btn ${UI.tipoF===k?'on':''}" data-act="tipof" data-k="${k}">${l} · ${n}</button>`}).join('')}</div>`;
+  if(UI.tipoF==='shop')out+=shopFilterBar(baseTipo);
   out+=`<div class="tabs">${[['conteudos','Conteúdos'],['takes','Takes'],['gravados','Gravados'],['edicao','Edição']].map(([k,l])=>`<button class="${tab===k?'on':''}" data-act="ptab" data-k="${k}">${l}</button>`).join('')}</div>`;
   if(tab==='conteudos'){
     const f=UI.contentF;const list=contentFilter();const cnt=k=>S.contents.filter(c=>(!UI.janelaF||c.janela===UI.janelaF)&&tipoOk(c)&&stageOk(c,k)).length;const nt=cnt('semtakes');
@@ -908,6 +911,7 @@ function pContent(c){
     ${!adv.ok&&adv.why?`<div class="small muted">${h(adv.why)}</div>`:''}
     ${si>0?`<button class="btn ghost sm" data-act="stage-back" data-id="${c.id}" style="align-self:flex-start">Voltar para ${STATUS[si-1]}</button>`:''}
   </div>`:`<div class="notice ok" style="margin-top:12px">Publicado.<button class="btn ghost sm" data-act="stage-back" data-id="${c.id}">Voltar para Postagem</button></div>`}
+  ${isShop(c)?shopSummary(c):''}
   <div class="tabs" style="margin-top:14px">${[['captacao','Takes'],['roteiro','Roteiro'],['edicao','Edição']].map(([k,l])=>`<button class="${UI.mode===k?'on':''}" data-act="cmode" data-k="${k}">${l}</button>`).join('')}</div>`;
   if(UI.mode==='captacao'){
     const pend=tk.filter(t=>t.status!=='gravado'),done=tk.filter(t=>t.status==='gravado');
@@ -951,7 +955,7 @@ function pContent(c){
     ${evs.length||pubs.length?`<div class="card">${evs.map(e=>`<button class="cal-item" style="border:0;background:none;padding:4px 0;text-align:left" data-act="cal-day" data-d="${e.date}"><span class="time">${fmtShort(e.date)}</span><span class="stripe t-${e.type} grow small"><b>${EVT[e.type]}</b> · ${h(e.title)}${e.endDate?' até '+fmtShort(e.endDate):''}${e.status==='concluido'?' ✓':''}</span></button>`).join('')}${pubs.map(x=>`<button class="cal-item" style="border:0;background:none;padding:4px 0;text-align:left" data-act="open" data-t="pub" data-id="${x.id}"><span class="time">${fmtShort(x.date)}</span><span class="stripe t-publicacao grow small"><b>Postagem</b> · ${h(x.platform)} · ${h(x.status||'Programada')}</span></button>`).join('')}</div>`:'<div class="small muted">Sem datas ainda.</div>'}
     <div><button class="btn sm ghost" data-act="new" data-t="pub" data-preset='${h(JSON.stringify({contentId:c.id,date:addDays(TODAY,7),platform:arr(c.platforms)[0]||"Instagram",status:"Programada"}))}'>+ Data de postagem</button></div></div>
   <details class="sec"><summary class="btn wide" style="list-style:none">Detalhes do conteúdo</summary><div class="card" style="margin-top:8px;gap:10px">
-    ${[['Destino',c.destino||arr(c.platforms).join(', ')],['Objetivo',c.goal||arr(c.objectives).join(', ')],['Público',c.audienceText||arr(c.audiences).join(', ')],['Quando / cenário',c.when],['Janela de gravação',c.janela],['Etapa original',c.etapa],['Roteiro',c.scriptState],['Formato',c.formatNote||c.format],['Projeto',c.projectId?projName(c.projectId):''],['Contextos',arr(c.contexts).map(ctxL).join(', ')],['Observações',c.notes]].filter(x=>x[1]).map(([l,v])=>`<div><div class="eyebrow">${l}</div><div class="small">${h(v)}</div></div>`).join('')}
+    ${[['Plataformas',arr(c.platforms).join(', ')],['Objetivo',c.goal||arr(c.objectives).join(', ')],['Público',c.audienceText||arr(c.audiences).join(', ')],['Quando / cenário',c.when],['Janela de gravação',c.janela],['Etapa original',c.etapa],['Roteiro',c.scriptState],['Formato',c.formatNote||c.format],['Projeto',c.projectId?projName(c.projectId):''],['Contextos',arr(c.contexts).map(ctxL).join(', ')],['Observações',c.notes]].filter(x=>x[1]).map(([l,v])=>`<div><div class="eyebrow">${l}</div><div class="small">${h(v)}</div></div>`).join('')}
     <div><div class="eyebrow">Link de referência</div>${c.refLink?`<a class="small" href="${h(c.refLink)}" target="_blank" rel="noopener" style="color:var(--accent);word-break:break-all">${h(c.refLink)}</a>`:'<div class="small muted">A inserir · toque em Editar</div>'}</div>
     ${refs.length?`<div><div class="eyebrow">Referências salvas</div>${refs.map(r=>`<button class="small" style="border:0;background:none;padding:0;text-align:left;display:block" data-act="open" data-t="ref" data-id="${r.id}">${h(r.title)}</button>`).join('')}</div>`:''}
   </div></details>`;
@@ -1155,12 +1159,151 @@ function pasteApply(){
   saveAll('takes','contents');PASTE.text='';PASTE.res=null;closeForm();UI.mode='roteiro';renderDetail();toast(`Roteiro organizado em ${lines.length} cena${lines.length!==1?'s':''}`);
 }
 
+/* ---------- CONTEXTOS PERSONALIZADOS ---------- */
+const CTX_BASE=Object.keys(CTX);let CTX_HIDDEN=new Set();
+function applyCtxs(){CTX_HIDDEN=new Set();arr(S.ctxs).forEach(x=>{if(!x||!x.id)return;if(x.custom)CTX[x.id]={l:x.l,s:[...new Set([norm(x.l),...arr(x.s)])]};if(x.hidden)CTX_HIDDEN.add(x.id)});Object.keys(CTX).forEach(k=>{if(!CTX_BASE.includes(k)&&!arr(S.ctxs).some(x=>x.id===k&&x.custom))delete CTX[k]})}
+const ctxKeys=(keep=[])=>Object.keys(CTX).filter(k=>!CTX_HIDDEN.has(k)||keep.includes(k));
+function addCtx(label){label=String(label||'').trim();if(!label)return null;const ex=Object.keys(CTX).find(k=>norm(CTX[k].l)===norm(label));
+  if(ex){if(CTX_HIDDEN.has(ex))toggleCtx(ex,false);return ex}
+  const id='x_'+norm(label).replace(/[^a-z0-9]+/g,'_').slice(0,30);S.ctxs=[...arr(S.ctxs).filter(x=>x.id!==id),{id,l:label,custom:true,s:[norm(label)]}];save('ctxs');applyCtxs();return id}
+function toggleCtx(id,hide){const list=arr(S.ctxs).filter(x=>x.id!==id);const cur=arr(S.ctxs).find(x=>x.id===id)||{id};list.push({...cur,hidden:hide});S.ctxs=list;save('ctxs');applyCtxs()}
+function ctxEditor(k,sel){
+  const keys=ctxKeys(sel);const edit=DRAFT?.ctxEdit;
+  return`<div class="chips">${keys.map(o=>edit?`<button type="button" class="chip btn" data-act="ctx-hide" data-v="${o}" style="border-color:var(--bad);color:var(--bad)">${h(CTX[o].l)} ✕</button>`:`<button type="button" class="chip btn ${sel.includes(o)?'on':''}" data-act="f-chip" data-k="${k}" data-v="${o}">${h(CTX[o].l)}</button>`).join('')}</div>
+  <div class="row" style="flex-wrap:nowrap"><input type="text" id="ctx-new-${k}" placeholder="Novo contexto (ex.: Escritório da cliente)" style="flex:1;min-width:0;min-height:38px"><button type="button" class="btn sm" data-act="ctx-add" data-k="${k}">+ Adicionar</button><button type="button" class="btn sm ${edit?'pri':'ghost'}" data-act="ctx-edit">${edit?'Pronto':'Retirar'}</button></div>
+  ${edit?'<div class="small muted">Toque num contexto para retirá-lo da lista. Os vídeos que já usam ele continuam com ele.</div>':''}
+  ${CTX_HIDDEN.size&&edit?`<div class="small muted">Retirados: ${[...CTX_HIDDEN].map(x=>`<button type="button" class="chip btn" data-act="ctx-unhide" data-v="${x}">${h(CTX[x]?.l||x)} ↺</button>`).join(' ')}</div>`:''}`;
+}
+
+/* ---------- PRODUTO TIKTOK SHOP ---------- */
+const FORMATOS=[['video','Vídeo'],['live','Live'],['ambos','Vídeo e live']];
+const isShop=c=>!!c&&(!!c.shop||tiposOf(c).includes('shop'));
+function shopOf(c){const p=byId('products',arr(c.productIds)[0]);return Object.assign({nome:p?.name||c.title,nicho:p?.category||'',formato:'video',bodyMode:'unico',body:'',hooks:[],recDate:''},c.shop||{})}
+const nichos=()=>[...new Set([...S.contents.map(c=>c.shop?.nicho),...S.products.map(p=>p.category)].filter(Boolean).map(x=>x.trim()))].sort();
+let SD=null;
+function openShopForm(c,preset){
+  const s=c?shopOf(c):Object.assign({nome:'',nicho:'',formato:'video',bodyMode:'unico',body:'',hooks:[],recDate:''},preset||{});
+  SD={cid:c?.id||null,s:JSON.parse(JSON.stringify(s)),contexts:[...arr(c?.contexts)],projectId:c?.projectId||'',refLink:c?.refLink||'',notes:c?.notes||'',confirmDel:false};
+  if(!SD.s.hooks.length)SD.s.hooks.push({id:uid('h'),text:'',cenario:'',body:''});
+  drawShop();
+}
+function drawShop(){
+  const s=SD.s;const keys=ctxKeys([...SD.contexts,...s.hooks.map(x=>x.cenario)]);
+  const cenSel=(hk,i)=>`<select data-shop="cenario" data-i="${i}" style="min-height:38px"><option value="">Cenário do gancho…</option>${keys.map(k=>`<option value="${k}" ${hk.cenario===k?'selected':''}>${h(CTX[k].l)}</option>`).join('')}<option value="__new">+ Novo cenário…</option></select>`;
+  const body=`
+  <label class="f">Nome do produto<input type="text" id="shop-nome" data-shop="nome" value="${h(s.nome)}" placeholder="Ex.: Kit de panelas antiaderente"></label>
+  <label class="f">Nicho<input type="text" id="shop-nicho" data-shop="nicho" list="nichos-dl" value="${h(s.nicho)}" placeholder="Ex.: Casa e cozinha, Moda íntima, Fitness"><datalist id="nichos-dl">${nichos().map(n=>`<option value="${h(n)}">`).join('')}</datalist></label>
+  <div class="f"><span class="small" style="font-weight:600;color:var(--muted)">Formato</span><div class="tabs" style="padding:3px">${FORMATOS.map(([k,l])=>`<button type="button" class="${s.formato===k?'on':''}" data-act="shop-fmt" data-k="${k}">${l}</button>`).join('')}</div></div>
+  <div class="notice info" style="padding:8px 12px">Objetivo: <b>Venda</b> · Público: <b>Consumidor geral</b></div>
+  <div class="f"><span class="small" style="font-weight:600;color:var(--muted)">Corpo do vídeo</span><div class="tabs" style="padding:3px"><button type="button" class="${s.bodyMode==='unico'?'on':''}" data-act="shop-body" data-k="unico">Um corpo para todos os ganchos</button><button type="button" class="${s.bodyMode==='porGancho'?'on':''}" data-act="shop-body" data-k="porGancho">Um corpo para cada gancho</button></div></div>
+  <div class="sec-h"><h3>Ganchos</h3><span class="small muted">${s.hooks.length} · cada gancho vira um vídeo</span></div>
+  ${s.hooks.map((hk,i)=>`<div class="card" style="gap:8px;background:var(--bg)"><div class="row between"><b class="small">Gancho ${i+1}</b>${s.hooks.length>1?`<button type="button" class="btn sm ghost danger" data-act="shop-rmhook" data-i="${i}">Remover</button>`:''}</div>
+    <textarea data-shop="hook" data-i="${i}" placeholder="O que você fala ou mostra nos primeiros segundos" style="min-height:60px">${h(hk.text)}</textarea>
+    ${cenSel(hk,i)}
+    ${hk.cenario==='__new'||SD.newCen===i?`<div class="row" style="flex-wrap:nowrap"><input type="text" id="cen-new-${i}" placeholder="Nome do cenário" style="flex:1;min-width:0;min-height:38px"><button type="button" class="btn sm" data-act="shop-newcen" data-i="${i}">Criar</button></div>`:''}
+    ${s.bodyMode==='porGancho'?`<textarea data-shop="hookbody" data-i="${i}" placeholder="Corpo do vídeo deste gancho (pode colar o roteiro do ChatGPT)" style="min-height:90px">${h(hk.body)}</textarea>`:''}
+  </div>`).join('')}
+  <button type="button" class="btn sm" data-act="shop-addhook" style="align-self:flex-start">+ Gancho</button>
+  ${s.bodyMode==='unico'?`<label class="f">Corpo do vídeo (para todos os ganchos)<textarea data-shop="body" placeholder="Cole aqui o corpo do roteiro: demonstração, benefícios, prova, CTA… O app separa em cenas e takes." style="min-height:130px">${h(s.body)}</textarea></label>`:''}
+  <label class="f">Data de gravação<input type="date" data-shop="recDate" value="${h(s.recDate||'')}"></label>
+  <div class="f"><span class="small" style="font-weight:600;color:var(--muted)">Contextos onde dá para gravar</span>${shopCtxEditor()}</div>
+  <label class="f">Link de referência<input type="url" data-shop="refLink" value="${h(SD.refLink)}"></label>
+  <label class="f">Projeto<select data-shop="projectId"><option value="">—</option>${S.projects.map(p=>`<option value="${p.id}" ${SD.projectId===p.id?'selected':''}>${h(p.name)}</option>`).join('')}</select></label>
+  <label class="f">Observações<textarea data-shop="notes">${h(SD.notes)}</textarea></label>
+  <div class="row" style="position:sticky;bottom:0;background:var(--bg);padding-block:10px"><button type="button" class="btn pri grow" data-act="shop-save">Salvar produto</button>${SD.cid?`<button type="button" class="btn danger" data-act="shop-del">${SD.confirmDel?'Toque de novo para excluir':'Excluir'}</button>`:''}</div>`;
+  const L=document.getElementById('layer');const keep=UI.detail?L.querySelector('.page')?.outerHTML||'':'';const sc=L.querySelector('.sheet')?.scrollTop||0;
+  L.innerHTML=keep+`<div class="scrim" data-act="close-form"></div><div class="sheet" role="dialog" aria-label="Produto TikTok Shop"><div class="grab"></div><div class="in"><div class="sheet-h"><h2>${SD.cid?'Editar':'Novo'} produto TikTok Shop</h2><button type="button" class="icon-btn" data-act="close-form" aria-label="Fechar">×</button></div>${body}</div></div>`;
+  const sh=L.querySelector('.sheet');if(sh)sh.scrollTop=sc;
+}
+function shopCtxEditor(){const sel=SD.contexts;const edit=SD.ctxEdit;const keys=ctxKeys(sel);
+  return`<div class="chips">${keys.map(o=>edit?`<button type="button" class="chip btn" data-act="ctx-hide" data-v="${o}" style="border-color:var(--bad);color:var(--bad)">${h(CTX[o].l)} ✕</button>`:`<button type="button" class="chip btn ${sel.includes(o)?'on':''}" data-act="shop-ctx" data-v="${o}">${h(CTX[o].l)}</button>`).join('')}</div>
+  <div class="row" style="flex-wrap:nowrap"><input type="text" id="ctx-new-shop" placeholder="Novo contexto" style="flex:1;min-width:0;min-height:38px"><button type="button" class="btn sm" data-act="ctx-add" data-k="__shop">+ Adicionar</button><button type="button" class="btn sm ${edit?'pri':'ghost'}" data-act="ctx-edit">${edit?'Pronto':'Retirar'}</button></div>
+  ${edit?`<div class="small muted">Toque para retirar da lista.${CTX_HIDDEN.size?' Retirados: '+[...CTX_HIDDEN].map(x=>`<button type="button" class="chip btn" data-act="ctx-unhide" data-v="${x}">${h(CTX[x]?.l||x)} ↺</button>`).join(' '):''}</div>`:''}`}
+function makeLines(c,scenes,pool,used,now){
+  return scenes.map(sc=>{const ids=arr(sc.takes).map(d=>{let t=matchTake(d,pool.filter(x=>!used.has(x.id)));if(t&&t.status!=='gravado'&&!arr(t.fileIds).length&&d.length>t.desc.length+3){t.notes=join(t.notes||'','Antes: '+t.desc);t.desc=d}if(!t){t={id:uid('t'),code:nextCode(),desc:d,contexts:[...arr(c.contexts)],contentIds:[c.id],productIds:[...arr(c.productIds)],status:'pendente',priority:'media',fileIds:[],fromScript:c.id,scene:sc.scene,createdAt:now};S.takes.push(t);pool.push(t)}used.add(t.id);return t.id});
+    return{scene:sc.scene,text:sc.text,mode:sc.mode,note:sc.note,takeIds:ids,inserts:arr(sc.inserts),overlay:sc.overlay,editNote:sc.editNote}});
+}
+function shopSave(){
+  const s=SD.s;if(!s.nome.trim())return toast('Preencha o nome do produto.');
+  s.hooks=s.hooks.filter(x=>x.text.trim()||x.body.trim()||x.cenario);if(s.hooks.some(x=>x.cenario==='__new'))s.hooks.forEach(x=>{if(x.cenario==='__new')x.cenario=''});
+  const now=new Date().toISOString();let c=byId('contents',SD.cid);const isNew=!c;
+  if(!c){c={id:uid('c'),status:'Planejamento',refIds:[],janela:'A definir',script:{version:1,lines:[]},createdAt:now};S.contents.push(c)}
+  const prevShop=JSON.stringify(c.shop||{});
+  Object.assign(c,{title:s.nome.trim(),platforms:[...new Set(['TikTok Shop',...arr(c.platforms).filter(p=>p!=='TikTok Shop')])],objectives:['Vendas'],audiences:['Consumidores TikTok Shop'],goal:'Venda',audienceText:'Consumidor geral',
+    formatNote:FORMATOS.find(f=>f[0]===s.formato)?.[1]||'Vídeo',contexts:[...new Set([...SD.contexts,...s.hooks.map(x=>x.cenario).filter(Boolean)])],projectId:SD.projectId,refLink:SD.refLink,notes:SD.notes,shop:s});
+  // produto do catálogo
+  let p=byId('products',arr(c.productIds)[0]);
+  if(!p){p={id:uid('pr'),name:s.nome.trim(),brand:'',category:s.nicho,contexts:[],refIds:[],priority:'media',status:'Disponível para gravar',available:true};S.products.push(p);c.productIds=[p.id,...arr(c.productIds)]}
+  p.name=s.nome.trim();p.category=s.nicho;const pc=c.contexts.map((k,i)=>({ctx:k,level:arr(p.contexts).find(x=>x.ctx===k)?.level||(i===0?'principal':'recomendado')}));p.contexts=pc;
+  // takes dos ganchos
+  const keepHook=new Set();s.hooks.forEach((hk,i)=>{if(!hk.text.trim())return;let t=S.takes.find(t=>t.hookId===hk.id);const desc=`Gancho ${i+1}: ${hk.text.trim().replace(/\s+/g,' ').slice(0,140)}`;
+    if(!t){t={id:uid('t'),code:nextCode(),contentIds:[c.id],productIds:[p.id],status:'pendente',priority:'alta',fileIds:[],hookId:hk.id,fromScript:c.id,createdAt:now};S.takes.push(t)}
+    t.desc=desc;t.contexts=hk.cenario?[hk.cenario]:[...c.contexts];t.setting=hk.cenario?CTX[hk.cenario]?.l:'';if(s.recDate&&!t.date&&t.status!=='gravado')t.date=s.recDate;keepHook.add(t.id)});
+  S.takes=S.takes.filter(t=>!(t.hookId&&arr(t.contentIds).includes(c.id)&&!keepHook.has(t.id)&&t.status!=='gravado'&&!arr(t.fileIds).length));
+  // roteiro: ganchos + corpo
+  const bodyChanged=JSON.stringify([s.body,s.bodyMode,s.hooks.map(x=>x.body)])!==JSON.stringify([JSON.parse(prevShop).body,JSON.parse(prevShop).bodyMode,arr(JSON.parse(prevShop).hooks).map(x=>x.body)]);
+  const pool=contentTakes(c);const used=new Set(keepHook);
+  const hookLine=(hk,i)=>({scene:`Gancho ${i+1}`,text:hk.text.trim(),mode:'camera',note:hk.cenario?'Cenário: '+(CTX[hk.cenario]?.l||''):'',takeIds:S.takes.filter(t=>t.hookId===hk.id).map(t=>t.id),inserts:[],overlay:'',editNote:''});
+  const bodyLines=txt=>txt.trim()?makeLines(c,parseScript(txt).scenes,pool,used,now):[];
+  let lines=[];const hooksOk=s.hooks.filter(x=>x.text.trim());
+  if(s.bodyMode==='porGancho')hooksOk.forEach((hk,i)=>{lines.push(hookLine(hk,i));lines.push(...bodyLines(hk.body).map(l=>({...l,scene:`G${i+1} · ${l.scene}`})))});
+  else{hooksOk.forEach((hk,i)=>lines.push(hookLine(hk,i)));if(s.body.trim())lines.push(...bodyLines(s.body).map(l=>({...l,scene:'Corpo · '+l.scene})));else lines.push(...arr(c.script?.lines).filter(l=>!/^Gancho \d+$/.test(l.scene||'')))}
+  if(s.recDate)S.takes.forEach(t=>{if(used.has(t.id)&&!t.date&&t.status!=='gravado')t.date=s.recDate});
+  if(bodyChanged&&arr(c.script?.lines).length)c.scriptHistory=[...arr(c.scriptHistory),JSON.parse(JSON.stringify(c.script))];
+  if(bodyChanged){const keep=new Set(lines.flatMap(l=>l.takeIds));S.takes=S.takes.filter(t=>!(t.fromScript===c.id&&!t.hookId&&t.status!=='gravado'&&!keep.has(t.id)&&arr(t.contentIds).length<=1&&!arr(t.fileIds).length))}
+  c.script={version:(c.script?.version||1)+(bodyChanged&&arr(c.script?.lines).length?1:0),lines};if(lines.some(l=>l.text))c.scriptState='Roteiro no app';
+  saveAll('contents','takes','products');SD=null;closeForm();
+  if(isNew){UI.detail={t:'content',id:c.id};UI.mode='roteiro'}renderDetail();render();toast(isNew?'Produto cadastrado':'Produto atualizado');
+}
+/* status e filtros de TikTok Shop */
+const shopScripted=c=>{const s=c.shop;return !!(s&&s.hooks.some(x=>x.text.trim())&&(s.body?.trim()||s.hooks.some(x=>x.body?.trim())))||arr(c.script?.lines).some(l=>l.text)};
+const shopRecorded=c=>{if(STATUS.indexOf(c.status)>=1)return true;const p=progress(c);return p.total>0&&p.done===p.total};
+const shopReady=c=>c.status==='Postagem';
+const contentDays=c=>contentTakes(c).filter(t=>t.status!=='gravado').map(takeDay);
+function dateOk(c,f){if(!f)return true;const ds=contentDays(c);const ws=addDays(TODAY,-((new Date(TODAY+'T12:00:00').getDay()+6)%7));
+  if(f==='semdata')return ds.some(d=>!d)||!contentTakes(c).length;
+  if(f==='atrasado')return ds.some(d=>d&&d<TODAY);
+  if(f==='hoje')return ds.includes(TODAY);
+  if(f==='amanha')return ds.includes(addDays(TODAY,1));
+  if(f==='semana')return ds.some(d=>d&&d>=ws&&d<=addDays(ws,6));
+  if(f==='prox')return ds.some(d=>d&&d>addDays(ws,6)&&d<=addDays(ws,13));
+  return ds.includes(f)}
+function shopOk(c){if(UI.tipoF!=='shop')return true;const F=UI.shopF;
+  if(F.nicho&&norm(shopOf(c).nicho)!==norm(F.nicho))return false;
+  if(F.cen&&!(arr(c.contexts).includes(F.cen)||contentTakes(c).some(t=>arr(t.contexts).includes(F.cen))))return false;
+  if(!dateOk(c,F.date))return false;
+  if(F.st==='roteirizado'&&!shopScripted(c))return false;
+  if(F.st==='gravado'&&!shopRecorded(c))return false;
+  if(F.st==='pronto'&&!shopReady(c))return false;
+  if(F.st==='faltagravar'&&shopRecorded(c))return false;
+  return true}
+function shopFilterBar(base){
+  const F=UI.shopF;const shopC=S.contents.filter(c=>isShop(c)&&base(c));
+  const cens=[...new Set(shopC.flatMap(c=>[...arr(c.contexts),...contentTakes(c).flatMap(t=>arr(t.contexts))]))].filter(k=>CTX[k]);
+  const cnt=st=>shopC.filter(c=>{const o=F.st;F.st=st;const r=shopOk(c);F.st=o;return r}).length;
+  return`<div class="card" style="gap:8px;margin-top:10px;background:var(--bg)"><span class="eyebrow">Filtros TikTok Shop</span>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+    <select data-shopf="nicho" style="min-width:0;min-height:36px;font-size:.82rem;padding:4px 8px"><option value="">Todos os nichos</option>${nichos().map(n=>`<option ${F.nicho===n?'selected':''}>${h(n)}</option>`).join('')}</select>
+    <select data-shopf="cen" style="min-width:0;min-height:36px;font-size:.82rem;padding:4px 8px"><option value="">Todos os cenários</option>${cens.map(k=>`<option value="${k}" ${F.cen===k?'selected':''}>${h(CTX[k].l)}</option>`).join('')}</select>
+    <select data-shopf="date" style="min-width:0;min-height:36px;font-size:.82rem;padding:4px 8px">${[['','Qualquer data de gravação'],['hoje','Gravar hoje'],['amanha','Gravar amanhã'],['semana','Gravar esta semana'],['prox','Gravar semana que vem'],['atrasado','Gravação atrasada'],['semdata','Sem data de gravação']].map(([k,l])=>`<option value="${k}" ${F.date===k?'selected':''}>${l}</option>`).join('')}${F.date&&/^\d/.test(F.date)?`<option value="${F.date}" selected>${fmtD(F.date)}</option>`:''}</select>
+    <input type="date" data-shopf="date" value="${/^\d/.test(F.date)?F.date:''}" title="Escolher uma data" style="min-width:0;min-height:36px;font-size:.82rem;padding:4px 8px">
+  </div>
+  <div class="scroll-x">${[['','Todos'],['roteirizado','Roteirizados'],['faltagravar','Falta gravar'],['gravado','Gravados'],['pronto','Prontos para postar']].map(([k,l])=>`<button class="chip btn ${F.st===k?'on':''}" data-act="shopst" data-k="${k}">${l} · ${cnt(k)}</button>`).join('')}</div>
+  ${F.nicho||F.cen||F.date||F.st?'<button class="btn sm ghost" data-act="shopf-clear" style="align-self:flex-start">Limpar filtros TikTok Shop</button>':''}</div>`;
+}
+function shopSummary(c){const s=shopOf(c);const ht=S.takes.filter(t=>t.hookId&&arr(t.contentIds).includes(c.id));
+  return`<div class="card" style="margin-top:12px;gap:8px"><div class="row between"><h3>Produto TikTok Shop</h3><button class="btn sm" data-act="shop-edit" data-id="${c.id}">Editar produto</button></div>
+  <div class="chips">${s.nicho?`<span class="chip acc">${h(s.nicho)}</span>`:'<span class="chip warn">sem nicho</span>'}<span class="chip">${h(FORMATOS.find(f=>f[0]===s.formato)?.[1]||'Vídeo')}</span><span class="chip">${s.bodyMode==='porGancho'?'Corpo por gancho':'Corpo único'}</span>${shopScripted(c)?'<span class="chip ok">roteirizado</span>':''}</div>
+  ${s.hooks.filter(x=>x.text.trim()).map((hk,i)=>{const t=ht.find(t=>t.hookId===hk.id);return`<div class="take ${t?.status==='gravado'?'done':''}" style="gap:8px;align-items:flex-start">${t?`<button class="chk ${t.status==='gravado'?'done':''}" style="width:26px;height:26px;border-radius:8px" data-act="take-toggle" data-id="${t.id}" aria-label="Marcar gancho como gravado">${t.status==='gravado'?'✓':''}</button>`:''}<div class="grow" style="min-width:0"><div class="small tdesc"><b>Gancho ${i+1}:</b> ${h(hk.text)}</div><div class="serves">${hk.cenario?'📍 '+h(CTX[hk.cenario]?.l||''):'sem cenário'}${t&&takeDay(t)?' · 📅 '+fmtShort(takeDay(t)):''}</div></div></div>`}).join('')||'<div class="small muted">Nenhum gancho ainda. Toque em Editar produto.</div>'}
+  ${!s.hooks.some(x=>x.text.trim())&&!c.shop?'<div class="notice info">Este vídeo foi cadastrado antes do formato de produto. Toque em Editar produto para adicionar nicho, ganchos e corpo.</div>':''}
+  </div>`}
+
 /* ============ FORMULÁRIOS GENÉRICOS ============ */
 const opts=k=>()=>S[k].map(x=>[x.id,x.title||x.name||x.desc]);
 const FORMS={
   ref:{key:'refs',title:'Referência',fields:[['title','Título','text'],['url','Link do vídeo','url'],['notes','Observações pessoais','textarea'],['why','Por que gostei','textarea'],['adapt','Como pretendo adaptar','textarea'],['objectives','Objetivos','chips',OBJ],['audiences','Público','chips',AUD],['formats','Formato','chips',FMT],['traits','Características','chips',TRAITS],['platforms','Plataformas','chips',PLAT],['productIds','Produtos','rel','products'],['projectIds','Projetos','rel','projects'],['contentIds','Conteúdos','rel','contents'],['ts.hook','TikTok Shop · gancho comercial','text'],['ts.benefit','TikTok Shop · benefício','text'],['ts.objection','TikTok Shop · objeção de compra','text'],['ts.context','TikTok Shop · contexto de uso','text'],['ts.style','TikTok Shop · estilo de venda','text']]},
   idea:{key:'ideas',title:'Ideia',fields:[['title','Título','text'],['desc','Descrição','textarea'],['refIds','Referências','rel','refs'],['audience','Público-alvo','select',AUD],['objective','Objetivo estratégico','select',OBJ],['platform','Plataforma','select',PLAT],['format','Formato','select',FMT],['projectId','Projeto','one','projects'],['priority','Prioridade','select',PRIO],['status','Status','select',IDEA_ST],['date','Possível data de publicação','date']]},
-  content:{key:'contents',title:'Conteúdo',fields:[['title','Título','text'],['refLink','Link de referência','url'],['destino','Destino','text'],['platforms','Plataformas','chips',PLAT],['goal','Objetivo','text'],['audienceText','Público / persona','text'],['when','Quando / cenário','text'],['janela','Janela de gravação','select',JANELAS],['notBefore','Não gravar antes de','date'],['contexts','Contextos (para o Captar agora)','ctx'],['scriptState','Roteiro','select',SCRIPT_ST],['formatNote','Formato / orientação','text'],['notes','Observações','textarea'],['projectId','Projeto','one','projects'],['frontId','Frente do projeto','front'],['productIds','Produtos','rel','products'],['refIds','Referências salvas','rel','refs'],['objectives','Objetivos (para o equilíbrio)','chips',OBJ],['audiences','Públicos (para o equilíbrio)','chips',AUD]]},
+  content:{key:'contents',title:'Conteúdo',fields:[['title','Título','text'],['refLink','Link de referência','url'],['platforms','Plataformas','chips',PLAT],['goal','Objetivo','text'],['audienceText','Público / persona','text'],['when','Quando / cenário','text'],['janela','Janela de gravação','select',JANELAS],['contexts','Contextos (para o Captar agora)','ctx'],['scriptState','Roteiro','select',SCRIPT_ST],['formatNote','Formato / orientação','text'],['notes','Observações','textarea'],['projectId','Projeto','one','projects'],['frontId','Frente do projeto','front'],['productIds','Produtos','rel','products'],['refIds','Referências salvas','rel','refs'],['objectives','Objetivos (para o equilíbrio)','chips',OBJ],['audiences','Públicos (para o equilíbrio)','chips',AUD]]},
   take:{key:'takes',title:'Take',fields:[['desc','Descrição','text'],['action','Tipo de ação','text'],['framing','Enquadramento','text'],['setting','Cenário','text'],['contexts','Contextos (onde dá para gravar)','ctx'],['location','Localização','text'],['participant','Participante','text'],['productIds','Produtos','rel','products'],['contentIds','Conteúdos que usam este take','rel','contents'],['duration','Duração desejada','text'],['priority','Prioridade','select',PRIO],['status','Status','select',['pendente','gravado']],['date','Data para gravar','date'],['fixedEventId','Data fixa: depende do compromisso','one','events'],['hardToRepeat','Oportunidade difícil de repetir','bool'],['notes','Observações','textarea']]},
   product:{key:'products',title:'Produto TikTok Shop',fields:[['name','Nome','text'],['brand','Marca','text'],['category','Categoria','text'],['link','Link','url'],['benefits','Benefícios','textarea'],['audience','Público','text'],['contexts','Contextos de uso (toque para alternar principal → recomendado → alternativo)','ctxlevel'],['refIds','Referências','rel','refs'],['priority','Prioridade','select',PRIO],['status','Status','select',['Disponível para gravar','Em produção','Concluído','Pausado']],['available','Tenho o produto em mãos','bool']]},
   project:{key:'projects',title:'Projeto',fields:[['name','Nome','text'],['start','Início','date'],['end','Fim','date'],['objectives','Objetivos','chips',OBJ],['participants','Participantes (separe por vírgula)','list']]},
@@ -1188,8 +1331,8 @@ function fieldHTML(f){
   if(type==='one'){const list=opts(src)().filter(([i])=>i!==DRAFT.id);return`<label class="f">${label}<select id="${id}" data-f="${k}"><option value="">—</option>${list.map(([i,n])=>`<option value="${i}" ${i===v?'selected':''}>${h(n)}</option>`).join('')}</select></label>`}
   if(type==='front'){const pr=byId('projects',d.projectId);return pr&&arr(pr.fronts).length?`<label class="f">${label}<select id="${id}" data-f="${k}"><option value="">—</option>${pr.fronts.map(fr=>`<option value="${fr.id}" ${fr.id===v?'selected':''}>${h(fr.name)}</option>`).join('')}</select></label>`:''}
   if(type==='chips')return`<div class="f"><span class="small" style="font-weight:600;color:var(--muted)">${label}</span><div class="chips">${src.map(o=>`<button type="button" class="chip btn ${arr(v).includes(o)?'on':''}" data-act="f-chip" data-k="${k}" data-v="${h(o)}">${h(o)}</button>`).join('')}</div></div>`;
-  if(type==='ctx')return`<div class="f"><span class="small" style="font-weight:600;color:var(--muted)">${label}</span><div class="chips">${Object.keys(CTX).map(o=>`<button type="button" class="chip btn ${arr(v).includes(o)?'on':''}" data-act="f-chip" data-k="${k}" data-v="${o}">${CTX[o].l}</button>`).join('')}</div></div>`;
-  if(type==='ctxlevel')return`<div class="f"><span class="small" style="font-weight:600;color:var(--muted)">${label}</span><div class="chips">${Object.keys(CTX).map(o=>{const c=arr(v).find(x=>x.ctx===o);return`<button type="button" class="chip btn ${c?'l-'+c.level:''}" data-act="f-lvl" data-k="${k}" data-v="${o}">${CTX[o].l}${c?' · '+c.level:''}</button>`}).join('')}</div></div>`;
+  if(type==='ctx')return`<div class="f"><span class="small" style="font-weight:600;color:var(--muted)">${label}</span>${ctxEditor(k,arr(v))}</div>`;
+  if(type==='ctxlevel')return`<div class="f"><span class="small" style="font-weight:600;color:var(--muted)">${label}</span><div class="chips">${ctxKeys(arr(v).map(x=>x.ctx)).map(o=>{const c=arr(v).find(x=>x.ctx===o);return`<button type="button" class="chip btn ${c?'l-'+c.level:''}" data-act="f-lvl" data-k="${k}" data-v="${o}">${CTX[o].l}${c?' · '+c.level:''}</button>`}).join('')}</div></div>`;
   if(type==='rel'||type==='linetakes'){
     let list=type==='linetakes'?contentTakes(byId('contents',DRAFT.ctx?.cid)||{id:'_'}).map(t=>[t.id,t.desc]):opts(src)().filter(([i])=>i!==DRAFT.id);
     const q=norm(DRAFT.q[k]||'');const sel=arr(v);
@@ -1211,7 +1354,7 @@ function drawForm(){
   L.innerHTML=keep+html;
   const sh=L.querySelector('.sheet');if(sh)sh.scrollTop=sc;
 }
-function closeForm(){DRAFT=null;UI._delNote=null;if(UI.view==='ideias'&&!UI.detail)setTimeout(render,0);document.getElementById('layer').querySelectorAll('.scrim,.sheet').forEach(n=>n.remove());if(!UI.detail)document.getElementById('layer').innerHTML=''}
+function closeForm(){DRAFT=null;SD=null;UI._delNote=null;if(UI.view==='ideias'&&!UI.detail)setTimeout(render,0);document.getElementById('layer').querySelectorAll('.scrim,.sheet').forEach(n=>n.remove());if(!UI.detail)document.getElementById('layer').innerHTML=''}
 function nextCode(){const n=S.takes.map(t=>+String(t.code||'').replace(/\D/g,'')||0);return'T-'+String(Math.max(0,...n)+1).padStart(3,'0')}
 function submitForm(){
   const D=DRAFT;const F=FORMS[D.type];const d=D.data;
@@ -1372,7 +1515,7 @@ const ACT={
   'cap-quick':d=>runCaptar(d.q),
   'cap-ctx':d=>{UI.captar.ctx=[...new Set([...UI.captar.ctx,d.k])];render()},
   'cap-rm':d=>{UI.captar.ctx=UI.captar.ctx.filter(k=>k!==d.k);render()},
-  'cap-addctx':()=>sheet('Adicionar contexto',`<div class="chips">${Object.keys(CTX).map(k=>`<button class="chip btn ${UI.captar.ctx.includes(k)?'on':''}" data-act="cap-ctx2" data-k="${k}">${CTX[k].l}</button>`).join('')}</div>`),
+  'cap-addctx':()=>sheet('Adicionar contexto',`<div class="chips">${ctxKeys().map(k=>`<button class="chip btn ${UI.captar.ctx.includes(k)?'on':''}" data-act="cap-ctx2" data-k="${k}">${CTX[k].l}</button>`).join('')}</div>`),
   'cap-ctx2':d=>{UI.captar.ctx=UI.captar.ctx.includes(d.k)?UI.captar.ctx.filter(k=>k!==d.k):[...UI.captar.ctx,d.k];closeForm();render()},
   'cap-ai':()=>capAI(),
   login:()=>{UI._err='';SB.auth.signInWithOAuth({provider:'google',options:{scopes:GSCOPES,redirectTo:location.origin,queryParams:{access_type:'offline',prompt:'consent'}}})},
@@ -1405,8 +1548,23 @@ const ACT={
   grp:d=>{UI.grp=d.k;refresh()},
   'take-toggle':d=>{const t=byId('takes',d.id);setTakeStatus(t,t.status==='gravado'?'pendente':'gravado');toast(t.status==='gravado'?`${t.code} gravado · ${arr(t.contentIds).length} conteúdo(s) atualizados`:`${t.code} voltou para pendente`);if(document.querySelector('.sheet'))showTake(t);render()},
   open:d=>{if(!d.id)return;closeForm();if(['content','project','product'].includes(d.t)){UI.detail={t:d.t,id:d.id};if(d.t==='content')UI.mode='captacao';renderDetail();document.querySelector('.page')?.scrollTo(0,0)}else if(d.t==='take')showTake(byId('takes',d.id));else if(d.t==='ref')showRef(byId('refs',d.id));else if(d.t==='idea')showIdea(byId('ideas',d.id));else if(d.t==='event')openForm('event',byId('events',d.id));else if(d.t==='pub')openForm('pub',byId('pubs',d.id))},
-  edit:d=>openForm(d.t,byId(FORMS[d.t].key,d.id)),
+  edit:d=>{if(d.t==='content'&&isShop(byId('contents',d.id)))return openShopForm(byId('contents',d.id));openForm(d.t,byId(FORMS[d.t].key,d.id))},
   new:d=>openForm(d.t,null,d.preset?JSON.parse(d.preset):null),
+  'new-choose':()=>{if(UI.tipoF==='shop')return openShopForm(null);sheet('O que você quer cadastrar?',`<div class="list"><button class="card tap" data-act="new-content"><b>Vídeo</b><span class="small muted">UGC, portfólio, Instagram ou TikTok</span></button><button class="card tap" data-act="new-shop"><b>Produto TikTok Shop</b><span class="small muted">Ganchos, cenários, corpo do vídeo, nicho e formato</span></button></div>`)},
+  'new-content':()=>{closeForm();openForm('content',null,null)},'new-shop':()=>{closeForm();openShopForm(null)},
+  'shop-edit':d=>openShopForm(byId('contents',d.id)),
+  'shop-fmt':d=>{SD.s.formato=d.k;drawShop()},'shop-body':d=>{SD.s.bodyMode=d.k;drawShop()},
+  'shop-addhook':()=>{SD.s.hooks.push({id:uid('h'),text:'',cenario:'',body:''});drawShop()},
+  'shop-rmhook':d=>{SD.s.hooks.splice(+d.i,1);drawShop()},
+  'shop-newcen':d=>{const v=document.getElementById('cen-new-'+d.i)?.value;const id=addCtx(v);if(!id)return toast('Escreva o nome do cenário.');SD.s.hooks[+d.i].cenario=id;if(!SD.contexts.includes(id))SD.contexts.push(id);SD.newCen=null;drawShop()},
+  'shop-ctx':d=>{SD.contexts=SD.contexts.includes(d.v)?SD.contexts.filter(x=>x!==d.v):[...SD.contexts,d.v];drawShop()},
+  'shop-save':()=>shopSave(),
+  'shop-del':()=>{if(!SD.confirmDel){SD.confirmDel=true;return drawShop()}DRAFT={type:'content',id:SD.cid,confirmDel:true,data:{}};SD=null;deleteEntity()},
+  'shopst':d=>{UI.shopF.st=UI.shopF.st===d.k?'':d.k;render()},'shopf-clear':()=>{UI.shopF={nicho:'',cen:'',date:'',st:''};render()},
+  'ctx-add':d=>{const inp=document.getElementById(d.k==='__shop'?'ctx-new-shop':'ctx-new-'+d.k);const id=addCtx(inp?.value);if(!id)return toast('Escreva o nome do contexto.');if(d.k==='__shop'){if(!SD.contexts.includes(id))SD.contexts.push(id);drawShop()}else{const v=arr(getP(DRAFT.data,d.k));if(!v.includes(id))setP(DRAFT.data,d.k,[...v,id]);drawForm()}toast('Contexto adicionado')},
+  'ctx-edit':()=>{if(SD){SD.ctxEdit=!SD.ctxEdit;drawShop()}else if(DRAFT){DRAFT.ctxEdit=!DRAFT.ctxEdit;drawForm()}},
+  'ctx-hide':d=>{toggleCtx(d.v,true);if(SD){SD.contexts=SD.contexts.filter(x=>x!==d.v);drawShop()}else if(DRAFT){drawForm()}toast('Contexto retirado da lista')},
+  'ctx-unhide':d=>{toggleCtx(d.v,false);SD?drawShop():DRAFT&&drawForm()},
   'close-detail':()=>{UI.detail=null;document.getElementById('layer').innerHTML='';render()},
   'close-form':()=>closeForm(),
   'f-chip':d=>{const v=arr(getP(DRAFT.data,d.k));setP(DRAFT.data,d.k,v.includes(d.v)?v.filter(x=>x!==d.v):[...v,d.v]);drawForm()},
@@ -1477,6 +1635,7 @@ document.addEventListener('input',e=>{const el=e.target;
   if(el.dataset.plan==='month')UI.plan.month=el.value;
   if(el.dataset.voice)V.text=el.value;
   if(el.dataset.pastetext)PASTE.text=el.value;
+  if(SD&&el.dataset.shop&&el.tagName!=='SELECT'&&el.type!=='date'){const k=el.dataset.shop,i=+el.dataset.i;if(k==='hook')SD.s.hooks[i].text=el.value;else if(k==='hookbody')SD.s.hooks[i].body=el.value;else if(['nome','nicho','body'].includes(k))SD.s[k]=el.value;else SD[k]=el.value}
   if(el.dataset.notedraft)UI.noteDraft[el.dataset.notedraft]=el.value;
   if(el.dataset.noteedit){const it=byId('ideas',el.dataset.noteedit);if(it){it.text=el.value;delete it.title;delete it.desc;it.updatedAt=new Date().toISOString();save('ideas');clearTimeout(timers._nr);timers._nr=setTimeout(()=>{if(!document.querySelector('.sheet'))render()},50)}}
   if(el.dataset.editnotes){const c=byId('contents',el.dataset.editnotes);if(c){c.editNotes=el.value;save('contents')}}
@@ -1485,6 +1644,8 @@ document.addEventListener('change',e=>{const el=e.target;
   if(DRAFT&&el.dataset.rel){const k=el.dataset.rel;const v=arr(getP(DRAFT.data,k));setP(DRAFT.data,k,el.checked?[...v,el.value]:v.filter(x=>x!==el.value))}
   if(DRAFT&&el.dataset.f&&(el.tagName==='SELECT'||el.type==='checkbox'||el.type==='date')){const k=el.dataset.f;setP(DRAFT.data,k,el.dataset.bool?el.checked:el.value);if(k==='projectId'&&DRAFT.type==='content')drawForm()}
   if(el.dataset.up)handleUpload(el);
+  if(SD&&el.dataset.shop&&(el.tagName==='SELECT'||el.type==='date')){const k=el.dataset.shop;if(k==='cenario'){const i=+el.dataset.i;if(el.value==='__new'){SD.newCen=i;SD.s.hooks[i].cenario=''}else{SD.s.hooks[i].cenario=el.value;if(el.value&&!SD.contexts.includes(el.value))SD.contexts.push(el.value)}drawShop()}else if(k==='recDate')SD.s.recDate=el.value;else SD[k]=el.value}
+  if(el.dataset.shopf){UI.shopF[el.dataset.shopf]=el.value;render()}
   if(el.dataset.import&&el.files[0])importData(el.files[0]);
   if(el.dataset.cstatus){const c=byId('contents',el.dataset.cstatus);c.status=el.value;save('contents');renderDetail();toast('Status atualizado')}
   if(el.dataset.calproj!==undefined){UI.calF.proj=el.value;render()}
