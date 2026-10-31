@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 
-export type Route = 'hoje' | 'financas' | 'agenda' | 'mais' | 'notas' | 'categorias' | 'ajustes' | 'busca' | 'em-breve' | 'regras' | 'habitos' | 'notificacoes'
+export type Route = 'hoje' | 'financas' | 'agenda' | 'mais' | 'notas' | 'categorias' | 'ajustes' | 'busca' | 'em-breve' | 'regras' | 'habitos' | 'notificacoes' | 'alimentacao'
 
 const parse = (): { route: Route; arg: string } => {
   const [r, arg = ''] = location.hash.replace(/^#\/?/, '').split('/')

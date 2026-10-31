@@ -434,3 +434,32 @@ body.agenda-fs .month-cell { min-height: calc((100dvh - 240px) / 6); }
 .heat i.today { outline: 2px solid var(--text); outline-offset: 1px; }
 .quick-filters .chip { min-height: 32px; font-size: 13px; }
 .err-text { color: var(--danger); }
+
+/* Alimentação e mercado */
+.card.day-menu { flex-direction: column; align-items: stretch; gap: 4px; padding: 10px 12px; }
+.meal-row { display: flex; align-items: center; gap: 8px; min-height: 40px; border-top: 1px solid var(--line); }
+.meal-label { width: 92px; flex: none; font-size: 13px; color: var(--muted); }
+.meal-items { display: flex; flex-wrap: wrap; gap: 4px; padding: 4px 0; }
+.meal-chip { display: inline-flex; align-items: center; gap: 4px; font-size: 13px; background: var(--accent-soft); color: var(--accent); border-radius: 8px; padding: 4px 8px; font-weight: 600; }
+.meal-line { display: flex; gap: 8px; align-items: baseline; padding: 6px 0; border-top: 1px solid var(--line); width: 100%; }
+.recipe-pick { display: flex; flex-wrap: wrap; gap: 6px; max-height: 220px; overflow-y: auto; }
+.recipe-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+.card.recipe-card { flex-direction: column; align-items: stretch; gap: 6px; padding: 8px; text-align: left; }
+.recipe-card img, .recipe-ph { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: 10px; background: var(--surface-2); display: grid; place-items: center; color: var(--muted); }
+.recipe-photo { width: 100%; max-height: 260px; object-fit: cover; border-radius: 14px; }
+.ing-list { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px; }
+.steps { white-space: pre-line; line-height: 1.55; }
+.qty-input { width: 64px !important; text-align: right; flex: none; padding: 8px !important; min-height: 38px !important; }
+.unit-input { width: 64px !important; flex: none; padding: 8px !important; min-height: 38px !important; }
+.sec-input { width: 96px !important; flex: none; padding: 6px !important; min-height: 38px !important; font-size: 13px !important; }
+.ing-edit input.grow { min-width: 0; padding: 8px !important; min-height: 38px !important; }
+.miss-row { gap: 10px; }
+.miss-row input[type=checkbox] { width: 22px; height: 22px; accent-color: var(--accent); flex: none; }
+.unit { width: 44px; flex: none; }
+.card.shop-item { padding: 10px 12px; gap: 10px; }
+.shop-main { display: flex; flex-direction: column; min-width: 0; }
+.shop-item .qty { font-weight: 500; color: var(--muted); }
+.card.shop-item.done { opacity: .5; }
+.card.shop-item.done strong { text-decoration: line-through; }
+.section-head h2 .dot { vertical-align: middle; margin-right: 4px; }
+.add-meal { align-self: flex-start; padding: 6px 0 2px; }
