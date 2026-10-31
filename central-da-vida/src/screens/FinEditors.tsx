@@ -167,6 +167,7 @@ export function TxEditor({ tx, preset, onClose }: { tx: Transaction | null; pres
     <Sheet title={title} onClose={onClose} footer={<Footer onClose={onClose} onSave={ro ? undefined : save} disabled={!valid || busy}
       saveLabel={busy ? 'Salvando…' : 'Salvar'}
       left={tx && editable && <button className="icon-btn danger" aria-label="Excluir" onClick={() => setConfirmDel(true)}><Icon name="trash" /></button>} />}>
+      {tx?.recurrence_id && editable && <p className="card info">Conta fixa: mudanças aqui valem só para este lançamento. Para mudar os próximos, edite em Finanças → Fixas.</p>}
       {ro && <p className="card warn">Lançado por {owner?.display_name}. Você pode ver, mas só {owner?.display_name} edita.</p>}
       <fieldset disabled={ro} className="plain">
         {!tx && <Segmented value={kind} onChange={setKind} options={[{ id: 'despesa', label: 'Despesa' }, { id: 'receita', label: 'Receita' }, { id: 'transferencia', label: 'Transferência' }]} />}

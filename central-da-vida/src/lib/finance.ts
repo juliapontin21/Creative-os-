@@ -123,3 +123,40 @@ export function invoices(cardId: string, txs: (TxLike & { card_id: string | null
   for (const inv of by.values()) inv.status = inv.open === 0 ? 'paga' : inv.due < today ? 'vencida' : 'aberta'
   return [...by.values()].sort((a, b) => a.due.localeCompare(b.due))
 }
+
+// ───────────────────────── Contas fixas ─────────────────────────
+export type Frequency = 'semanal' | 'mensal' | 'anual'
+
+// Datas de uma recorrência depois de `after` (exclusivo) até `until` (inclusive), respeitando início e fim.
+export function occurrenceDates(start: string, freq: Frequency, after: string | null, until: string, end: string | null): string[] {
+  const out: string[] = []
+  const limit = end && end < until ? end : until
+  for (let i = 0; i < 600; i++) {
+    let d: string
+    if (freq === 'semanal') {
+      const [y, m, dd] = start.split('-').map(Number)
+      const x = new Date(y, m - 1, dd + 7 * i)
+      d = `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}-${String(x.getDate()).padStart(2, '0')}`
+    } else d = addMonths(start, freq === 'mensal' ? i : 12 * i)
+    if (d > limit) break
+    if (!after || d > after) out.push(d)
+  }
+  return out
+}
+
+// ───────────────────────── Mês do casal ─────────────────────────
+// Renda do casal − contas fixas do casal − caixinhas/reserva = sobra; a sobra vira mesada proporcional à renda.
+export interface CoupleMonth {
+  total: number; fixed: number; savings: number; leftover: number
+  allowances: { id: string; income: number; share: number; allowance: number }[]
+}
+export function coupleMonth(incomes: { id: string; income: number }[], fixed: number, savings: number): CoupleMonth {
+  const total = incomes.reduce((s, x) => s + x.income, 0)
+  const leftover = total - fixed - savings
+  const pool = Math.max(0, leftover)
+  const allowances = incomes.map((x) => ({ id: x.id, income: x.income, share: total ? x.income / total : 0, allowance: total ? Math.floor((pool * x.income) / total) : 0 }))
+  // Centavos que sobram da divisão ficam com quem tem a maior renda.
+  const rest = pool - allowances.reduce((s, a) => s + a.allowance, 0)
+  if (rest > 0 && allowances.length) allowances.reduce((a, b) => (b.income > a.income ? b : a)).allowance += rest
+  return { total, fixed, savings, leftover, allowances }
+}

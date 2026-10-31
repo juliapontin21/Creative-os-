@@ -98,13 +98,14 @@ function CategoryEditor({ module, cat, onClose, usage, kidsOf, onDelete, onUpdat
   const [scope, setScope] = useState<Scope>(cat?.scope ?? 'casal')
   const [parent, setParent] = useState<string | null>(cat?.parent_id ?? null)
   const [confirmDel, setConfirmDel] = useState(false)
+  const [bucket, setBucket] = useState<Category['fin_bucket']>(cat?.fin_bucket ?? null)
   const mine = !cat || cat.owner_id === me!.id
   const hasKids = cat ? kidsOf(cat.id).length > 0 : false
   const parentCat = parents.find((p) => p.id === parent)
   const allowedParents = parents.filter((p) => p.scope === 'casal' || p.owner_id === (cat?.owner_id ?? me!.id))
 
   const save = async () => {
-    const row = { name: name.trim(), color, scope: parentCat ? parentCat.scope : scope, parent_id: parent, module }
+    const row = { name: name.trim(), color, scope: parentCat ? parentCat.scope : scope, parent_id: parent, module, fin_bucket: module === 'financas' ? bucket : null }
     const r = cat ? await onUpdate('categories', cat.id, row) : await onInsert('categories', { ...row, position: 999 })
     if (r) onClose()
   }
@@ -126,6 +127,12 @@ function CategoryEditor({ module, cat, onClose, usage, kidsOf, onDelete, onUpdat
         <input autoFocus={!cat} maxLength={60} value={name} onChange={(e) => setName(e.target.value)} />
       </label>
       <ColorPicker value={color} onChange={setColor} />
+      {module === 'financas' && (
+        <label className="field"><span className="label">Tipo de gasto</span>
+          <select value={bucket ?? ''} onChange={(e) => setBucket((e.target.value || null) as Category['fin_bucket'])}>
+            <option value="">Outro</option><option value="fixo">Fixo (gastos fixos)</option><option value="lazer">Lazer</option><option value="imposto">Imposto (empresa)</option></select>
+          <span className="hint">Usado nos indicadores das Regras da casa. Subcategorias seguem a mãe.</span></label>
+      )}
       {!hasKids && (
         <label className="field">
           <span className="label">Dentro de (opcional)</span>

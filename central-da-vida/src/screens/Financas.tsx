@@ -10,11 +10,19 @@ import { go } from '../lib/route'
 import type { Account, Card, Payee, Transaction } from '../lib/types'
 import { fmtDate, norm, todayISO } from '../lib/util'
 import { accountKindLabel, AccountEditor, CardEditor, PayeeEditor, pixTypeLabel, TxEditor } from './FinEditors'
+import { Calendario, EmpresaAno, Fixas, MesCasal } from './Fin2B'
+import { AlertList, Metas } from './Metas'
+import { usePlanning } from '../lib/usePlanning'
 
-type Sub = 'resumo' | 'lancamentos' | 'contas' | 'pix'
-const SUBS: { id: Sub; label: string }[] = [
-  { id: 'resumo', label: 'Resumo' }, { id: 'lancamentos', label: 'Lançamentos' }, { id: 'contas', label: 'Contas' }, { id: 'pix', label: 'Pix' },
+type Sub = 'resumo' | 'mes' | 'ano' | 'metas' | 'lancamentos' | 'calendario' | 'fixas' | 'contas' | 'pix'
+const subsFor = (ctx: CtxOpt['ctx']): { id: Sub; label: string }[] => [
+  { id: 'resumo', label: 'Resumo' },
+  ...(ctx === 'casal' ? [{ id: 'mes' as Sub, label: 'Mês do casal' }] : []),
+  ...(ctx === 'empresa' ? [{ id: 'ano' as Sub, label: 'Ano' }] : []),
+  { id: 'metas', label: 'Metas' }, { id: 'lancamentos', label: 'Lançamentos' }, { id: 'calendario', label: 'Calendário' }, { id: 'fixas', label: 'Fixas' },
+  { id: 'contas', label: 'Contas' }, { id: 'pix', label: 'Pix' },
 ]
+const WITH_MONTH: Sub[] = ['resumo', 'mes', 'metas', 'lancamentos', 'calendario']
 const STATUSES = [{ id: 'previsto', label: 'Previstos' }, { id: 'vencido', label: 'Vencidos' }, { id: 'realizado', label: 'Pagos' }, { id: 'cancelado', label: 'Cancelados' }]
 
 function monthLabel(m: string) {
@@ -41,8 +49,9 @@ export function Financas({ sub: subArg }: { sub: string }) {
   const { opts, cur, setKey } = useFinCtx()
   const [month, setMonth] = useSessionState('cdv-fin-month', todayISO().slice(0, 7))
   const [edit, setEdit] = useState<EditState>(null)
-  const sub = (SUBS.find((s) => s.id === subArg)?.id ?? 'resumo') as Sub
   if (!cur) return null
+  const subs = subsFor(cur.ctx)
+  const sub = (subs.find((s) => s.id === subArg)?.id ?? 'resumo') as Sub
   return (
     <>
       <div className="chips scroll">
@@ -53,8 +62,8 @@ export function Financas({ sub: subArg }: { sub: string }) {
           </button>
         ))}
       </div>
-      <Segmented value={sub} onChange={(s) => go('financas', s)} options={SUBS} />
-      {(sub === 'resumo' || sub === 'lancamentos') && (
+      <div className="chips scroll"><Segmented value={sub} onChange={(s) => go('financas', s)} options={subs} /></div>
+      {WITH_MONTH.includes(sub) && (
         <div className="month-pick">
           <button className="icon-btn" aria-label="Mês anterior" onClick={() => setMonth(shiftMonth(month, -1))}><Icon name="back" /></button>
           <strong>{monthLabel(month)}</strong>
@@ -64,9 +73,14 @@ export function Financas({ sub: subArg }: { sub: string }) {
       {!cur.writable && <p className="card info">Você está vendo a organização de {cur.label}. Só {cur.label} edita.</p>}
       {sub === 'resumo' && <Resumo cur={cur} month={month} onOpen={(tx) => setEdit({ tx, kind: tx.kind })} />}
       {sub === 'lancamentos' && <Lancamentos cur={cur} month={month} onOpen={(tx) => setEdit({ tx, kind: tx.kind })} />}
+      {sub === 'mes' && <MesCasal month={month} />}
+      {sub === 'metas' && <Metas cur={cur} month={month} />}
+      {sub === 'ano' && <EmpresaAno cur={cur} onOpen={(tx) => setEdit({ tx, kind: tx.kind })} />}
+      {sub === 'calendario' && <Calendario cur={cur} month={month} onOpen={(tx) => setEdit({ tx, kind: tx.kind })} />}
+      {sub === 'fixas' && <Fixas cur={cur} />}
       {sub === 'contas' && <Contas cur={cur} />}
       {sub === 'pix' && <Pix cur={cur} />}
-      {(sub === 'resumo' || sub === 'lancamentos') && cur.writable && (
+      {(sub === 'resumo' || sub === 'lancamentos' || sub === 'calendario' || sub === 'ano') && cur.writable && (
         <button className="fab" aria-label="Novo lançamento" onClick={() => setEdit({ tx: null, kind: 'despesa' })}><Icon name="plus" size={26} /></button>
       )}
       {edit && <TxEditor tx={edit.tx} preset={{ kind: edit.kind, ctx: cur }} onClose={() => setEdit(null)} />}
@@ -87,9 +101,11 @@ function Resumo({ cur, month, onOpen }: { cur: CtxOpt; month: string; onOpen: (t
   const upcoming = txs.filter((t) => t.status === 'previsto' && t.kind !== 'transferencia' && (isOverdue(t, today) || monthOf(t.due_date) === month))
     .sort((a, b) => a.due_date.localeCompare(b.due_date)).slice(0, 10)
   const ctxCards = cards.filter((c) => !c.archived_at && inCtx(c, cur))
+  const P = usePlanning(cur, month)
 
   return (
     <>
+      <AlertList alerts={P.alerts} month={month} compact />
       {!accs.length && cur.writable && (
         <div className="card tip"><div className="grow"><strong>Comece cadastrando uma conta</strong>
           <p>Com o saldo inicial, o app calcula o saldo de hoje e a previsão do mês.</p></div>
@@ -100,6 +116,8 @@ function Resumo({ cur, month, onOpen }: { cur: CtxOpt; month: string; onOpen: (t
         <Stat label="Previsão de fechamento" value={accs.length ? fmtMoney(fc) : '—'} tone={fc < 0 ? 'neg' : undefined} hint="saldo + previstos até o fim do mês" />
         <Stat label="Receitas" value={fmtMoney(s.incomeDone)} hint={`+ ${fmtMoney(s.incomePlanned)} a receber`} tone="pos" />
         <Stat label="Despesas" value={fmtMoney(s.expenseDone)} hint={`+ ${fmtMoney(s.expensePlanned)} a pagar`} />
+        {P.reserved > 0 && <Stat label="Nas caixinhas" value={fmtMoney(P.reserved)} />}
+        {P.reserved > 0 && <Stat label="Disponível fora delas" value={fmtMoney(P.available)} tone={P.available < 0 ? 'neg' : undefined} />}
       </div>
       {s.overdueCount > 0 && (
         <button className="card alert" onClick={() => go('financas', 'lancamentos')}>
