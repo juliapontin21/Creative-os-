@@ -140,3 +140,34 @@ test('limite por categoria: avisa aos 80% e ao estourar', () => {
   assert.equal(budgetStatus(64000, 80000).level, 'warn')
   assert.equal(budgetStatus(80001, 80000).level, 'over')
 })
+
+import { simulate } from '../src/lib/simulate.ts'
+
+test('simulador: compra pessoal à vista que cabe na mesada', () => {
+  const r = simulate({ ctx: 'pf', parts: [50000], months: [{ month: '2026-11', balance: 500000, room: 180000, installments: 0, r2Limit: 60000 }], budget: null, available: 400000 })
+  assert.equal(r.verdict, 'cabe')
+})
+
+test('simulador: vara de pesca de R$ 3.000 à vista passa da mesada → cabe com ajustes e sugere parcelar', () => {
+  const r = simulate({ ctx: 'pf', parts: [300000], months: [{ month: '2026-11', balance: 900000, room: 180000, installments: 0, r2Limit: 60000 }], budget: null, available: 900000 })
+  assert.equal(r.verdict, 'ajustes')
+  assert.ok(r.alternatives.some((a) => a.includes('Parcelar em 5x')))
+})
+
+test('simulador: parcelas acima da referência R2 geram ajuste', () => {
+  const r = simulate({ ctx: 'pf', parts: [40000, 40000], months: [
+    { month: '2026-11', balance: 900000, room: 180000, installments: 30000, r2Limit: 60000 },
+    { month: '2026-12', balance: 900000, room: 180000, installments: 30000, r2Limit: 60000 }], budget: null, available: null })
+  assert.equal(r.verdict, 'ajustes')
+  assert.ok(r.checks.some((c) => c.text.includes('R2')))
+})
+
+test('simulador: compra do casal que passa da sobra → não recomendado', () => {
+  const r = simulate({ ctx: 'casal', parts: [400000], months: [{ month: '2026-11', balance: 900000, room: 300000, installments: 0, r2Limit: 100000 }], budget: null, available: null })
+  assert.equal(r.verdict, 'nao')
+})
+
+test('simulador: saldo projetado negativo → não cabe', () => {
+  const r = simulate({ ctx: 'empresa', parts: [100000], months: [{ month: '2026-11', balance: 50000, room: null, installments: 0, r2Limit: null }], budget: null, available: null })
+  assert.equal(r.verdict, 'nao')
+})

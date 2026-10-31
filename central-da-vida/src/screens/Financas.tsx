@@ -12,17 +12,18 @@ import { fmtDate, norm, todayISO } from '../lib/util'
 import { accountKindLabel, AccountEditor, CardEditor, PayeeEditor, pixTypeLabel, TxEditor } from './FinEditors'
 import { Calendario, EmpresaAno, Fixas, MesCasal } from './Fin2B'
 import { AlertList, Metas } from './Metas'
+import { Graficos, Simulador } from './Fin3B'
 import { usePlanning } from '../lib/usePlanning'
 
-type Sub = 'resumo' | 'mes' | 'ano' | 'metas' | 'lancamentos' | 'calendario' | 'fixas' | 'contas' | 'pix'
+type Sub = 'resumo' | 'mes' | 'ano' | 'metas' | 'graficos' | 'simular' | 'lancamentos' | 'calendario' | 'fixas' | 'contas' | 'pix'
 const subsFor = (ctx: CtxOpt['ctx']): { id: Sub; label: string }[] => [
   { id: 'resumo', label: 'Resumo' },
   ...(ctx === 'casal' ? [{ id: 'mes' as Sub, label: 'Mês do casal' }] : []),
   ...(ctx === 'empresa' ? [{ id: 'ano' as Sub, label: 'Ano' }] : []),
-  { id: 'metas', label: 'Metas' }, { id: 'lancamentos', label: 'Lançamentos' }, { id: 'calendario', label: 'Calendário' }, { id: 'fixas', label: 'Fixas' },
+  { id: 'metas', label: 'Metas' }, { id: 'graficos', label: 'Gráficos' }, { id: 'simular', label: 'Simular' }, { id: 'lancamentos', label: 'Lançamentos' }, { id: 'calendario', label: 'Calendário' }, { id: 'fixas', label: 'Fixas' },
   { id: 'contas', label: 'Contas' }, { id: 'pix', label: 'Pix' },
 ]
-const WITH_MONTH: Sub[] = ['resumo', 'mes', 'metas', 'lancamentos', 'calendario']
+const WITH_MONTH: Sub[] = ['resumo', 'mes', 'metas', 'graficos', 'lancamentos', 'calendario']
 const STATUSES = [{ id: 'previsto', label: 'Previstos' }, { id: 'vencido', label: 'Vencidos' }, { id: 'realizado', label: 'Pagos' }, { id: 'cancelado', label: 'Cancelados' }]
 
 function monthLabel(m: string) {
@@ -75,6 +76,8 @@ export function Financas({ sub: subArg }: { sub: string }) {
       {sub === 'lancamentos' && <Lancamentos cur={cur} month={month} onOpen={(tx) => setEdit({ tx, kind: tx.kind })} />}
       {sub === 'mes' && <MesCasal month={month} />}
       {sub === 'metas' && <Metas cur={cur} month={month} />}
+      {sub === 'graficos' && <Graficos cur={cur} month={month} />}
+      {sub === 'simular' && <Simulador cur={cur} />}
       {sub === 'ano' && <EmpresaAno cur={cur} onOpen={(tx) => setEdit({ tx, kind: tx.kind })} />}
       {sub === 'calendario' && <Calendario cur={cur} month={month} onOpen={(tx) => setEdit({ tx, kind: tx.kind })} />}
       {sub === 'fixas' && <Fixas cur={cur} />}

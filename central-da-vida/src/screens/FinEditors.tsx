@@ -49,8 +49,9 @@ function Footer({ onClose, onSave, saveLabel = 'Salvar', disabled, left }: { onC
 // ───────────────────────── Lançamento ─────────────────────────
 
 type Kind = Transaction['kind']
+export interface TxInitial { kind: Kind; ctx: CtxOpt; amount: number; description: string; date: string; category: string | null; payWith: 'conta' | 'cartao'; cardId: string; installments: number }
 
-export function TxEditor({ tx, preset, onClose }: { tx: Transaction | null; preset: { kind: Kind; ctx: CtxOpt }; onClose: () => void }) {
+export function TxEditor({ tx, preset, initial, onClose }: { tx: Transaction | null; preset: { kind: Kind; ctx: CtxOpt }; initial?: TxInitial; onClose: () => void }) {
   const { me, accounts, cards, payees, transactions, profiles, insert, update, insertMany, updateMatch, removeMatch, remove, toast } = useData()
   const meId = me!.id
   const editable = !tx || (canWrite(tx, meId) && (tx.kind !== 'transferencia' || tx.owner_id === meId))
@@ -61,22 +62,22 @@ export function TxEditor({ tx, preset, onClose }: { tx: Transaction | null; pres
 
   const [kind, setKind] = useState<Kind>(tx?.kind ?? preset.kind)
   const [ctx, setCtx] = useState<{ ctx: FinContext; owner: string }>({ ctx: startCtx.ctx, owner: startCtx.ctx === 'casal' ? meId : startCtx.owner })
-  const [amount, setAmount] = useState(centsToInput(tx?.amount_cents))
-  const [description, setDescription] = useState(tx?.description ?? '')
-  const [date, setDate] = useState(tx?.competence_date ?? todayISO())
+  const [amount, setAmount] = useState(centsToInput(tx?.amount_cents ?? initial?.amount))
+  const [description, setDescription] = useState(tx?.description ?? initial?.description ?? '')
+  const [date, setDate] = useState(tx?.competence_date ?? initial?.date ?? todayISO())
   const [due, setDue] = useState(tx?.due_date ?? '')
   const [done, setDone] = useState(tx ? tx.status === 'realizado' : false)
   const [canceled, setCanceled] = useState(tx?.status === 'cancelado')
   const couple = cards.find((c) => c.is_couple_card && !c.archived_at)
-  const [payWith, setPayWith] = useState<'conta' | 'cartao'>(tx ? (tx.card_id ? 'cartao' : 'conta') : startCtx.ctx === 'casal' && couple ? 'cartao' : 'conta')
+  const [payWith, setPayWith] = useState<'conta' | 'cartao'>(tx ? (tx.card_id ? 'cartao' : 'conta') : initial ? initial.payWith : startCtx.ctx === 'casal' && couple ? 'cartao' : 'conta')
   const [method, setMethod] = useState<PayMethod>(tx && tx.payment_method !== 'cartao' ? tx.payment_method : 'pix')
   const [accountId, setAccountId] = useState<string>(tx?.account_id ?? outLeg?.account_id ?? '')
   const [toAccountId, setToAccountId] = useState<string>(inLeg?.account_id ?? '')
-  const [cardId, setCardId] = useState<string>(tx?.card_id ?? (startCtx.ctx === 'casal' ? couple?.id ?? '' : ''))
-  const [installments, setInstallments] = useState(1)
+  const [cardId, setCardId] = useState<string>(tx?.card_id ?? (initial?.cardId || (startCtx.ctx === 'casal' ? couple?.id ?? '' : '')))
+  const [installments, setInstallments] = useState(initial?.installments ?? 1)
   const [payeeId, setPayeeId] = useState<string>(tx?.payee_id ?? '')
   const [client, setClient] = useState(tx?.client ?? '')
-  const [category, setCategory] = useState<string | null>(tx?.category_id ?? null)
+  const [category, setCategory] = useState<string | null>(tx?.category_id ?? initial?.category ?? null)
   const [link, setLink] = useState(tx?.payment_link ?? '')
   const [tags, setTags] = useState((tx?.tags ?? []).join(', '))
   const [notes, setNotes] = useState(tx?.notes ?? '')

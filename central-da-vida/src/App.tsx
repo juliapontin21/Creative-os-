@@ -167,6 +167,7 @@ function QuickAdd({ onClose, onNote, onTx }: { onClose: () => void; onNote: () =
       <div className="quick">
         <button className="quick-item" onClick={() => onTx('despesa')}><Icon name="wallet" size={24} />Despesa</button>
         <button className="quick-item" onClick={() => onTx('receita')}><Icon name="wallet" size={24} />Receita</button>
+        <button className="quick-item" onClick={() => { onClose(); go('financas', 'simular') }}><Icon name="sparkle" size={24} />Simular compra</button>
         <button className="quick-item" onClick={onNote}><Icon name="note" size={24} />Nota</button>
         <button className="quick-item" onClick={() => { onClose(); go('categorias') }}><Icon name="tag" size={24} />Categoria</button>
         {later.map((l) => (
