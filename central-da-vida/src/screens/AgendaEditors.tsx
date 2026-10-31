@@ -30,6 +30,7 @@ export function EventEditor({ ev, draft, onClose }: { ev: AgendaEvent | null; dr
   const [location, setLocation] = useState(ev?.location ?? '')
   const [notes, setNotes] = useState(ev?.notes ?? '')
   const [impacts, setImpacts] = useState(ev?.impacts_partner ?? false)
+  const [nature, setNature] = useState<'pessoal' | 'trabalho'>(ev?.nature ?? 'pessoal')
   const [reminders, setReminders] = useState<number[]>(ev?.reminders ?? [30])
   const [rule, setRule] = useState<'nao' | Rule>(ev?.series_rule ?? 'nao')
   const [done, setDone] = useState(Boolean(ev?.done_at))
@@ -44,7 +45,7 @@ export function EventEditor({ ev, draft, onClose }: { ev: AgendaEvent | null; dr
 
   const rowFor = (dayStart: Date) => ({
     title: title.trim(), context, all_day: allDay, start_at: dayStart.toISOString(), end_at: new Date(dayStart.getTime() + durMs).toISOString(),
-    category_id: category, location: location.trim(), notes, impacts_partner: context === 'pf' && impacts, reminders,
+    category_id: category, location: location.trim(), notes, impacts_partner: context === 'pf' && impacts, reminders, nature,
     done_at: done ? ev?.done_at ?? new Date().toISOString() : null,
   })
 
@@ -91,6 +92,8 @@ export function EventEditor({ ev, draft, onClose }: { ev: AgendaEvent | null; dr
         <input className="title-input" autoFocus={!ev} maxLength={120} value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Título do compromisso" aria-label="Título" />
         <div className="field"><span className="label">Agenda</span>
           <Segmented value={context} disabled={!!ev && ev.owner_id !== meId} onChange={(c) => { setContext(c); setCategory(null) }} options={[{ id: 'pf', label: me!.display_name }, { id: 'casal', label: 'Casal' }]} /></div>
+        <div className="field"><span className="label">Tipo</span>
+          <Segmented value={nature} onChange={setNature} options={[{ id: 'pessoal', label: 'Pessoal' }, { id: 'trabalho', label: 'Trabalho' }]} /></div>
         <label className="toggle"><input type="checkbox" checked={allDay} onChange={(e) => setAllDay(e.target.checked)} />Dia inteiro</label>
         <div className="row2">
           <label className="field"><span className="label">Início</span><input type="date" value={startDay} onChange={(e) => { const d = e.target.value; setStartDay(d); if (d > endDay) setEndDay(d) }} /></label>
