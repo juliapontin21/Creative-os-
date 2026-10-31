@@ -1,6 +1,8 @@
 # Central da Vida · Regras financeiras da casa
 
-Definidas pela Júlia em 31/10/2026. O app usa estas regras para calcular, alertar e simular, mas **nunca bloqueia** uma compra real (spec §5). Os números são parâmetros editáveis em Ajustes.
+Definidas pela Júlia em 31/10/2026. O app usa estas regras para calcular, alertar e simular, mas **nunca bloqueia** uma compra real (spec §5).
+
+**Todos os números são referências, não limites.** Cada parâmetro pode ser mudado e cada regra pode ser desligada em Ajustes → Regras da casa. Quando a regra está desligada, o app não mostra alerta nem indicador dela.
 
 ## 1. Visibilidade
 

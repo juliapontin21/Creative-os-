@@ -10,6 +10,13 @@ import type { FinContext, MonthPlan, PayMethod, Recurrence, Transaction } from '
 import { fmtDate, todayISO } from '../lib/util'
 import { MoneyInput } from './FinEditors'
 import { TxList } from './Financas'
+import { usePlanning } from '../lib/usePlanning'
+import { useCtxOptions } from '../lib/finctx'
+
+function useCoupleSuggestion(month: string) {
+  const casal = useCtxOptions().find((o) => o.ctx === 'casal')!
+  return usePlanning(casal, month).coupleSuggestion
+}
 
 const centsToInput = (c: number | null | undefined) => (c ? (c / 100).toFixed(2).replace('.', ',') : '')
 const FREQ_LABEL: Record<Recurrence['frequency'], string> = { semanal: 'por semana', mensal: 'por mês', anual: 'por ano' }
@@ -127,6 +134,7 @@ function PlanEditor({ month, plan, people, onClose, onSave }: {
   const [savings, setSavings] = useState(centsToInput(plan?.savings_cents) || '0')
   const [incomes, setIncomes] = useState<Record<string, string>>(Object.fromEntries(people.map((p) => [p.id, plan?.income_overrides?.[p.id] !== undefined ? centsToInput(plan.income_overrides[p.id]) : ''])))
   const [notes, setNotes] = useState(plan?.notes ?? '')
+  const suggestion = useCoupleSuggestion(month)
   const sv = savings.trim() === '0' || !savings.trim() ? 0 : parseMoney(savings)
   const parsed = Object.entries(incomes).map(([id, v]) => [id, v.trim() ? parseMoney(v) : undefined] as const)
   const valid = sv !== null && parsed.every(([, v]) => v !== null)
@@ -138,7 +146,8 @@ function PlanEditor({ month, plan, people, onClose, onSave }: {
         savings_cents: sv ?? 0, notes,
         income_overrides: Object.fromEntries(parsed.filter(([, v]) => typeof v === 'number').map(([id, v]) => [id, v as number])),
       })}>Salvar</button></>}>
-      <MoneyInput label="Caixinhas e reserva de emergência" value={savings} onChange={setSavings} hint="Quanto vai para as metas neste mês. Na Fase 3, o app calcula pelas metas de cada caixinha." />
+      <MoneyInput label="Caixinhas e reserva de emergência" value={savings} onChange={setSavings} hint="Quanto vai para as caixinhas e a reserva neste mês." />
+      {suggestion > 0 && <p className="hint">Pelas metas e prazos das caixinhas do casal: {fmtMoney(suggestion)} por mês. <button className="link inline" onClick={() => setSavings(centsToInput(suggestion))}>Usar</button></p>}
       {people.map((p) => (
         <MoneyInput key={p.id} label={`Renda de ${p.display_name} neste mês`} value={incomes[p.id]} onChange={(v) => setIncomes({ ...incomes, [p.id]: v })}
           hint={`Deixe vazio para usar a referência (${fmtMoney(p.income_ref_cents)}). Preencha quando entrar dinheiro extra.`} />

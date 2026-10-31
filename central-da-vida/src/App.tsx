@@ -10,6 +10,7 @@ import { NoteEditor, Notas } from './screens/Notas'
 import { Ajustes, Busca, EmBreve, Hoje, Mais, ROADMAP } from './screens/Telas'
 import { Financas, useFinCtx } from './screens/Financas'
 import { useRecurrenceSync } from './screens/Fin2B'
+import { Regras } from './screens/Metas'
 import { TxEditor } from './screens/FinEditors'
 import type { Transaction } from './lib/types'
 
@@ -87,7 +88,7 @@ function Gate() {
 
 const TITLES: Record<Route, string> = {
   hoje: 'Hoje', financas: 'Finanças', agenda: 'Agenda', mais: 'Mais', notas: 'Notas', categorias: 'Categorias',
-  ajustes: 'Ajustes', busca: 'Busca', 'em-breve': 'Em breve',
+  ajustes: 'Ajustes', busca: 'Busca', 'em-breve': 'Em breve', regras: 'Regras da casa',
 }
 const TABS: { id: Route; label: string; icon: string }[] = [
   { id: 'hoje', label: 'Hoje', icon: 'home' },
@@ -95,7 +96,7 @@ const TABS: { id: Route; label: string; icon: string }[] = [
   { id: 'agenda', label: 'Agenda', icon: 'calendar' },
   { id: 'mais', label: 'Mais', icon: 'grid' },
 ]
-const SUB: Route[] = ['notas', 'categorias', 'ajustes', 'busca', 'em-breve']
+const SUB: Route[] = ['notas', 'categorias', 'ajustes', 'busca', 'em-breve', 'regras']
 
 function Shell() {
   const { route, arg } = useRoute()
@@ -118,6 +119,7 @@ function Shell() {
       case 'ajustes': return <Ajustes />
       case 'busca': return <Busca />
       case 'em-breve': return <EmBreve id={arg} />
+      case 'regras': return <Regras />
       default: return <Hoje />
     }
   })()

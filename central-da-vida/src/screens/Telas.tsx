@@ -166,6 +166,11 @@ export function Ajustes() {
         <span className="grow"><strong>Minha renda de referência</strong><span className="muted">{me?.income_ref_cents ? fmtMoney(me.income_ref_cents) : 'Ainda não informada'} · base da mesada no Mês do casal</span></span>
         <Icon name="right" size={18} />
       </button>
+      <button className="card list-link" onClick={() => go('regras')}>
+        <span className="list-icon"><Icon name="settings" /></span>
+        <span className="grow"><strong>Regras da casa</strong><span className="muted">Referências de 50/30/20, reserva, parcelas e empresa. Mude ou desligue.</span></span>
+        <Icon name="right" size={18} />
+      </button>
       <div className="card">
         <strong>Parceiro</strong>
         <p className="muted">{partner ? <><Dot color={partner.color} /> {partner.display_name} já entrou ({partner.email}).</> : 'Ainda não entrou. Quando ele fizer login com o e-mail liberado, a conexão é automática.'}</p>
