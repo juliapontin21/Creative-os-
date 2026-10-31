@@ -171,3 +171,33 @@ test('simulador: saldo projetado negativo → não cabe', () => {
   const r = simulate({ ctx: 'empresa', parts: [100000], months: [{ month: '2026-11', balance: 50000, room: null, installments: 0, r2Limit: null }], budget: null, available: null })
   assert.equal(r.verdict, 'nao')
 })
+
+import { layoutColumns, seriesDays, snap, streak, weekCount } from '../src/lib/agenda.ts'
+
+test('agenda: compromissos sobrepostos ficam lado a lado', () => {
+  const r = layoutColumns([{ id: 'a', start: 600, end: 720 }, { id: 'b', start: 660, end: 780 }, { id: 'c', start: 800, end: 860 }, { id: 'd', start: 600, end: 630 }])
+  assert.equal(r.a.cols, 2); assert.equal(r.b.cols, 2); assert.equal(r.d.cols, 2)
+  assert.notEqual(r.a.col, r.b.col)
+  assert.deepEqual(r.c, { col: 0, cols: 1 })
+})
+
+test('agenda: arrastar encaixa de 15 em 15 minutos', () => {
+  assert.equal(snap(607), 600); assert.equal(snap(608), 615); assert.equal(snap(-8), -15)
+})
+
+test('agenda: repetição diária, semanal, mensal (31 → fim do mês) e anual', () => {
+  assert.equal(seriesDays('2026-11-01', 'diario', '2026-11-05').length, 5)
+  assert.deepEqual(seriesDays('2026-11-02', 'semanal', '2026-11-20'), ['2026-11-02', '2026-11-09', '2026-11-16'])
+  assert.deepEqual(seriesDays('2026-01-31', 'mensal', '2026-04-30'), ['2026-01-31', '2026-02-28', '2026-03-31', '2026-04-30'])
+  assert.equal(seriesDays('2026-11-02', 'anual').length, 6)
+})
+
+test('hábitos: sequência ignora dias em que não é devido; contagem semanal', () => {
+  const h = { frequency: 'dias' as const, week_days: [1, 3, 5], times_per_week: 3, target: 1, created_at: '' }
+  // seg 02/11, qua 04/11, sex 06/11 de 2026
+  const done = new Set(['2026-11-02', '2026-11-04', '2026-11-06'])
+  assert.equal(streak(h, done, '2026-11-07'), 3)
+  assert.equal(weekCount(done, '2026-11-05'), 3)
+  const daily = { ...h, frequency: 'diario' as const }
+  assert.equal(streak(daily, new Set(['2026-11-06', '2026-11-07']), '2026-11-07'), 2)
+})
