@@ -6,7 +6,7 @@ import { useData } from '../lib/data'
 import { norm } from '../lib/food'
 import { go } from '../lib/route'
 import { sb, friendly } from '../lib/supabase'
-import { estimateMinutes, kindLabel, KINDS, loadHistory, suggestListen, workoutsForDay } from '../lib/training'
+import { ACTIVITIES, estimateMinutes, kindLabel, KINDS, loadHistory, suggestListen, workoutsForDay } from '../lib/training'
 import type { Exercise, LibraryItem, SessionItem, Workout, WorkoutSession } from '../lib/types'
 import { PALETTE } from '../lib/util'
 import { compress } from './Alimentacao'
@@ -63,13 +63,16 @@ function Hoje() {
   const setItem = (i: number, patch: Partial<SessionItem>) => prog && setProg({ ...prog, items: prog.items.map((x, j) => (j === i ? { ...x, ...patch } : x)) })
   const finish = async () => {
     if (!prog || !w) return
-    if (await insert('workout_sessions', { workout_id: w.id, workout_name: w.name, date: today, minutes, items: prog.items })) {
+    if (await insert('workout_sessions', { workout_id: w.id, workout_name: w.name, date: today, minutes, items: prog.items, activity: w.activity ?? 'Musculação' })) {
       setProg(null); toast('Treino concluído! 💪')
     }
   }
+  const [other, setOther] = useState(false)
   return (
     <>
       {doneToday.length > 0 && <p className="card info">✅ Hoje você já concluiu: {doneToday.map((s) => s.workout_name).join(', ')}.</p>}
+      <button className="btn wide" onClick={() => setOther(true)}><Icon name="plus" />Registrar outra atividade (cardio, dança…)</button>
+      {other && <ActivitySheet onClose={() => setOther(false)} />}
       {!mine.length ? <Empty icon="dumbbell" title="Nenhuma ficha ainda" text="Crie suas fichas (ex.: Treino A – Pernas) com os dias da semana e os exercícios." action={<button className="btn primary" onClick={() => go('treinos', 'fichas')}>Criar ficha</button>} /> : <>
         <div className="chips scroll">{(todays.length ? todays : mine).map((x) => (
           <button key={x.id} className={'chip' + (x.id === chosen ? ' on' : '')} disabled={!!prog} onClick={() => setChosen(x.id)}><span className="dot" style={{ background: x.color }} />{x.name}</button>
@@ -124,7 +127,7 @@ function Fichas({ who }: { who: string }) {
         const exs = exercises.filter((e) => e.workout_id === w.id && !e.archived_at).sort((a, b) => a.position - b.position)
         return (
           <button key={w.id} className="card workout-card" style={{ ['--c' as string]: w.color }} onClick={() => setEdit(w)}>
-            <span className="section-head"><strong>{w.name}</strong><span className="muted small">{w.week_days.length ? w.week_days.slice().sort().map((d) => WD[d]).join(' ') : 'sem dia fixo'} · ~{estimateMinutes(exs)} min</span></span>
+            <span className="section-head"><strong>{w.name} <span className="badge">{w.activity ?? 'Musculação'}</span></strong><span className="muted small">{w.week_days.length ? w.week_days.slice().sort().map((d) => WD[d]).join(' ') : 'sem dia fixo'} · ~{estimateMinutes(exs)} min</span></span>
             <span className="muted small">{exs.map((e) => `${e.name} ${sets(e)}${e.load_kg != null ? ` ${kg(e.load_kg)}` : ''}`).join(' · ') || 'Sem exercícios'}</span>
           </button>
         )
@@ -144,6 +147,7 @@ function WorkoutEditor({ w, readOnly, onClose }: { w: Workout | null; readOnly: 
   const [name, setName] = useState(w?.name ?? '')
   const [days, setDays] = useState<number[]>(w?.week_days ?? [])
   const [color, setColor] = useState(w?.color ?? PALETTE[2])
+  const [activity, setActivity] = useState(w?.activity ?? 'Musculação')
   const [notes, setNotes] = useState(w?.notes ?? '')
   const existing = w ? exercises.filter((e) => e.workout_id === w.id && !e.archived_at).sort((a, b) => a.position - b.position) : []
   const [exs, setExs] = useState<ExDraft[]>(existing.map(toDraft))
@@ -163,7 +167,7 @@ function WorkoutEditor({ w, readOnly, onClose }: { w: Workout | null; readOnly: 
   }
   const save = async () => {
     setBusy(true)
-    const row = { name: name.trim(), week_days: days, color, notes }
+    const row = { name: name.trim(), week_days: days, color, notes, activity: activity.trim() || 'Musculação' }
     const saved = w ? await update('workouts', w.id, row) : await insert('workouts', row)
     if (!saved) { setBusy(false); return }
     const keep = new Set(exs.filter((e) => e.id).map((e) => e.id))
@@ -183,6 +187,7 @@ function WorkoutEditor({ w, readOnly, onClose }: { w: Workout | null; readOnly: 
       {readOnly && <p className="card info">Ficha de outra pessoa: só para ver.</p>}
       <fieldset disabled={readOnly} className="plain">
         <input className="title-input" autoFocus={!w} maxLength={80} value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex.: Treino A – Pernas" aria-label="Nome da ficha" />
+        <ActivityPicker value={activity} onChange={setActivity} />
         <div className="field"><span className="label">Dias da semana</span>
           <div className="chips wrap">{WD.map((d, i) => <button key={i} type="button" className={'chip' + (days.includes(i) ? ' on' : '')} onClick={() => setDays(days.includes(i) ? days.filter((x) => x !== i) : [...days, i])}>{d}</button>)}</div></div>
         <div className="field"><span className="label">Exercícios</span>
@@ -245,7 +250,7 @@ function Historico({ who }: { who: string }) {
       {list.length ? <div className="list">{list.slice(0, 60).map((s) => (
         <button key={s.id} className="card list-link" onClick={() => setOpen(s)}>
           <span className="list-icon"><Icon name="dumbbell" /></span>
-          <span className="grow"><strong>{s.workout_name || 'Treino'}</strong><span className="muted small">{parseYmd(s.date).toLocaleDateString('pt-BR', { weekday: 'short', day: 'numeric', month: 'short' })} · {s.items.filter((i) => i.done).length}/{s.items.length} exercícios{s.minutes ? ` · ~${s.minutes} min` : ''}</span></span>
+          <span className="grow"><strong>{s.workout_name || 'Treino'} <span className="badge">{s.activity ?? 'Musculação'}</span></strong><span className="muted small">{parseYmd(s.date).toLocaleDateString('pt-BR', { weekday: 'short', day: 'numeric', month: 'short' })} {s.items.length ? ` · ${s.items.filter((i) => i.done).length}/${s.items.length} exercícios` : ''}{s.minutes ? ` · ${s.minutes} min` : ''}</span></span>
         </button>
       ))}</div> : <Empty icon="dumbbell" title="Nenhum treino registrado" text="Os treinos concluídos em Hoje aparecem aqui." />}
       {open && <Sheet title={`${open.workout_name} · ${parseYmd(open.date).toLocaleDateString('pt-BR')}`} onClose={() => setOpen(null)} footer={<>
@@ -331,6 +336,45 @@ function LibEditor({ item, readOnly, onClose }: { item: LibraryItem | null; read
         <label className="field"><span className="label">Notas</span><textarea rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} /></label>
         {readOnly && url && <a className="btn wide" href={url} target="_blank" rel="noreferrer">Abrir</a>}
       </fieldset>
+    </Sheet>
+  )
+}
+
+// ───────────────────────── Outras atividades ─────────────────────────
+
+export function ActivityPicker({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const custom = !ACTIVITIES.includes(value)
+  return (
+    <div className="field"><span className="label">Tipo de atividade</span>
+      <div className="chips wrap">
+        {ACTIVITIES.map((a) => <button key={a} type="button" className={'chip' + (value === a ? ' on' : '')} onClick={() => onChange(a)}>{a}</button>)}
+        <button type="button" className={'chip' + (custom ? ' on' : '')} onClick={() => onChange(custom ? value : '')}>Outra…</button>
+      </div>
+      {custom && <input autoFocus maxLength={40} value={value} onChange={(e) => onChange(e.target.value)} placeholder="Ex.: Beach tennis, Muay thai" aria-label="Outra atividade" />}
+    </div>
+  )
+}
+
+function ActivitySheet({ onClose }: { onClose: () => void }) {
+  const { insert, toast } = useData()
+  const [activity, setActivity] = useState('Cardio')
+  const [minutes, setMinutes] = useState('45')
+  const [date, setDate] = useState(ymd(new Date()))
+  const [notes, setNotes] = useState('')
+  const valid = activity.trim() !== '' && Number(minutes) > 0
+  return (
+    <Sheet title="Registrar atividade" onClose={onClose} footer={<>
+      <button className="btn" onClick={onClose}>Cancelar</button>
+      <button className="btn primary" disabled={!valid} onClick={async () => {
+        if (await insert('workout_sessions', { workout_id: null, workout_name: activity.trim(), activity: activity.trim(), date, minutes: Number(minutes), items: [], notes })) { toast('Atividade registrada! 💪'); onClose() }
+      }}>Registrar</button></>}>
+      <ActivityPicker value={activity} onChange={setActivity} />
+      <div className="row2">
+        <label className="field"><span className="label">Duração (min)</span><input type="number" inputMode="numeric" value={minutes} onChange={(e) => setMinutes(e.target.value)} /></label>
+        <label className="field"><span className="label">Dia</span><input type="date" value={date} onChange={(e) => setDate(e.target.value)} /></label>
+      </div>
+      <label className="field"><span className="label">Observações</span><input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Ex.: aula de forró, 5 km na esteira" /></label>
+      <p className="hint">Conta como treino feito no histórico e na grade de dias em Hábitos.</p>
     </Sheet>
   )
 }

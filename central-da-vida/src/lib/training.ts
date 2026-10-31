@@ -5,6 +5,7 @@ export const KINDS: { id: string; label: string; audio: boolean }[] = [
   { id: 'audiolivro', label: 'Audiolivro', audio: true }, { id: 'video', label: 'Vídeo', audio: false }, { id: 'documentario', label: 'Documentário', audio: false },
   { id: 'serie', label: 'Série', audio: false }, { id: 'outro', label: 'Outro', audio: false },
 ]
+export const ACTIVITIES = ['Musculação', 'Cardio', 'Dança', 'Alongamento/Yoga', 'Caminhada', 'Corrida', 'Esporte', 'Pilates', 'Natação']
 export const kindLabel = (k: string) => KINDS.find((x) => x.id === k)?.label ?? k
 
 interface WorkoutLike { id: string; week_days: number[]; archived_at: string | null; position: number }

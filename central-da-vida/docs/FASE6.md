@@ -14,12 +14,17 @@
 - **Biblioteca**: podcasts, músicas, playlists, audiolivros, vídeos, documentários, séries; link para abrir no app de origem; categorias (Mais → Categorias → Biblioteca); status (quero ver/ouvir → em andamento → concluído, com um toque); busca e filtros por tipo, status e categoria.
 - **🎧 O que ouvir hoje**: no treino, até 3 sugestões de áudio da sua biblioteca: primeiro o que está em andamento, depois o que tem duração mais parecida com o treino.
 
+## Ajustes pedidos pela Júlia
+
+- **Grade "Seus dias"** em Hábitos e água: cor forte = tudo o que estava previsto foi feito (hábitos + treino); mais clara = parte (quanto mais feito, mais forte); branco = nada feito; tracejado = nada previsto. Academia incluída: dia com ficha marcada conta como previsto; treino ou atividade registrada conta como feito. Hábito com meta > 1 feito em parte vale a fração. Visões Mês e Ano.
+- **Outras atividades**: tipo em cada ficha (Musculação, Cardio, Dança, Alongamento/Yoga, Caminhada, Corrida, Esporte, Pilates, Natação ou outro nome) e **Registrar outra atividade** em Treinos → Hoje (tipo, duração, dia, observações), sem precisar de ficha.
+
 ## Configuração (2 minutos)
 
 **Antes** do merge:
 
 1. Abra https://supabase.com/dashboard/project/oyglhouncpiuuilprvhn/sql/new
-2. Cole todo o conteúdo de `central-da-vida/supabase/fase6.sql` (tradução do navegador desligada) e clique em **Run** (→ **Run and enable RLS**, se perguntar). Esperado: "Success".
+2. Cole todo o conteúdo de `central-da-vida/supabase/fase6.sql` (se já tinha rodado antes, rode só o `fase6b.sql`) (tradução do navegador desligada) e clique em **Run** (→ **Run and enable RLS**, se perguntar). Esperado: "Success".
 3. Faça o merge do pull request; depois de 1 a 2 minutos, feche e abra o app.
 
 ## Roteiro de teste

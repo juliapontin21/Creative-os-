@@ -482,3 +482,12 @@ body.agenda-fs .month-cell { min-height: calc((100dvh - 240px) / 6); }
 .pill.st-quero { background: var(--plan-soft); color: var(--plan); }
 .pill.st-andamento { background: #fff4dc; color: #92400e; }
 .pill.st-concluido { background: var(--ok-soft); color: var(--ok); }
+.heat.overall i { --hc: var(--accent); }
+.heat i.lv-full { background: var(--hc, var(--accent)); }
+.heat i.lv-partial, .heat-legend i.lv-partial { background: color-mix(in srgb, var(--accent) calc(var(--a, .5) * 100%), var(--surface)); }
+.heat i.lv-zero, .heat-legend i.lv-zero { background: var(--surface); border: 1px solid var(--line); }
+.heat i.lv-none, .heat-legend i.lv-none { background: transparent; border: 1px dashed var(--line); }
+.heat i.lv-future { background: var(--surface-2); opacity: .35; }
+.heat-legend { flex-wrap: wrap; gap: 10px; font-size: 12px; }
+.heat-legend i { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+.heat-legend i.lv-full { background: var(--accent); }

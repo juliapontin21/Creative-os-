@@ -77,3 +77,30 @@ export function weekCount(done: Set<string>, day: string): number {
   for (let i = 0; i < 7; i++) if (done.has(addDays(s, i))) n++
   return n
 }
+
+// ───────────────────────── Grade geral dos dias (hábitos + treino) ─────────────────────────
+// Previsto no dia: hábitos devidos (todo dia / dias da semana) + treino, se havia ficha marcada.
+// Hábito "X por semana" e treino fora do previsto contam como extra (somam sem penalizar).
+// Hábito com meta > 1 feito em parte vale a fração (ex.: 1 de 2 = 0,5).
+export interface DayInput {
+  habits: (HabitLike & { id: string })[]
+  logs: { habit_id: string; date: string; value: number }[]
+  workoutPlanned: (day: string) => boolean
+  workoutDone: (day: string) => boolean
+}
+export function dayScore(inp: DayInput, day: string): { due: number; done: number; level: 'none' | 'zero' | 'partial' | 'full'; ratio: number } {
+  let due = 0, done = 0
+  for (const h of inp.habits) {
+    if (h.created_at && h.created_at.slice(0, 10) > day) continue
+    const log = inp.logs.find((l) => l.habit_id === h.id && l.date === day)
+    const frac = log ? Math.min(1, Number(log.value) / Number(h.target)) : 0
+    if (h.frequency === 'semana') { if (frac > 0) { due += 1; done += frac } continue }
+    if (!isDue(h, day)) continue
+    due += 1; done += frac
+  }
+  const planned = inp.workoutPlanned(day), did = inp.workoutDone(day)
+  if (planned || did) { due += 1; if (did) done += 1 }
+  if (!due) return { due, done, level: 'none', ratio: 0 }
+  const ratio = done / due
+  return { due, done, ratio, level: ratio >= 0.999 ? 'full' : ratio > 0 ? 'partial' : 'zero' }
+}

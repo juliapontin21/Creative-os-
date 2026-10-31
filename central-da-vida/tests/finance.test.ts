@@ -245,3 +245,22 @@ test('o que ouvir hoje: áudio, em andamento primeiro, depois duração parecida
   const r = suggestListen([it('serie', 'serie', 'quero', 50), it('p1', 'podcast', 'quero', 90), it('p2', 'podcast', 'quero', 45), it('done', 'podcast', 'concluido', 50), it('a1', 'audiolivro', 'andamento', 600), it('m', 'playlist', 'quero', null)], 50)
   assert.deepEqual(r.map((x) => x.id), ['a1', 'p2', 'p1'])
 })
+
+import { dayScore } from '../src/lib/agenda.ts'
+
+test('grade geral: completo, parcial, não feito e sem nada previsto (inclui treino)', () => {
+  const habits = [
+    { id: 'ler', frequency: 'diario' as const, week_days: [], times_per_week: 3, target: 1, created_at: '2026-10-01' },
+    { id: 'agua', frequency: 'diario' as const, week_days: [], times_per_week: 3, target: 2, created_at: '2026-10-01' },
+    { id: 'yoga', frequency: 'semana' as const, week_days: [], times_per_week: 2, target: 1, created_at: '2026-10-01' },
+  ]
+  const logs = [{ habit_id: 'ler', date: '2026-11-02', value: 1 }, { habit_id: 'agua', date: '2026-11-02', value: 2 },
+    { habit_id: 'ler', date: '2026-11-03', value: 1 }, { habit_id: 'agua', date: '2026-11-03', value: 1 }, { habit_id: 'yoga', date: '2026-11-03', value: 1 }]
+  const inp = { habits, logs, workoutPlanned: (d: string) => d === '2026-11-02' || d === '2026-11-04', workoutDone: (d: string) => d === '2026-11-02' }
+  assert.equal(dayScore(inp, '2026-11-02').level, 'full')               // 2 hábitos + treino feitos
+  const p = dayScore(inp, '2026-11-03')                                // ler 1 + água 0,5 + yoga extra 1 → 2,5 de 3
+  assert.equal(p.level, 'partial'); assert.equal(Math.round(p.ratio * 100), 83)
+  assert.equal(dayScore(inp, '2026-11-04').level, 'zero')              // previsto (hábitos + treino), nada feito
+  assert.equal(dayScore({ ...inp, habits: [] }, '2026-11-05').level, 'none')
+  assert.equal(dayScore(inp, '2026-09-20').level, 'none')              // antes de criar os hábitos
+})

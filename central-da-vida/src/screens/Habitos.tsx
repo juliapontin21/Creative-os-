@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Icon } from '../components/Icon'
 import { ColorPicker, Confirm, Empty, Segmented, Sheet } from '../components/ui'
-import { addDays, isDue, parseYmd, streak, weekCount, weekStart, ymd } from '../lib/agenda'
+import { addDays, dayScore, isDue, parseYmd, streak, weekCount, weekStart, ymd } from '../lib/agenda'
 import { useData } from '../lib/data'
 import type { Habit } from '../lib/types'
 import { PALETTE } from '../lib/util'
@@ -106,6 +106,7 @@ export function Habitos() {
   return (
     <>
       <p className="card info">Hábitos e água são só seus: {partner?.display_name ?? 'o outro'} não vê.</p>
+      <OverallGrid />
       <WaterCard />
       <div className="week-strip">{week.map((d) => (
         <button key={d} className={'ws-day' + (d === day ? ' on' : '') + (d === today ? ' today' : '')} onClick={() => setDay(d)}>
@@ -203,5 +204,45 @@ function HabitEditor({ habit, onClose }: { habit: Habit | null; onClose: () => v
       <ColorPicker value={color} onChange={setColor} />
       {confirmDel && habit && <Confirm title="Excluir hábito?" message="O histórico de marcações também será apagado. Para guardar o histórico, arquive." onConfirm={async () => { if (await remove('habits', habit.id)) onClose() }} onClose={() => setConfirmDel(false)} />}
     </Sheet>
+  )
+}
+
+// ───────────────────────── Grade geral dos dias ─────────────────────────
+// Cor forte = fez tudo o que estava previsto (hábitos + treino); mais clara = parte; branco = nada; tracejado = nada previsto.
+
+function OverallGrid() {
+  const { me, habits, habit_logs, workouts, workout_sessions } = useData()
+  const [range, setRange] = useState<'mes' | 'ano'>('mes')
+  const today = ymd(new Date())
+  const mine = habits.filter((h) => h.owner_id === me!.id && !h.archived_at)
+  const myW = workouts.filter((w) => w.owner_id === me!.id && !w.archived_at)
+  const sessions = new Set(workout_sessions.filter((s) => s.owner_id === me!.id).map((s) => s.date))
+  const firstW = myW.reduce<string | null>((m, w) => (!m || w.created_at < m ? w.created_at.slice(0, 10) : m), null)
+  const inp = {
+    habits: mine, logs: habit_logs.filter((l) => l.owner_id === me!.id),
+    workoutPlanned: (d: string) => !!firstW && d >= firstW && myW.some((w) => w.week_days.includes(parseYmd(d).getDay())),
+    workoutDone: (d: string) => sessions.has(d),
+  }
+  const days = range === 'mes' ? 35 : 371
+  const start = weekStart(addDays(today, -(days - 7)))
+  const cells = Array.from({ length: days }, (_, i) => addDays(start, i))
+  const scored = cells.map((d) => ({ d, s: d > today ? null : dayScore(inp, d) }))
+  const counted = scored.filter((x) => x.s && x.s.level !== 'none')
+  const full = counted.filter((x) => x.s!.level === 'full').length
+  if (!mine.length && !myW.length) return null
+  return (
+    <section className="card chart-card">
+      <div className="section-head"><h2>Seus dias</h2><Segmented value={range} onChange={setRange} options={[{ id: 'mes', label: 'Mês' }, { id: 'ano', label: 'Ano' }]} /></div>
+      <div className={'heat overall ' + (range === 'ano' ? 'ano' : '')} role="img" aria-label="Grade geral de hábitos e treinos">
+        {range === 'mes' && WD.map((w, i) => <span key={i} className="heat-wd">{w}</span>)}
+        {scored.map(({ d, s }) => (
+          <i key={d} title={`${parseYmd(d).toLocaleDateString('pt-BR')}${s && s.level !== 'none' ? ` · ${Math.round(s.done * 10) / 10} de ${s.due}` : ''}`}
+            className={'lv-' + (s ? s.level : 'future') + (d === today ? ' today' : '')}
+            style={s && s.level === 'partial' ? { ['--a' as string]: String(0.15 + 0.45 * s.ratio) } : undefined} />
+        ))}
+      </div>
+      <div className="legend heat-legend"><span><i className="lv-full" />Tudo feito</span><span><i className="lv-partial" style={{ ['--a' as string]: '0.5' }} />Parte</span><span><i className="lv-zero" />Nada feito</span><span><i className="lv-none" />Nada previsto</span></div>
+      <p className="muted small">{counted.length ? `${full} de ${counted.length} dias com tudo feito no período.` : 'Marque hábitos e treinos para a grade ganhar cor.'} Inclui a academia: dia com ficha marcada conta como previsto; treino ou atividade registrada conta como feito.</p>
+    </section>
   )
 }
