@@ -201,3 +201,27 @@ test('hábitos: sequência ignora dias em que não é devido; contagem semanal',
   const daily = { ...h, frequency: 'diario' as const }
   assert.equal(streak(daily, new Set(['2026-11-06', '2026-11-07']), '2026-11-07'), 2)
 })
+
+import { itemKcal, itemKey, mergeQty, parseItem, scale } from '../src/lib/food.ts'
+
+test('mercado: entende o que foi digitado', () => {
+  assert.deepEqual(parseItem('2 kg tomate'), { name: 'Tomate', qty: 2, unit: 'kg' })
+  assert.deepEqual(parseItem('1,5 l de leite'), { name: 'Leite', qty: 1.5, unit: 'L' })
+  assert.deepEqual(parseItem('ovos 12'), { name: 'Ovos', qty: 12, unit: '' })
+  assert.deepEqual(parseItem('3 pacotes macarrão'), { name: 'Macarrão', qty: 3, unit: 'pacote' })
+  assert.deepEqual(parseItem('pão de forma'), { name: 'Pão de forma', qty: null, unit: '' })
+})
+
+test('mercado: itens repetidos se juntam por nome e unidade', () => {
+  assert.equal(itemKey('Tomates', 'kg'), itemKey('tomate', 'KG'))
+  assert.notEqual(itemKey('Tomate', 'kg'), itemKey('Tomate', 'un'))
+  assert.equal(mergeQty(2, 1.5), 3.5); assert.equal(mergeQty(null, 2), 2); assert.equal(mergeQty(null, null), null)
+})
+
+test('receita: ingredientes para outro número de porções e calorias', () => {
+  const r = scale([{ name: 'Tomate', qty: 3, unit: 'un' }, { name: 'Sal', qty: null, unit: '' }], 4, 2)
+  assert.equal(r[0].qty, 1.5); assert.equal(r[1].qty, null)
+  assert.equal(itemKcal({ kcal: null, servings: 2, recipe_id: 'r' }, () => 450), 900)
+  assert.equal(itemKcal({ kcal: 300, servings: 2, recipe_id: 'r' }, () => 450), 300)
+  assert.equal(itemKcal({ kcal: null, servings: 1, recipe_id: null }, () => 450), null)
+})

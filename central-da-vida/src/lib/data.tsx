@@ -3,8 +3,8 @@ import type { RealtimePostgresChangesPayload, Session } from '@supabase/supabase
 import { friendly, sb } from './supabase'
 import type { Profile, Row, TableName, Tables, Writable } from './types'
 
-const TABLES: TableName[] = ['profiles', 'categories', 'notes', 'saved_views', 'accounts', 'cards', 'payees', 'transactions', 'recurrences', 'month_plans', 'house_rules', 'goals', 'goal_moves', 'budgets', 'events', 'partner_reminders', 'habits', 'habit_logs', 'water_logs', 'personal_settings', 'push_subscriptions', 'notification_prefs']
-const EMPTY: Tables = { profiles: [], categories: [], notes: [], saved_views: [], accounts: [], cards: [], payees: [], transactions: [], recurrences: [], month_plans: [], house_rules: [], goals: [], goal_moves: [], budgets: [], events: [], partner_reminders: [], habits: [], habit_logs: [], water_logs: [], personal_settings: [], push_subscriptions: [], notification_prefs: [] }
+const TABLES: TableName[] = ['profiles', 'categories', 'notes', 'saved_views', 'accounts', 'cards', 'payees', 'transactions', 'recurrences', 'month_plans', 'house_rules', 'goals', 'goal_moves', 'budgets', 'events', 'partner_reminders', 'habits', 'habit_logs', 'water_logs', 'personal_settings', 'push_subscriptions', 'notification_prefs', 'recipes', 'meal_plans', 'food_logs', 'shopping_items']
+const EMPTY: Tables = { profiles: [], categories: [], notes: [], saved_views: [], accounts: [], cards: [], payees: [], transactions: [], recurrences: [], month_plans: [], house_rules: [], goals: [], goal_moves: [], budgets: [], events: [], partner_reminders: [], habits: [], habit_logs: [], water_logs: [], personal_settings: [], push_subscriptions: [], notification_prefs: [], recipes: [], meal_plans: [], food_logs: [], shopping_items: [] }
 
 interface DataCtx extends Tables {
   session: Session

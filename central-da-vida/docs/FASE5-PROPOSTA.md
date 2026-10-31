@@ -1,5 +1,7 @@
 # Central da Vida · Fase 5 · Alimentação e mercado (proposta)
 
+Aprovada em 31/10/2026: cardápio e diário visíveis para os dois (só o dono edita); receitas do casal; meta de calorias opcional.
+
 Escopo da especificação: receitas, cardápio, ingredientes, lista de mercado compartilhada e diário alimentar **manual**. Estimativa de calorias por foto/texto com IA e assistente culinário ficam na **Fase 7**.
 
 ## O que entra

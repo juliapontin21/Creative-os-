@@ -78,7 +78,14 @@ export interface Habit extends Private {
 }
 export interface HabitLog extends Private { habit_id: string; date: string; value: number }
 export interface WaterLog extends Private { date: string; ml: number }
-export interface PersonalSetting extends Private { water_goal_ml: number }
+export interface PersonalSetting extends Private { water_goal_ml: number; kcal_goal: number | null }
+interface Shared { id: string; household_id: string; owner_id: string; context: 'casal' | 'pf'; archived_at: string | null; created_at: string; updated_at: string }
+export interface Recipe extends Shared {
+  name: string; link: string; photo_url: string; category_ids: string[]; servings: number; prep_minutes: number | null
+  kcal_per_serving: number | null; ingredients: { name: string; qty: number | null; unit: string; section?: string | null }[]; steps: string
+}
+export interface MealItem extends Shared { date: string; meal: 'cafe' | 'almoco' | 'lanche' | 'jantar'; recipe_id: string | null; text: string; servings: number; kcal: number | null }
+export interface ShoppingItem extends Shared { name: string; qty: number | null; unit: string; category_id: string | null; origin: string; checked_at: string | null }
 export interface PushSubscriptionRow extends Private { endpoint: string; p256dh: string; auth: string; user_agent: string }
 export interface NotificationPrefs extends Private {
   events: boolean; partner_events: boolean; partner_reminders: boolean; habits: boolean; water: boolean; water_every_min: number
@@ -93,6 +100,7 @@ export interface Tables {
   house_rules: HouseRule[]; goals: Goal[]; goal_moves: GoalMove[]; budgets: Budget[]
   events: AgendaEvent[]; partner_reminders: PartnerReminder[]; habits: Habit[]; habit_logs: HabitLog[]; water_logs: WaterLog[]; personal_settings: PersonalSetting[]
   push_subscriptions: PushSubscriptionRow[]; notification_prefs: NotificationPrefs[]
+  recipes: Recipe[]; meal_plans: MealItem[]; food_logs: MealItem[]; shopping_items: ShoppingItem[]
 }
 export type TableName = keyof Tables
 export type Row<T extends TableName> = Tables[T][number]
