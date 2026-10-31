@@ -85,6 +85,14 @@ export interface Recipe extends Shared {
   kcal_per_serving: number | null; ingredients: { name: string; qty: number | null; unit: string; section?: string | null }[]; steps: string
 }
 export interface MealItem extends Shared { date: string; meal: 'cafe' | 'almoco' | 'lanche' | 'jantar'; recipe_id: string | null; text: string; servings: number; kcal: number | null }
+export interface Workout extends Shared { name: string; week_days: number[]; notes: string; color: string; position: number }
+export interface Exercise extends Shared {
+  workout_id: string; name: string; sets: number | null; reps: string; duration_sec: number | null; load_kg: number | null
+  rest_sec: number | null; notes: string; demo_url: string; photo_url: string; position: number
+}
+export interface SessionItem { exercise_id: string | null; name: string; sets: number | null; reps: string; load_kg: number | null; done: boolean }
+export interface WorkoutSession extends Shared { workout_id: string | null; workout_name: string; date: string; minutes: number | null; items: SessionItem[]; notes: string }
+export interface LibraryItem extends Shared { title: string; kind: string; url: string; category_id: string | null; status: 'quero' | 'andamento' | 'concluido'; duration_min: number | null; notes: string }
 export interface ShoppingItem extends Shared { name: string; qty: number | null; unit: string; category_id: string | null; origin: string; checked_at: string | null }
 export interface PushSubscriptionRow extends Private { endpoint: string; p256dh: string; auth: string; user_agent: string }
 export interface NotificationPrefs extends Private {
@@ -101,6 +109,7 @@ export interface Tables {
   events: AgendaEvent[]; partner_reminders: PartnerReminder[]; habits: Habit[]; habit_logs: HabitLog[]; water_logs: WaterLog[]; personal_settings: PersonalSetting[]
   push_subscriptions: PushSubscriptionRow[]; notification_prefs: NotificationPrefs[]
   recipes: Recipe[]; meal_plans: MealItem[]; food_logs: MealItem[]; shopping_items: ShoppingItem[]
+  workouts: Workout[]; exercises: Exercise[]; workout_sessions: WorkoutSession[]; library_items: LibraryItem[]
 }
 export type TableName = keyof Tables
 export type Row<T extends TableName> = Tables[T][number]

@@ -225,3 +225,23 @@ test('receita: ingredientes para outro número de porções e calorias', () => {
   assert.equal(itemKcal({ kcal: 300, servings: 2, recipe_id: 'r' }, () => 450), 300)
   assert.equal(itemKcal({ kcal: null, servings: 1, recipe_id: null }, () => 450), null)
 })
+
+import { estimateMinutes, loadHistory, suggestListen, workoutsForDay } from '../src/lib/training.ts'
+
+test('treino: ficha do dia e tempo estimado', () => {
+  const ws = [{ id: 'a', week_days: [1, 3], archived_at: null, position: 1 }, { id: 'b', week_days: [2], archived_at: null, position: 0 }, { id: 'c', week_days: [1], archived_at: 'x', position: 0 }]
+  assert.deepEqual(workoutsForDay(ws, 1).map((w) => w.id), ['a'])
+  // 4×(10×3 s) + 3×60 s = 300 s = 5 min; 3×45 s + 2×30 s = 195 s ≈ 3 → mínimo 5 no total de 8 min
+  assert.equal(estimateMinutes([{ sets: 4, reps: '10', duration_sec: null, rest_sec: 60 }, { sets: 3, reps: '', duration_sec: 45, rest_sec: 30 }]), 8)
+})
+
+test('treino: histórico de carga do mais recente para o mais antigo', () => {
+  const s = [{ date: '2026-11-01', created_at: '1', items: [{ name: 'Agachamento', load_kg: 30 }] }, { date: '2026-11-05', created_at: '2', items: [{ name: 'agachamento ', load_kg: 32 }, { name: 'Remada', load_kg: null }] }]
+  assert.deepEqual(loadHistory(s, 'Agachamento'), [{ date: '2026-11-05', load: 32 }, { date: '2026-11-01', load: 30 }])
+})
+
+test('o que ouvir hoje: áudio, em andamento primeiro, depois duração parecida com o treino', () => {
+  const it = (id: string, kind: string, status: string, d: number | null) => ({ id, kind, status, duration_min: d, archived_at: null, created_at: id })
+  const r = suggestListen([it('serie', 'serie', 'quero', 50), it('p1', 'podcast', 'quero', 90), it('p2', 'podcast', 'quero', 45), it('done', 'podcast', 'concluido', 50), it('a1', 'audiolivro', 'andamento', 600), it('m', 'playlist', 'quero', null)], 50)
+  assert.deepEqual(r.map((x) => x.id), ['a1', 'p2', 'p1'])
+})

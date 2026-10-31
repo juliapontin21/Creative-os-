@@ -463,3 +463,22 @@ body.agenda-fs .month-cell { min-height: calc((100dvh - 240px) / 6); }
 .card.shop-item.done strong { text-decoration: line-through; }
 .section-head h2 .dot { vertical-align: middle; margin-right: 4px; }
 .add-meal { align-self: flex-start; padding: 6px 0 2px; }
+
+/* Treinos e biblioteca */
+.card.workout-today, .card.workout-card { flex-direction: column; align-items: stretch; gap: 6px; border-left: 4px solid var(--c); text-align: left; }
+.ex-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-top: 1px solid var(--line); }
+.ex-row.done .ex-main strong { text-decoration: line-through; opacity: .6; }
+.ex-main { display: flex; flex-direction: column; min-width: 0; }
+.ex-row .ev-check.big { --c: var(--pos); }
+.ex-row.done .ev-check.big { background: var(--pos); }
+.card.ex-edit { flex-direction: column; align-items: stretch; gap: 8px; padding: 10px; }
+.ex-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.ex-grid label { display: flex; flex-direction: column; gap: 2px; font-size: 11px; color: var(--muted); }
+.ex-grid input { padding: 8px !important; min-height: 38px !important; }
+.ex-photo { width: 100%; max-height: 180px; object-fit: cover; border-radius: 10px; }
+.card.lib-row { padding: 10px 12px; gap: 8px; }
+.lib-main { display: flex; flex-direction: column; min-width: 0; }
+.card.lib-row.done { opacity: .6; }
+.pill.st-quero { background: var(--plan-soft); color: var(--plan); }
+.pill.st-andamento { background: #fff4dc; color: #92400e; }
+.pill.st-concluido { background: var(--ok-soft); color: var(--ok); }

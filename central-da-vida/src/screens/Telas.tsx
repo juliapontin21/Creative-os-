@@ -15,7 +15,6 @@ import { MoneyInput } from './FinEditors'
 import { fmtMoney, parseMoney } from '../lib/finance'
 
 export const ROADMAP: { id: string; title: string; icon: string; phase: number; text: string }[] = [
-  { id: 'treinos', title: 'Treinos e biblioteca', icon: 'dumbbell', phase: 6, text: 'Fichas, vídeos demonstrativos e links de podcasts, músicas e séries.' },
   { id: 'assistente', title: 'Assistente', icon: 'chef', phase: 7, text: 'Comandos em linguagem natural com confirmação, assistente culinário e estimativas.' },
 ]
 
@@ -131,6 +130,7 @@ export function Mais() {
     { icon: 'drop', label: 'Hábitos e água', hint: 'Só seus: o outro não vê', to: () => go('habitos') },
     { icon: 'chef', label: 'Alimentação', hint: 'Cardápio, diário, receitas e mercado', to: () => go('alimentacao') },
     { icon: 'cart', label: 'Mercado', hint: 'Lista compartilhada do casal', to: () => go('alimentacao', 'mercado') },
+    { icon: 'dumbbell', label: 'Treinos', hint: 'Fichas, treino de hoje, histórico e biblioteca', to: () => go('treinos') },
     { icon: 'sparkle', label: 'Notificações', hint: 'Avisos no celular e no tablet', to: () => go('notificacoes') },
     ...ROADMAP.filter((r) => r.phase >= 4).map((r) => ({ icon: r.icon, label: r.title, hint: `Fase ${r.phase}`, to: () => go('em-breve', r.id) })),
     { icon: 'settings', label: 'Ajustes', hint: 'Perfil, exportar dados, sair', to: () => go('ajustes') },

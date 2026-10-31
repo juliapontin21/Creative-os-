@@ -1,5 +1,7 @@
 # Central da Vida · Fase 6 · Treinos e biblioteca (proposta)
 
+Aprovada em 31/10/2026: fichas e histórico visíveis para os dois (só o dono edita); biblioteca de cada um.
+
 ## O que entra
 
 | Parte | Como funciona |
