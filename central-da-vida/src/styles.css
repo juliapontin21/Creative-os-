@@ -182,7 +182,7 @@ section { display: flex; flex-direction: column; gap: 8px; }
 
 /* Logo: quatro quadrados = quatro áreas da vida */
 .logo { width: 28px; height: 28px; display: inline-block; flex: none;
-  background: conic-gradient(from 90deg, #2563eb 0 25%, #059669 0 50%, #d97706 0 75%, #db2777 0); border-radius: 9px;
+  background: conic-gradient(from 90deg, #2563eb 0 25%, #059669 0 50%, #d97706 0 75%, #db2777 0); border-radius: 9px; }
 .logo.small { width: 26px; height: 26px; }
 .logo.big { width: 64px; height: 64px; border-radius: 20px; }
 .splash { min-height: 100dvh; display: grid; place-items: center; }
