@@ -18,7 +18,8 @@
   - Toque num horário vazio cria um compromisso naquele horário.
   - **Repetir** (todo dia, semana, mês, ano), com "só este" ou "este e os próximos" ao editar ou excluir.
   - **Afeta o parceiro**: destaca o compromisso na agenda dele e aparece no Hoje dele.
-  - **Filtros**: meus, casal, do parceiro (todos / só os que me afetam / nenhum), hábitos, recebimentos, vencimentos e faturas, lembretes.
+  - **Filtros**: meus, casal, do parceiro (todos / só os que me afetam / nenhum), **por categoria** (ex.: só Trabalho), hábitos, recebimentos, vencimentos e faturas, lembretes. Atalhos no topo: **Tudo**, **Só meus**, **Meus + os que me afetam** e uma pílula por categoria. Com tudo ligado, compromissos no mesmo horário aparecem lado a lado.
+  - **Sem Google Agenda**: o Google é usado só para entrar no app (login); nada é lido ou gravado em agendas externas.
   - Recebimentos, vencimentos e faturas de Finanças aparecem como itens de dia inteiro.
   - Lembretes (minutos antes) já ficam guardados para as notificações da 4B.
 - **Lembrete para o parceiro** (+ → Lembrete p/ parceiro): aparece no Hoje e na Agenda dele; ele marca como feito.
