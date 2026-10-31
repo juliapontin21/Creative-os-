@@ -8,12 +8,13 @@
     "build": "tsc --noEmit && vite build",
     "typecheck": "tsc --noEmit",
     "preview": "vite preview",
-    "test": "node --experimental-strip-types --no-warnings --test tests/finance.test.ts"
+    "test": "node --experimental-strip-types --no-warnings --test tests/finance.test.ts tests/notify.test.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.118.0",
     "react": "^19.3.1",
-    "react-dom": "^19.3.1"
+    "react-dom": "^19.3.1",
+    "web-push": "^3.6.7"
   },
   "devDependencies": {
     "@types/react": "^19.3.0",

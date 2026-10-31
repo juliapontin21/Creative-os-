@@ -13,6 +13,7 @@ import { useRecurrenceSync } from './screens/Fin2B'
 import { Regras } from './screens/Metas'
 import { Agenda } from './screens/Agenda'
 import { Habitos } from './screens/Habitos'
+import { Notificacoes } from './screens/Notificacoes'
 import { EventEditor, ReminderEditor } from './screens/AgendaEditors'
 import { TxEditor } from './screens/FinEditors'
 import type { Transaction } from './lib/types'
@@ -91,7 +92,7 @@ function Gate() {
 
 const TITLES: Record<Route, string> = {
   hoje: 'Hoje', financas: 'Finanças', agenda: 'Agenda', mais: 'Mais', notas: 'Notas', categorias: 'Categorias',
-  ajustes: 'Ajustes', busca: 'Busca', 'em-breve': 'Em breve', regras: 'Regras da casa', habitos: 'Hábitos e água',
+  ajustes: 'Ajustes', busca: 'Busca', 'em-breve': 'Em breve', regras: 'Regras da casa', habitos: 'Hábitos e água', notificacoes: 'Notificações',
 }
 const TABS: { id: Route; label: string; icon: string }[] = [
   { id: 'hoje', label: 'Hoje', icon: 'home' },
@@ -99,7 +100,7 @@ const TABS: { id: Route; label: string; icon: string }[] = [
   { id: 'agenda', label: 'Agenda', icon: 'calendar' },
   { id: 'mais', label: 'Mais', icon: 'grid' },
 ]
-const SUB: Route[] = ['notas', 'categorias', 'ajustes', 'busca', 'em-breve', 'regras', 'habitos']
+const SUB: Route[] = ['notas', 'categorias', 'ajustes', 'busca', 'em-breve', 'regras', 'habitos', 'notificacoes']
 
 function Shell() {
   const { route, arg } = useRoute()
@@ -119,6 +120,7 @@ function Shell() {
       case 'financas': return <Financas sub={arg} />
       case 'agenda': return <Agenda />
       case 'habitos': return <Habitos />
+      case 'notificacoes': return <Notificacoes />
       case 'mais': return <Mais />
       case 'notas': return <Notas />
       case 'categorias': return <Categorias initial={arg} />

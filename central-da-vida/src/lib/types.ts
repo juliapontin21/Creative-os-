@@ -79,6 +79,11 @@ export interface Habit extends Private {
 export interface HabitLog extends Private { habit_id: string; date: string; value: number }
 export interface WaterLog extends Private { date: string; ml: number }
 export interface PersonalSetting extends Private { water_goal_ml: number }
+export interface PushSubscriptionRow extends Private { endpoint: string; p256dh: string; auth: string; user_agent: string }
+export interface NotificationPrefs extends Private {
+  events: boolean; partner_events: boolean; partner_reminders: boolean; habits: boolean; water: boolean; water_every_min: number
+  finance: boolean; finance_hour: number; quiet_start: number; quiet_end: number
+}
 export interface MonthPlan extends FinOwned { month: string; savings_cents: number; income_overrides: Record<string, number>; notes: string }
 
 export interface Tables {
@@ -87,6 +92,7 @@ export interface Tables {
   recurrences: Recurrence[]; month_plans: MonthPlan[]
   house_rules: HouseRule[]; goals: Goal[]; goal_moves: GoalMove[]; budgets: Budget[]
   events: AgendaEvent[]; partner_reminders: PartnerReminder[]; habits: Habit[]; habit_logs: HabitLog[]; water_logs: WaterLog[]; personal_settings: PersonalSetting[]
+  push_subscriptions: PushSubscriptionRow[]; notification_prefs: NotificationPrefs[]
 }
 export type TableName = keyof Tables
 export type Row<T extends TableName> = Tables[T][number]

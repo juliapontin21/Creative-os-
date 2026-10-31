@@ -15,7 +15,6 @@ import { MoneyInput } from './FinEditors'
 import { fmtMoney, parseMoney } from '../lib/finance'
 
 export const ROADMAP: { id: string; title: string; icon: string; phase: number; text: string }[] = [
-  { id: 'notificacoes', title: 'Notificações', icon: 'calendar', phase: 4, text: 'Avisos no celular de compromissos, hábitos, água, vencimentos e lembretes do parceiro (entrega 4B).' },
   { id: 'alimentacao', title: 'Alimentação e mercado', icon: 'cart', phase: 5, text: 'Receitas, cardápio da semana, diário alimentar e lista de mercado compartilhada.' },
   { id: 'treinos', title: 'Treinos e biblioteca', icon: 'dumbbell', phase: 6, text: 'Fichas, vídeos demonstrativos e links de podcasts, músicas e séries.' },
   { id: 'assistente', title: 'Assistente', icon: 'chef', phase: 7, text: 'Comandos em linguagem natural com confirmação, assistente culinário e estimativas.' },
@@ -28,7 +27,7 @@ function InstallTip() {
     <div className="card tip">
       <div className="grow">
         <strong>Instale na Tela de Início</strong>
-        <p>No Safari, toque em Compartilhar e depois em “Adicionar à Tela de Início”. É assim que o iPhone libera notificações (a partir da Fase 4).</p>
+        <p>No Safari, toque em Compartilhar e depois em “Adicionar à Tela de Início”. É assim que o iPhone libera as notificações (Mais → Notificações).</p>
       </div>
       <button className="icon-btn" aria-label="Dispensar" onClick={() => { setHide(true); try { localStorage.setItem('cdv-hide-install', '1') } catch { /* sem armazenamento */ } }}><Icon name="x" /></button>
     </div>
@@ -131,6 +130,7 @@ export function Mais() {
     { icon: 'tag', label: 'Categorias', hint: 'Criar, colorir, ordenar e arquivar', to: () => go('categorias') },
     { icon: 'search', label: 'Busca', hint: 'Procurar em tudo', to: () => go('busca') },
     { icon: 'drop', label: 'Hábitos e água', hint: 'Só seus: o outro não vê', to: () => go('habitos') },
+    { icon: 'sparkle', label: 'Notificações', hint: 'Avisos no celular e no tablet', to: () => go('notificacoes') },
     ...ROADMAP.filter((r) => r.phase >= 4).map((r) => ({ icon: r.icon, label: r.title, hint: `Fase ${r.phase}`, to: () => go('em-breve', r.id) })),
     { icon: 'settings', label: 'Ajustes', hint: 'Perfil, exportar dados, sair', to: () => go('ajustes') },
   ]
@@ -196,6 +196,11 @@ export function Ajustes() {
       <button className="card list-link" onClick={() => setIncomeOpen(true)}>
         <span className="list-icon"><Icon name="wallet" /></span>
         <span className="grow"><strong>Minha renda de referência</strong><span className="muted">{me?.income_ref_cents ? fmtMoney(me.income_ref_cents) : 'Ainda não informada'} · base da mesada no Mês do casal</span></span>
+        <Icon name="right" size={18} />
+      </button>
+      <button className="card list-link" onClick={() => go('notificacoes')}>
+        <span className="list-icon"><Icon name="sparkle" /></span>
+        <span className="grow"><strong>Notificações</strong><span className="muted">Ativar neste aparelho e escolher o que avisar.</span></span>
         <Icon name="right" size={18} />
       </button>
       <button className="card list-link" onClick={() => go('regras')}>
