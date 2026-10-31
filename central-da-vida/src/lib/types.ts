@@ -63,6 +63,22 @@ export interface HouseRule extends FinOwned { params: Record<string, number | bo
 export interface Goal extends FinOwned { name: string; kind: 'desejo' | 'reserva' | 'investimento'; target_cents: number; deadline: string | null; color: string; position: number }
 export interface GoalMove extends FinOwned { goal_id: string; amount_cents: number; date: string; note: string }
 export interface Budget extends FinOwned { category_id: string; limit_cents: number }
+export interface AgendaEvent {
+  id: string; household_id: string; owner_id: string; context: 'pf' | 'casal'
+  title: string; notes: string; location: string; start_at: string; end_at: string; all_day: boolean
+  category_id: string | null; color: string; impacts_partner: boolean; done_at: string | null
+  series_id: string | null; series_rule: 'diario' | 'semanal' | 'mensal' | 'anual' | null; reminders: number[]
+  archived_at: string | null; created_at: string; updated_at: string
+}
+export interface PartnerReminder { id: string; household_id: string; from_id: string; to_id: string; text: string; remind_at: string; done_at: string | null; created_at: string; updated_at: string }
+interface Private { id: string; household_id: string; owner_id: string; created_at: string; updated_at: string }
+export interface Habit extends Private {
+  name: string; color: string; frequency: 'diario' | 'dias' | 'semana'; week_days: number[]; times_per_week: number
+  target: number; unit: string; reminder_time: string | null; show_in_agenda: boolean; position: number; archived_at: string | null
+}
+export interface HabitLog extends Private { habit_id: string; date: string; value: number }
+export interface WaterLog extends Private { date: string; ml: number }
+export interface PersonalSetting extends Private { water_goal_ml: number }
 export interface MonthPlan extends FinOwned { month: string; savings_cents: number; income_overrides: Record<string, number>; notes: string }
 
 export interface Tables {
@@ -70,6 +86,7 @@ export interface Tables {
   accounts: Account[]; cards: Card[]; payees: Payee[]; transactions: Transaction[]
   recurrences: Recurrence[]; month_plans: MonthPlan[]
   house_rules: HouseRule[]; goals: Goal[]; goal_moves: GoalMove[]; budgets: Budget[]
+  events: AgendaEvent[]; partner_reminders: PartnerReminder[]; habits: Habit[]; habit_logs: HabitLog[]; water_logs: WaterLog[]; personal_settings: PersonalSetting[]
 }
 export type TableName = keyof Tables
 export type Row<T extends TableName> = Tables[T][number]

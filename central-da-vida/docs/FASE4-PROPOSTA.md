@@ -1,6 +1,6 @@
 # Central da Vida · Fase 4 · Agenda e hábitos (proposta)
 
-Aprovada para começar em 31/10/2026. Duas entregas:
+Aprovada para começar em 31/10/2026. Respostas: compromissos visíveis para os dois (só o dono edita); hábitos e água privados. Duas entregas:
 
 | Entrega | Conteúdo | Custo |
 |---|---|---|

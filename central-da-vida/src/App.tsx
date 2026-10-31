@@ -11,6 +11,9 @@ import { Ajustes, Busca, EmBreve, Hoje, Mais, ROADMAP } from './screens/Telas'
 import { Financas, useFinCtx } from './screens/Financas'
 import { useRecurrenceSync } from './screens/Fin2B'
 import { Regras } from './screens/Metas'
+import { Agenda } from './screens/Agenda'
+import { Habitos } from './screens/Habitos'
+import { EventEditor, ReminderEditor } from './screens/AgendaEditors'
 import { TxEditor } from './screens/FinEditors'
 import type { Transaction } from './lib/types'
 
@@ -88,7 +91,7 @@ function Gate() {
 
 const TITLES: Record<Route, string> = {
   hoje: 'Hoje', financas: 'Finanças', agenda: 'Agenda', mais: 'Mais', notas: 'Notas', categorias: 'Categorias',
-  ajustes: 'Ajustes', busca: 'Busca', 'em-breve': 'Em breve', regras: 'Regras da casa',
+  ajustes: 'Ajustes', busca: 'Busca', 'em-breve': 'Em breve', regras: 'Regras da casa', habitos: 'Hábitos e água',
 }
 const TABS: { id: Route; label: string; icon: string }[] = [
   { id: 'hoje', label: 'Hoje', icon: 'home' },
@@ -96,7 +99,7 @@ const TABS: { id: Route; label: string; icon: string }[] = [
   { id: 'agenda', label: 'Agenda', icon: 'calendar' },
   { id: 'mais', label: 'Mais', icon: 'grid' },
 ]
-const SUB: Route[] = ['notas', 'categorias', 'ajustes', 'busca', 'em-breve', 'regras']
+const SUB: Route[] = ['notas', 'categorias', 'ajustes', 'busca', 'em-breve', 'regras', 'habitos']
 
 function Shell() {
   const { route, arg } = useRoute()
@@ -104,6 +107,8 @@ function Shell() {
   const [quick, setQuick] = useState(false)
   const [newNote, setNewNote] = useState(false)
   const [newTx, setNewTx] = useState<Transaction['kind'] | null>(null)
+  const [newEvent, setNewEvent] = useState(false)
+  const [newReminder, setNewReminder] = useState(false)
   const fin = useFinCtx()
   useRecurrenceSync()
   const isSub = SUB.includes(route)
@@ -112,7 +117,8 @@ function Shell() {
   const screen = (() => {
     switch (route) {
       case 'financas': return <Financas sub={arg} />
-      case 'agenda': return <EmBreve id="agenda" />
+      case 'agenda': return <Agenda />
+      case 'habitos': return <Habitos />
       case 'mais': return <Mais />
       case 'notas': return <Notas />
       case 'categorias': return <Categorias initial={arg} />
@@ -140,7 +146,9 @@ function Shell() {
         <button className="tab plus" aria-label="Adicionar" onClick={() => setQuick(true)}><span><Icon name="plus" size={26} /></span></button>
         {TABS.slice(2).map((t) => <Tab key={t.id} t={t} active={route === t.id || (isSub && t.id === 'mais')} />)}
       </nav>
-      {quick && <QuickAdd onClose={() => setQuick(false)} onNote={() => { setQuick(false); setNewNote(true) }} onTx={(k) => { setQuick(false); setNewTx(k) }} />}
+      {quick && <QuickAdd onClose={() => setQuick(false)} onNote={() => { setQuick(false); setNewNote(true) }} onTx={(k) => { setQuick(false); setNewTx(k) }} onEvent={() => { setQuick(false); setNewEvent(true) }} onReminder={() => { setQuick(false); setNewReminder(true) }} />}
+      {newEvent && <EventEditor ev={null} onClose={() => setNewEvent(false)} />}
+      {newReminder && <ReminderEditor onClose={() => setNewReminder(false)} />}
       {newTx && fin.cur && <TxEditor tx={null} preset={{ kind: newTx, ctx: fin.cur }} onClose={() => setNewTx(null)} />}
       {newNote && <NoteEditor note={null} onClose={() => setNewNote(false)} />}
       {toastMsg && <div className="toast" role="status">{toastMsg}</div>}
@@ -156,15 +164,16 @@ function Tab({ t, active }: { t: { id: Route; label: string; icon: string }; act
   )
 }
 
-function QuickAdd({ onClose, onNote, onTx }: { onClose: () => void; onNote: () => void; onTx: (k: Transaction['kind']) => void }) {
+function QuickAdd({ onClose, onNote, onTx, onEvent, onReminder }: { onClose: () => void; onNote: () => void; onTx: (k: Transaction['kind']) => void; onEvent: () => void; onReminder: () => void }) {
   const later = [
-    { icon: 'calendar', label: 'Evento', phase: 4 }, { icon: 'drop', label: 'Água', phase: 4 },
-    { icon: 'check', label: 'Hábito', phase: 4 }, { icon: 'cart', label: 'Mercado', phase: 5 },
-    { icon: 'heart', label: 'Lembrete p/ parceiro', phase: 4 },
+    { icon: 'cart', label: 'Mercado', phase: 5 },
   ]
   return (
     <Sheet title="Adicionar" onClose={onClose}>
       <div className="quick">
+        <button className="quick-item" onClick={onEvent}><Icon name="calendar" size={24} />Compromisso</button>
+        <button className="quick-item" onClick={() => { onClose(); go('habitos') }}><Icon name="drop" size={24} />Água e hábitos</button>
+        <button className="quick-item" onClick={onReminder}><Icon name="heart" size={24} />Lembrete p/ parceiro</button>
         <button className="quick-item" onClick={() => onTx('despesa')}><Icon name="wallet" size={24} />Despesa</button>
         <button className="quick-item" onClick={() => onTx('receita')}><Icon name="wallet" size={24} />Receita</button>
         <button className="quick-item" onClick={() => { onClose(); go('financas', 'simular') }}><Icon name="sparkle" size={24} />Simular compra</button>

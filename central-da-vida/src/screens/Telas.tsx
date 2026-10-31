@@ -7,14 +7,15 @@ import { sb } from '../lib/supabase'
 import { MODULES, moduleLabel, type Note } from '../lib/types'
 import { download, isIOS, isStandalone, norm, PALETTE, todayISO } from '../lib/util'
 import { NoteEditor, NotesList } from './Notas'
+import { HabitRow, WaterCard } from './Habitos'
+import { EventEditor } from './AgendaEditors'
+import { isDue, ymd } from '../lib/agenda'
+import type { AgendaEvent } from '../lib/types'
 import { MoneyInput } from './FinEditors'
 import { fmtMoney, parseMoney } from '../lib/finance'
 
 export const ROADMAP: { id: string; title: string; icon: string; phase: number; text: string }[] = [
-  { id: 'mes-casal', title: 'Mês do casal', icon: 'heart', phase: 2, text: 'Renda do casal, contas fixas, caixinhas e a mesada de cada um, proporcional à renda (entrega 2B).' },
-  { id: 'planejamento', title: 'Planejamento financeiro', icon: 'sparkle', phase: 3, text: 'Orçamentos por categoria, caixinhas, alertas, gráficos, projeções e simulador de compras.' },
-  { id: 'agenda', title: 'Agenda', icon: 'calendar', phase: 4, text: 'Agendas separadas e do casal, eventos que impactam o outro, lembretes para o parceiro.' },
-  { id: 'habitos', title: 'Hábitos e água', icon: 'drop', phase: 4, text: 'Rastreadores, grade de quadradinhos e a garrafa de água que enche.' },
+  { id: 'notificacoes', title: 'Notificações', icon: 'calendar', phase: 4, text: 'Avisos no celular de compromissos, hábitos, água, vencimentos e lembretes do parceiro (entrega 4B).' },
   { id: 'alimentacao', title: 'Alimentação e mercado', icon: 'cart', phase: 5, text: 'Receitas, cardápio da semana, diário alimentar e lista de mercado compartilhada.' },
   { id: 'treinos', title: 'Treinos e biblioteca', icon: 'dumbbell', phase: 6, text: 'Fichas, vídeos demonstrativos e links de podcasts, músicas e séries.' },
   { id: 'assistente', title: 'Assistente', icon: 'chef', phase: 7, text: 'Comandos em linguagem natural com confirmação, assistente culinário e estimativas.' },
@@ -35,8 +36,15 @@ function InstallTip() {
 }
 
 export function Hoje() {
-  const { notes, me, partner } = useData()
+  const { notes, me, partner, events, partner_reminders, habits, update } = useData()
   const [edit, setEdit] = useState<Note | null>(null)
+  const [evEdit, setEvEdit] = useState<AgendaEvent | null>(null)
+  const day = ymd(new Date())
+  const todays = events.filter((e) => !e.archived_at && ymd(new Date(e.start_at)) <= day && ymd(new Date(new Date(e.end_at).getTime() - 1)) >= day &&
+    (e.context === 'casal' || e.owner_id === me!.id || e.impacts_partner)).sort((a, b) => a.start_at.localeCompare(b.start_at))
+  const forMe = partner_reminders.filter((r) => r.to_id === me!.id && !r.done_at && ymd(new Date(r.remind_at)) <= day)
+  const myHabits = habits.filter((h) => h.owner_id === me!.id && !h.archived_at && isDue(h, day))
+  const hhmm = (iso: string) => { const x = new Date(iso); return `${String(x.getHours()).padStart(2, '0')}:${String(x.getMinutes()).padStart(2, '0')}` }
   const [creating, setCreating] = useState(false)
   const today = todayISO()
   const open = notes.filter((n) => !n.archived_at && n.status === 'aberta')
@@ -52,8 +60,30 @@ export function Hoje() {
         <p className="sub">{partner ? <><Dot color={partner.color} /> Conectado com {partner.display_name}</> : 'Seu parceiro ainda não entrou no app.'}</p>
       </section>
       <InstallTip />
+      {forMe.length > 0 && <section><div className="section-head"><h2>Lembretes de {partner?.display_name}</h2></div>
+        <div className="list">{forMe.map((r) => (
+          <div key={r.id} className="card ev-row" style={{ ['--c' as string]: '#7c3aed' }}>
+            <button className="ev-check big" aria-label="Feito" onClick={() => update('partner_reminders', r.id, { done_at: new Date().toISOString() })} />
+            <span className="grow ev-row-main"><strong>🔔 {r.text}</strong><span className="muted small">{new Date(r.remind_at).toLocaleString('pt-BR', { weekday: 'short', hour: '2-digit', minute: '2-digit' })}</span></span>
+          </div>))}</div></section>}
       <section>
-        <div className="section-head"><h2>Para hoje</h2><button className="link" onClick={() => setCreating(true)}>+ Nota</button></div>
+        <div className="section-head"><h2>Agenda de hoje</h2><button className="link" onClick={() => go('agenda')}>Abrir agenda</button></div>
+        {todays.length ? <div className="list">{todays.map((e) => {
+          const can = e.context === 'casal' || e.owner_id === me!.id
+          return (
+            <div key={e.id} className={'card ev-row' + (e.done_at ? ' done' : '')} style={{ ['--c' as string]: e.color }}>
+              {can && <button className="ev-check big" aria-label="Marcar como feito" onClick={() => update('events', e.id, { done_at: e.done_at ? null : new Date().toISOString() })}>{e.done_at && <Icon name="check" size={12} />}</button>}
+              <button className="grow ev-row-main" onClick={() => setEvEdit(e)}><strong>{e.title}</strong>
+                <span className="muted small">{e.all_day ? 'dia inteiro' : `${hhmm(e.start_at)}–${hhmm(e.end_at)}`}{e.context === 'casal' ? ' · casal' : e.owner_id !== me!.id ? ` · ${partner?.display_name}, afeta você` : ''}</span></button>
+            </div>
+          )
+        })}</div> : <p className="muted pad">Nenhum compromisso hoje.</p>}
+      </section>
+      <WaterCard compact />
+      {myHabits.length > 0 && <section><div className="section-head"><h2>Hábitos de hoje</h2><button className="link" onClick={() => go('habitos')}>Ver todos</button></div>
+        <div className="list">{myHabits.map((h) => <HabitRow key={h.id} h={h} day={day} />)}</div></section>}
+      <section>
+        <div className="section-head"><h2>Notas para hoje</h2><button className="link" onClick={() => setCreating(true)}>+ Nota</button></div>
         {forToday.length ? <NotesList notes={forToday} onOpen={setEdit} />
           : <p className="muted pad">Nada marcado para hoje. Notas com data de hoje ou atrasadas aparecem aqui.</p>}
       </section>
@@ -69,6 +99,7 @@ export function Hoje() {
         </div>
       </section>
       {edit && <NoteEditor note={edit} onClose={() => setEdit(null)} />}
+      {evEdit && <EventEditor ev={evEdit} onClose={() => setEvEdit(null)} />}
       {creating && <NoteEditor note={null} preset={{ date: today }} onClose={() => setCreating(false)} />}
     </>
   )
@@ -99,6 +130,7 @@ export function Mais() {
     { icon: 'note', label: 'Notas', hint: 'Bloco de notas pessoal e do casal', to: () => go('notas') },
     { icon: 'tag', label: 'Categorias', hint: 'Criar, colorir, ordenar e arquivar', to: () => go('categorias') },
     { icon: 'search', label: 'Busca', hint: 'Procurar em tudo', to: () => go('busca') },
+    { icon: 'drop', label: 'Hábitos e água', hint: 'Só seus: o outro não vê', to: () => go('habitos') },
     ...ROADMAP.filter((r) => r.phase >= 4).map((r) => ({ icon: r.icon, label: r.title, hint: `Fase ${r.phase}`, to: () => go('em-breve', r.id) })),
     { icon: 'settings', label: 'Ajustes', hint: 'Perfil, exportar dados, sair', to: () => go('ajustes') },
   ]
