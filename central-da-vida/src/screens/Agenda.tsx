@@ -15,8 +15,8 @@ const LONG_PRESS = 380
 const WD = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb']
 
 // Filtros (lembrados neste aparelho).
-interface AgendaFilters { meus: boolean; casal: boolean; parceiro: 'todos' | 'afetam' | 'nenhum'; habitos: boolean; receber: boolean; pagar: boolean; lembretes: boolean; cats: string[] }
-const DEFAULT_F: AgendaFilters = { meus: true, casal: true, parceiro: 'todos', habitos: true, receber: true, pagar: true, lembretes: true, cats: [] }
+interface AgendaFilters { meus: boolean; casal: boolean; parceiro: 'todos' | 'afetam' | 'nenhum'; habitos: boolean; receber: boolean; pagar: boolean; lembretes: boolean; cats: string[]; tipo: 'todos' | 'pessoal' | 'trabalho' }
+const DEFAULT_F: AgendaFilters = { meus: true, casal: true, parceiro: 'todos', habitos: true, receber: true, pagar: true, lembretes: true, cats: [], tipo: 'todos' }
 function useStored<T>(key: string, init: T): [T, (v: T) => void] {
   const [v, set] = useState<T>(() => { try { const r = localStorage.getItem(key); return r ? { ...init, ...JSON.parse(r) } : init } catch { return init } })
   // (filtros antigos sem 'cats' recebem o padrão acima)
@@ -56,6 +56,7 @@ export function Agenda() {
   const visible = useMemo(() => d.events.filter((e) => {
     if (e.archived_at) return false
     if (catSet && !(e.category_id && catSet.has(e.category_id))) return false
+    if (f.tipo !== 'todos' && (e.nature ?? 'pessoal') !== f.tipo) return false
     if (e.context === 'casal') return f.casal
     if (e.owner_id === meId) return f.meus
     return f.parceiro === 'todos' || (f.parceiro === 'afetam' && e.impacts_partner)
@@ -142,9 +143,12 @@ export function Agenda() {
         <Segmented value={v} onChange={(x) => setView({ v: x })} options={[{ id: 'dia', label: 'Dia' }, { id: '3dias', label: '3 dias' }, { id: 'semana', label: 'Semana' }, { id: 'mes', label: 'Mês' }, { id: 'lista', label: 'Lista' }]} />
       </div>
       <div className="chips scroll quick-filters">
-        <button className={'chip' + (f.meus && f.casal && f.parceiro === 'todos' && !f.cats.length ? ' on' : '')} onClick={() => setF({ ...f, meus: true, casal: true, parceiro: 'todos', cats: [] })}>Tudo</button>
+        <button className={'chip' + (f.meus && f.casal && f.parceiro === 'todos' && !f.cats.length && f.tipo === 'todos' ? ' on' : '')} onClick={() => setF({ ...f, meus: true, casal: true, parceiro: 'todos', cats: [], tipo: 'todos' })}>Tudo</button>
         <button className={'chip' + (f.meus && !f.casal && f.parceiro === 'nenhum' ? ' on' : '')} onClick={() => setF({ ...f, meus: true, casal: false, parceiro: 'nenhum' })}>Só meus</button>
+        {d.partner && <button className={'chip' + (!f.meus && !f.casal && f.parceiro === 'todos' ? ' on' : '')} onClick={() => setF({ ...f, meus: false, casal: false, parceiro: 'todos' })}>Só de {d.partner.display_name}</button>}
         {d.partner && <button className={'chip' + (f.meus && f.casal && f.parceiro === 'afetam' ? ' on' : '')} onClick={() => setF({ ...f, meus: true, casal: true, parceiro: 'afetam' })}>Meus + os que me afetam</button>}
+        <button className={'chip' + (f.tipo === 'pessoal' ? ' on' : '')} onClick={() => setF({ ...f, tipo: f.tipo === 'pessoal' ? 'todos' : 'pessoal' })}>Pessoal</button>
+        <button className={'chip' + (f.tipo === 'trabalho' ? ' on' : '')} onClick={() => setF({ ...f, tipo: f.tipo === 'trabalho' ? 'todos' : 'trabalho' })}>Trabalho</button>
         {agendaCats.filter((c) => !c.parent_id).map((c) => <CategoryChip key={c.id} cat={c} on={f.cats.includes(c.id)} onClick={() => setF({ ...f, cats: f.cats.includes(c.id) ? f.cats.filter((x) => x !== c.id) : [...f.cats, c.id] })} />)}
       </div>
 
@@ -173,6 +177,9 @@ export function Agenda() {
           <label className="toggle"><input type="checkbox" checked={f.casal} onChange={(e) => setF({ ...f, casal: e.target.checked })} />Compromissos do casal</label>
           {d.partner && <div className="field"><span className="label">Compromissos de {d.partner.display_name}</span>
             <Segmented value={f.parceiro} onChange={(p) => setF({ ...f, parceiro: p })} options={[{ id: 'todos', label: 'Todos' }, { id: 'afetam', label: 'Só os que me afetam' }, { id: 'nenhum', label: 'Nenhum' }]} /></div>}
+          <div className="field"><span className="label">Tipo</span>
+            <Segmented value={f.tipo} onChange={(t) => setF({ ...f, tipo: t })} options={[{ id: 'todos', label: 'Todos' }, { id: 'pessoal', label: 'Pessoal' }, { id: 'trabalho', label: 'Trabalho' }]} />
+            <span className="hint">Vale para os seus, os do casal e os de {d.partner?.display_name ?? 'seu parceiro'}. Combine com "quem" acima: ex. só os seus de trabalho, ou os pessoais dele.</span></div>
           <div className="field"><span className="label">Categorias {f.cats.length > 0 && `(${f.cats.length})`}</span>
             <div className="chips wrap">{agendaCats.map((c) => <CategoryChip key={c.id} cat={c} on={f.cats.includes(c.id)} onClick={() => setF({ ...f, cats: f.cats.includes(c.id) ? f.cats.filter((x) => x !== c.id) : [...f.cats, c.id] })} />)}
               {!agendaCats.length && <span className="hint">Crie categorias em Mais → Categorias → Agenda.</span>}</div>

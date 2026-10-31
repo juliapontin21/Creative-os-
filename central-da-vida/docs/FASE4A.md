@@ -18,7 +18,7 @@
   - Toque num horário vazio cria um compromisso naquele horário.
   - **Repetir** (todo dia, semana, mês, ano), com "só este" ou "este e os próximos" ao editar ou excluir.
   - **Afeta o parceiro**: destaca o compromisso na agenda dele e aparece no Hoje dele.
-  - **Filtros**: meus, casal, do parceiro (todos / só os que me afetam / nenhum), **por categoria** (ex.: só Trabalho), hábitos, recebimentos, vencimentos e faturas, lembretes. Atalhos no topo: **Tudo**, **Só meus**, **Meus + os que me afetam** e uma pílula por categoria. Com tudo ligado, compromissos no mesmo horário aparecem lado a lado.
+  - **Filtros**: meus, casal, do parceiro (todos / só os que me afetam / nenhum), **por categoria** (ex.: só Trabalho), hábitos, recebimentos, vencimentos e faturas, lembretes. Atalhos no topo: **Tudo**, **Só meus**, **Só do parceiro**, **Meus + os que me afetam**, **Pessoal**, **Trabalho** e uma pílula por categoria. O **Tipo (Pessoal/Trabalho)** é um campo do compromisso, visível para os dois, então dá para filtrar os de trabalho de cada um. Com tudo ligado, compromissos no mesmo horário aparecem lado a lado.
   - **Sem Google Agenda**: o Google é usado só para entrar no app (login); nada é lido ou gravado em agendas externas.
   - Recebimentos, vencimentos e faturas de Finanças aparecem como itens de dia inteiro.
   - Lembretes (minutos antes) já ficam guardados para as notificações da 4B.
@@ -32,7 +32,7 @@
 
 ## Configuração (2 minutos)
 
-**Antes** do merge:
+**Antes** do merge (inclui o ajuste do tipo Pessoal/Trabalho; se já rodou o fase4a.sql antes, rode só o `fase4a2.sql`):
 
 1. Abra https://supabase.com/dashboard/project/oyglhouncpiuuilprvhn/sql/new
 2. Cole todo o conteúdo de `central-da-vida/supabase/fase4a.sql` (tradução do navegador desligada) e clique em **Run** (→ **Run and enable RLS**, se perguntar).

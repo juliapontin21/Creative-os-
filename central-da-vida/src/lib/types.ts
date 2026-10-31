@@ -66,7 +66,7 @@ export interface Budget extends FinOwned { category_id: string; limit_cents: num
 export interface AgendaEvent {
   id: string; household_id: string; owner_id: string; context: 'pf' | 'casal'
   title: string; notes: string; location: string; start_at: string; end_at: string; all_day: boolean
-  category_id: string | null; color: string; impacts_partner: boolean; done_at: string | null
+  category_id: string | null; color: string; impacts_partner: boolean; done_at: string | null; nature: 'pessoal' | 'trabalho'
   series_id: string | null; series_rule: 'diario' | 'semanal' | 'mensal' | 'anual' | null; reminders: number[]
   archived_at: string | null; created_at: string; updated_at: string
 }
