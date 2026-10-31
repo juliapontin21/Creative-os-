@@ -4,8 +4,11 @@ Definidas pela Júlia em 31/10/2026. O app usa estas regras para calcular, alert
 
 ## 1. Visibilidade
 
-- Júlia vê a organização do Michelangelo e ele vê a dela.
+- Júlia **vê** a organização pessoal do Michelangelo e ele **vê** a dela, mas **nenhum dos dois edita** a área do outro.
+- A **Empresa Júlia** é só da Júlia: o Michelangelo não vê.
+- O Casal os dois veem e editam.
 - O que é pago em cartão mostra **qual cartão** para os dois.
+- Os gastos da mesada ficam visíveis para o outro; "sem dar satisfação" significa que **não precisa de acordo** para gastar.
 
 ## 2. Como o dinheiro do casal circula (todo mês)
 
@@ -14,14 +17,15 @@ Definidas pela Júlia em 31/10/2026. O app usa estas regras para calcular, alert
 3. O que sobra vai para as **caixinhas dos desejos** e para a **reserva de emergência**, conforme a meta de cada uma.
 4. O restante vira **mesada**, dividida **proporcionalmente à renda** de cada um.
    - Mesada da Júlia = sobra × (renda da Júlia ÷ renda do casal). O mesmo vale para o Michelangelo.
-5. A mesada é gasta no dia a dia **sem dar satisfação** ao outro.
+5. A mesada é gasta no dia a dia **sem precisar de acordo** com o outro.
+6. **Renda de referência:** Júlia = pró-labore de **R$ 6.000** (fixo). Quando entrar mais dinheiro, ela sinaliza e o cálculo é atualizado. Renda de referência do Michelangelo: a definir na 2B.
 
 ## 3. Regras de uso
 
 | # | Regra | Como o app aplica |
 |---|---|---|
 | R1 | O limite do cartão não pode passar da **renda do casal** | Alerta ao cadastrar ou editar um cartão |
-| R2 | Parcelamento do casal: até **10% da renda do casal**. Parcelamento individual: parcela até **10% do salário** da pessoa | Alerta no lançamento parcelado e no simulador (detalhe a confirmar) |
+| R2 | Casal: a **soma de todas as parcelas correndo no mês** fica em até **10% da renda do casal**. Individual: a soma das parcelas da pessoa no mês fica em até **10% do salário** dela | Alerta no lançamento parcelado e no simulador (ex.: renda do casal R$ 10.000 → até R$ 1.000/mês em parcelas) |
 | R3 | **Um único cartão** paga as despesas do casal; **Pix e débito** pagam as coisas individuais (mesada) | Cartão marcado como "cartão do casal" vira padrão nas despesas do Casal; alerta se uma despesa do Casal usar outro meio ou se o cartão do casal for usado em gasto individual |
 
 ## 4. Indicadores de pessoa física (por pessoa, a partir do salário)

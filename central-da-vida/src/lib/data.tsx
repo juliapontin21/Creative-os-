@@ -3,8 +3,8 @@ import type { RealtimePostgresChangesPayload, Session } from '@supabase/supabase
 import { friendly, sb } from './supabase'
 import type { Profile, Row, TableName, Tables, Writable } from './types'
 
-const TABLES: TableName[] = ['profiles', 'categories', 'notes', 'saved_views']
-const EMPTY: Tables = { profiles: [], categories: [], notes: [], saved_views: [] }
+const TABLES: TableName[] = ['profiles', 'categories', 'notes', 'saved_views', 'accounts', 'cards', 'payees', 'transactions']
+const EMPTY: Tables = { profiles: [], categories: [], notes: [], saved_views: [], accounts: [], cards: [], payees: [], transactions: [] }
 
 interface DataCtx extends Tables {
   session: Session
@@ -17,6 +17,9 @@ interface DataCtx extends Tables {
   insert: <T extends Writable>(t: T, row: Partial<Row<T>>) => Promise<Row<T> | null>
   update: <T extends TableName>(t: T, id: string, patch: Partial<Row<T>>) => Promise<Row<T> | null>
   remove: (t: Writable, id: string) => Promise<boolean>
+  insertMany: <T extends Writable>(t: T, rows: Partial<Row<T>>[]) => Promise<Row<T>[] | null>
+  updateMatch: <T extends Writable>(t: T, match: Record<string, string>, patch: Partial<Row<T>>) => Promise<Row<T>[] | null>
+  removeMatch: (t: Writable, match: Record<string, string>) => Promise<boolean>
   toast: (msg: string) => void
   toastMsg: string
 }
@@ -122,11 +125,34 @@ export function DataProvider({ session, children }: { session: Session; children
     return true
   }, [dropRow, toast])
 
+  const insertMany = useCallback(async <T extends Writable>(t: T, rows: Partial<Row<T>>[]) => {
+    const { data: r, error: e } = await sb.from(t).insert(rows as never).select()
+    if (e) { toast(friendly(e.message)); return null }
+    for (const x of r ?? []) setRow(t, x as AnyRow)
+    return (r ?? []) as Row<T>[]
+  }, [setRow, toast])
+
+  const updateMatch = useCallback(async <T extends Writable>(t: T, match: Record<string, string>, patch: Partial<Row<T>>) => {
+    const { data: r, error: e } = await sb.from(t).update(patch as never).match(match).select()
+    if (e) { toast(friendly(e.message)); return null }
+    if (!r?.length) { toast('Você não tem permissão para alterar este item.'); return null }
+    for (const x of r) setRow(t, x as AnyRow)
+    return r as Row<T>[]
+  }, [setRow, toast])
+
+  const removeMatch = useCallback(async (t: Writable, match: Record<string, string>) => {
+    const { data: r, error: e } = await sb.from(t).delete().match(match).select('id')
+    if (e) { toast(friendly(e.message)); return false }
+    if (!r?.length) { toast('Você não tem permissão para excluir este item.'); return false }
+    for (const x of r) dropRow(t, (x as AnyRow).id)
+    return true
+  }, [dropRow, toast])
+
   const me = data.profiles.find((p) => p.id === session.user.id)
   const partner = data.profiles.find((p) => p.id !== session.user.id)
 
   return (
-    <Ctx.Provider value={{ ...data, session, me, partner, loading, error, online, reload, insert, update, remove, toast, toastMsg }}>
+    <Ctx.Provider value={{ ...data, session, me, partner, loading, error, online, reload, insert, update, remove, insertMany, updateMatch, removeMatch, toast, toastMsg }}>
       {children}
     </Ctx.Provider>
   )

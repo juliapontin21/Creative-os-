@@ -2,6 +2,8 @@
 
 Documento para aprovação. **Nenhum código é escrito antes do seu "aprovado".**
 
+**Aprovada em 31/10/2026**, em duas entregas (2A e 2B). Respostas registradas em `REGRAS-FINANCEIRAS.md`.
+
 Revisão 2 (31/10/2026): incorpora as regras da casa definidas pela Júlia (ver `REGRAS-FINANCEIRAS.md`).
 
 ## 1. Objetivo
@@ -19,9 +21,9 @@ Para caber melhor em cada rodada de teste, proponho dividir em duas entregas, ca
 
 | Aba | Júlia | Michelangelo |
 |---|---|---|
-| Empresa Júlia | vê e edita | a confirmar (pergunta 1) |
-| Júlia PF | vê e edita | **vê** (editar: a confirmar) |
-| Michelangelo PF | **vê** (editar: a confirmar) | vê e edita |
+| Empresa Júlia | vê e edita | **não vê** |
+| Júlia PF | vê e edita | **só vê** |
+| Michelangelo PF | **só vê** | vê e edita |
 | Casal | vê e edita | vê e edita |
 
 - Compras no cartão mostram **qual cartão** para os dois.
@@ -66,7 +68,7 @@ Regras que garantem os totais:
 4. **Transferência** (entre contas ou empresa → Júlia) é um par saída/entrada ligado; não aparece como receita nem despesa nos totais.
 5. **Despesa do Casal** sai do dinheiro comum, não de cada um: o impacto pessoal aparece na **mesada**, que é calculada depois das contas fixas e das caixinhas. Centavos da divisão da mesada que sobram ficam com quem tem a maior renda no mês.
 6. Lançamento com histórico não some: exclusão pede confirmação e fica no histórico; categoria em uso é arquivada.
-7. Todas as somas são feitas pelo banco a partir dos lançamentos, nunca digitadas.
+7. Todas as somas são calculadas a partir dos lançamentos por uma única função testada, nunca digitadas.
 
 ## 5. Critérios de aceite
 
@@ -74,7 +76,7 @@ Regras que garantem os totais:
 - Saldo de cada conta = saldo inicial + realizados; bate com uma conta feita à mão em 3 cenários de teste.
 - Compra parcelada em 3x no cartão aparece em 3 faturas; pagar a fatura muda o status das compras e o saldo da conta pagadora uma única vez.
 - Previsto, realizado e vencido aparecem separados no resumo do mês.
-- Michelangelo não vê nada da Empresa nem da Júlia PF, nem pelo app, nem consultando o banco diretamente.
+- Michelangelo não vê nada da Empresa e não consegue editar a Júlia PF (e vice-versa), nem pelo app, nem consultando o banco diretamente.
 - Chave Pix copia com um toque.
 
 **2B**
