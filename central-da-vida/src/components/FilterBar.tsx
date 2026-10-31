@@ -11,9 +11,10 @@ interface Props {
   onChange: (f: Filters) => void
   statuses?: { id: string; label: string }[]
   dates?: boolean
+  hideScope?: boolean
 }
 
-export function FilterBar({ module, value, onChange, statuses, dates }: Props) {
+export function FilterBar({ module, value, onChange, statuses, dates, hideScope }: Props) {
   const { saved_views, insert, remove, toast } = useData()
   const [open, setOpen] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -37,8 +38,8 @@ export function FilterBar({ module, value, onChange, statuses, dates }: Props) {
         </button>
       </div>
       <div className="chips scroll">
-        <Segmented value={value.scope} onChange={(s) => set({ scope: s })}
-          options={[{ id: 'todos', label: 'Tudo' }, { id: 'meus', label: 'Só meus' }, { id: 'casal', label: 'Casal' }]} />
+        {!hideScope && <Segmented value={value.scope} onChange={(s) => set({ scope: s })}
+          options={[{ id: 'todos', label: 'Tudo' }, { id: 'meus', label: 'Só meus' }, { id: 'casal', label: 'Casal' }]} />}
         {views.map((v) => (
           <button key={v.id} className={'chip' + (same(v.filters) ? ' on' : '')} onClick={() => onChange({ ...sanitize(v.filters), q: value.q })}>
             <Icon name="bookmark" size={14} />{v.name}
@@ -52,11 +53,11 @@ export function FilterBar({ module, value, onChange, statuses, dates }: Props) {
           <button className="btn" onClick={() => setSaving(true)} disabled={!n}>Salvar visualização</button>
           <button className="btn primary" onClick={() => setOpen(false)}>Ver resultados</button>
         </>}>
-          <div className="field">
+          {!hideScope && <div className="field">
             <span className="label">Quem vê</span>
             <Segmented value={value.scope} onChange={(s) => set({ scope: s })}
               options={[{ id: 'todos', label: 'Tudo' }, { id: 'meus', label: 'Só meus' }, { id: 'casal', label: 'Casal' }]} />
-          </div>
+          </div>}
           <div className="field">
             <span className="label">Categorias {value.categories.length > 0 && `(${value.categories.length})`}</span>
             <div className="chips wrap">

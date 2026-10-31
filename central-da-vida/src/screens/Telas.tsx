@@ -9,7 +9,7 @@ import { download, isIOS, isStandalone, norm, PALETTE, todayISO } from '../lib/u
 import { NoteEditor, NotesList } from './Notas'
 
 export const ROADMAP: { id: string; title: string; icon: string; phase: number; text: string }[] = [
-  { id: 'financas', title: 'Finanças', icon: 'wallet', phase: 2, text: 'Empresa Júlia, Júlia PF, Michelangelo PF e Casal; contas, entradas, despesas, Pix, rateio e calendário financeiro.' },
+  { id: 'mes-casal', title: 'Mês do casal', icon: 'heart', phase: 2, text: 'Renda do casal, contas fixas, caixinhas e a mesada de cada um, proporcional à renda (entrega 2B).' },
   { id: 'planejamento', title: 'Planejamento financeiro', icon: 'sparkle', phase: 3, text: 'Orçamentos por categoria, caixinhas, alertas, gráficos, projeções e simulador de compras.' },
   { id: 'agenda', title: 'Agenda', icon: 'calendar', phase: 4, text: 'Agendas separadas e do casal, eventos que impactam o outro, lembretes para o parceiro.' },
   { id: 'habitos', title: 'Hábitos e água', icon: 'drop', phase: 4, text: 'Rastreadores, grade de quadradinhos e a garrafa de água que enche.' },
