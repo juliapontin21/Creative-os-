@@ -433,3 +433,4 @@ body.agenda-fs .month-cell { min-height: calc((100dvh - 240px) / 6); }
 .heat i.future { opacity: .35; }
 .heat i.today { outline: 2px solid var(--text); outline-offset: 1px; }
 .quick-filters .chip { min-height: 32px; font-size: 13px; }
+.err-text { color: var(--danger); }
