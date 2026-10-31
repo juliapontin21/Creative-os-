@@ -3,8 +3,8 @@ import type { RealtimePostgresChangesPayload, Session } from '@supabase/supabase
 import { friendly, sb } from './supabase'
 import type { Profile, Row, TableName, Tables, Writable } from './types'
 
-const TABLES: TableName[] = ['profiles', 'categories', 'notes', 'saved_views', 'accounts', 'cards', 'payees', 'transactions']
-const EMPTY: Tables = { profiles: [], categories: [], notes: [], saved_views: [], accounts: [], cards: [], payees: [], transactions: [] }
+const TABLES: TableName[] = ['profiles', 'categories', 'notes', 'saved_views', 'accounts', 'cards', 'payees', 'transactions', 'recurrences', 'month_plans']
+const EMPTY: Tables = { profiles: [], categories: [], notes: [], saved_views: [], accounts: [], cards: [], payees: [], transactions: [], recurrences: [], month_plans: [] }
 
 interface DataCtx extends Tables {
   session: Session
@@ -20,6 +20,7 @@ interface DataCtx extends Tables {
   insertMany: <T extends Writable>(t: T, rows: Partial<Row<T>>[]) => Promise<Row<T>[] | null>
   updateMatch: <T extends Writable>(t: T, match: Record<string, string>, patch: Partial<Row<T>>) => Promise<Row<T>[] | null>
   removeMatch: (t: Writable, match: Record<string, string>) => Promise<boolean>
+  insertIgnore: <T extends Writable>(t: T, rows: Partial<Row<T>>[], onConflict: string) => Promise<Row<T>[] | null>
   toast: (msg: string) => void
   toastMsg: string
 }
@@ -148,11 +149,20 @@ export function DataProvider({ session, children }: { session: Session; children
     return true
   }, [dropRow, toast])
 
+  // Insere ignorando o que já existe (ex.: ocorrências de contas fixas geradas pelos dois celulares).
+  const insertIgnore = useCallback(async <T extends Writable>(t: T, rows: Partial<Row<T>>[], onConflict: string) => {
+    if (!rows.length) return []
+    const { data: r, error: e } = await sb.from(t).upsert(rows as never, { onConflict, ignoreDuplicates: true }).select()
+    if (e) { toast(friendly(e.message)); return null }
+    for (const x of r ?? []) setRow(t, x as AnyRow)
+    return (r ?? []) as Row<T>[]
+  }, [setRow, toast])
+
   const me = data.profiles.find((p) => p.id === session.user.id)
   const partner = data.profiles.find((p) => p.id !== session.user.id)
 
   return (
-    <Ctx.Provider value={{ ...data, session, me, partner, loading, error, online, reload, insert, update, remove, insertMany, updateMatch, removeMatch, toast, toastMsg }}>
+    <Ctx.Provider value={{ ...data, session, me, partner, loading, error, online, reload, insert, update, remove, insertMany, updateMatch, removeMatch, insertIgnore, toast, toastMsg }}>
       {children}
     </Ctx.Provider>
   )

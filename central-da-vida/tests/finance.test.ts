@@ -71,3 +71,30 @@ test('faturas agrupam por vencimento e mostram o status', () => {
   const inv = invoices('C', [t('2026-11-12', 'realizado', 100), t('2026-11-12', 'realizado', 50), t('2026-12-12', 'previsto', 70), t('2026-10-12', 'previsto', 10)], '2026-11-20')
   assert.deepEqual(inv.map((i) => [i.due, i.total, i.status]), [['2026-10-12', 10, 'vencida'], ['2026-11-12', 150, 'paga'], ['2026-12-12', 70, 'aberta']])
 })
+
+import { coupleMonth, occurrenceDates } from '../src/lib/finance.ts'
+
+test('mês do casal: exemplo da proposta (6.000 + 4.000, fixas 5.000, caixinhas 2.000)', () => {
+  const r = coupleMonth([{ id: 'J', income: 600000 }, { id: 'M', income: 400000 }], 500000, 200000)
+  assert.equal(r.total, 1000000)
+  assert.equal(r.leftover, 300000)
+  assert.deepEqual(r.allowances.map((a) => a.allowance), [180000, 120000])
+})
+
+test('mês do casal: centavos da divisão vão para a maior renda e a soma fecha', () => {
+  const r = coupleMonth([{ id: 'J', income: 600000 }, { id: 'M', income: 333333 }], 100000, 0)
+  assert.equal(r.allowances[0].allowance + r.allowances[1].allowance, r.leftover)
+})
+
+test('mês do casal: se faltar dinheiro, mesada zera e a sobra fica negativa', () => {
+  const r = coupleMonth([{ id: 'J', income: 600000 }, { id: 'M', income: 0 }], 700000, 0)
+  assert.equal(r.leftover, -100000)
+  assert.deepEqual(r.allowances.map((a) => a.allowance), [0, 0])
+})
+
+test('contas fixas: datas mensais, semanais e anuais respeitam início, fim e o que já foi gerado', () => {
+  assert.deepEqual(occurrenceDates('2026-01-31', 'mensal', null, '2026-04-30', null), ['2026-01-31', '2026-02-28', '2026-03-31', '2026-04-30'])
+  assert.deepEqual(occurrenceDates('2026-11-05', 'mensal', '2026-12-05', '2027-03-31', '2027-02-10'), ['2027-01-05', '2027-02-05'])
+  assert.deepEqual(occurrenceDates('2026-11-02', 'semanal', null, '2026-11-20', null), ['2026-11-02', '2026-11-09', '2026-11-16'])
+  assert.deepEqual(occurrenceDates('2024-02-29', 'anual', null, '2027-12-31', null), ['2024-02-29', '2025-02-28', '2026-02-28', '2027-02-28'])
+})

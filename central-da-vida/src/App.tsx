@@ -9,6 +9,7 @@ import { Categorias } from './screens/Categorias'
 import { NoteEditor, Notas } from './screens/Notas'
 import { Ajustes, Busca, EmBreve, Hoje, Mais, ROADMAP } from './screens/Telas'
 import { Financas, useFinCtx } from './screens/Financas'
+import { useRecurrenceSync } from './screens/Fin2B'
 import { TxEditor } from './screens/FinEditors'
 import type { Transaction } from './lib/types'
 
@@ -103,6 +104,7 @@ function Shell() {
   const [newNote, setNewNote] = useState(false)
   const [newTx, setNewTx] = useState<Transaction['kind'] | null>(null)
   const fin = useFinCtx()
+  useRecurrenceSync()
   const isSub = SUB.includes(route)
   const title = route === 'em-breve' ? (ROADMAP.find((r) => r.id === arg)?.title ?? 'Em breve') : TITLES[route] ?? 'Hoje'
 

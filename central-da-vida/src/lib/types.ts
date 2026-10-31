@@ -14,7 +14,7 @@ export const MODULES: { id: Module; label: string; phase: number }[] = [
 ]
 export const moduleLabel = (m: string) => MODULES.find((x) => x.id === m)?.label ?? m
 
-export interface Profile { id: string; household_id: string; email: string; display_name: string; color: string; has_company: boolean }
+export interface Profile { id: string; household_id: string; email: string; display_name: string; color: string; has_company: boolean; income_ref_cents: number }
 
 interface Owned {
   id: string; household_id: string; owner_id: string; scope: Scope
@@ -51,12 +51,20 @@ export interface Transaction extends FinOwned {
   account_id: string | null; card_id: string | null; payee_id: string | null; client: string
   category_id: string | null; payment_method: PayMethod; payment_link: string; tags: string[]; notes: string
   installment_group: string | null; installment_no: number | null; installment_total: number | null
-  transfer_group: string | null
+  transfer_group: string | null; recurrence_id: string | null
 }
+export interface Recurrence extends FinOwned {
+  kind: 'receita' | 'despesa'; description: string; amount_cents: number; frequency: 'semanal' | 'mensal' | 'anual'
+  start_date: string; end_date: string | null; account_id: string | null; card_id: string | null; payee_id: string | null
+  category_id: string | null; payment_method: PayMethod; client: string; payment_link: string
+  is_subscription: boolean; service_url: string; vault_url: string; generated_until: string | null
+}
+export interface MonthPlan extends FinOwned { month: string; savings_cents: number; income_overrides: Record<string, number>; notes: string }
 
 export interface Tables {
   profiles: Profile[]; categories: Category[]; notes: Note[]; saved_views: SavedView[]
   accounts: Account[]; cards: Card[]; payees: Payee[]; transactions: Transaction[]
+  recurrences: Recurrence[]; month_plans: MonthPlan[]
 }
 export type TableName = keyof Tables
 export type Row<T extends TableName> = Tables[T][number]

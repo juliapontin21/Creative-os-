@@ -7,6 +7,8 @@ import { sb } from '../lib/supabase'
 import { MODULES, moduleLabel, type Note } from '../lib/types'
 import { download, isIOS, isStandalone, norm, PALETTE, todayISO } from '../lib/util'
 import { NoteEditor, NotesList } from './Notas'
+import { MoneyInput } from './FinEditors'
+import { fmtMoney, parseMoney } from '../lib/finance'
 
 export const ROADMAP: { id: string; title: string; icon: string; phase: number; text: string }[] = [
   { id: 'mes-casal', title: 'Mês do casal', icon: 'heart', phase: 2, text: 'Renda do casal, contas fixas, caixinhas e a mesada de cada um, proporcional à renda (entrega 2B).' },
@@ -143,6 +145,8 @@ export function Busca() {
 export function Ajustes() {
   const { me, partner, update, toast, profiles, categories, notes, saved_views } = useData()
   const [profileOpen, setProfileOpen] = useState(false)
+  const [incomeOpen, setIncomeOpen] = useState(false)
+  const [income, setIncome] = useState(me?.income_ref_cents ? (me.income_ref_cents / 100).toFixed(2).replace('.', ',') : '')
   const [name, setName] = useState(me?.display_name ?? '')
   const [color, setColor] = useState(me?.color ?? PALETTE[0])
   const exportAll = () => {
@@ -157,6 +161,11 @@ export function Ajustes() {
         <div className="grow"><strong>{me?.display_name}</strong><span className="muted">{me?.email}</span></div>
         <button className="btn" onClick={() => setProfileOpen(true)}>Editar</button>
       </div>
+      <button className="card list-link" onClick={() => setIncomeOpen(true)}>
+        <span className="list-icon"><Icon name="wallet" /></span>
+        <span className="grow"><strong>Minha renda de referência</strong><span className="muted">{me?.income_ref_cents ? fmtMoney(me.income_ref_cents) : 'Ainda não informada'} · base da mesada no Mês do casal</span></span>
+        <Icon name="right" size={18} />
+      </button>
       <div className="card">
         <strong>Parceiro</strong>
         <p className="muted">{partner ? <><Dot color={partner.color} /> {partner.display_name} já entrou ({partner.email}).</> : 'Ainda não entrou. Quando ele fizer login com o e-mail liberado, a conexão é automática.'}</p>
@@ -172,6 +181,17 @@ export function Ajustes() {
         </button>
       </div>
       <p className="muted pad small">Central da Vida · Fase 1 · Notificações chegam na Fase 4.</p>
+      {incomeOpen && (
+        <Sheet title="Minha renda de referência" onClose={() => setIncomeOpen(false)} footer={<>
+          <button className="btn" onClick={() => setIncomeOpen(false)}>Cancelar</button>
+          <button className="btn primary" disabled={parseMoney(income) === null} onClick={async () => {
+            const v = parseMoney(income)
+            if (me && v !== null && await update('profiles', me.id, { income_ref_cents: v })) { toast('Renda de referência atualizada.'); setIncomeOpen(false) }
+          }}>Salvar</button>
+        </>}>
+          <MoneyInput label="Renda mensal" value={income} onChange={setIncome} hint="Ex.: pró-labore ou salário fixo. Quando entrar dinheiro extra, ajuste só aquele mês em Finanças → Casal → Mês do casal." />
+        </Sheet>
+      )}
       {profileOpen && (
         <Sheet title="Meu perfil" onClose={() => setProfileOpen(false)} footer={<>
           <button className="btn" onClick={() => setProfileOpen(false)}>Cancelar</button>
