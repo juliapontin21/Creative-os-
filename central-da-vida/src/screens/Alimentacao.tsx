@@ -347,7 +347,7 @@ function RecipeView({ r, onClose, onEdit }: { r: Recipe; onClose: () => void; on
 }
 
 // Reduz a foto (até 1280 px, JPEG) antes de enviar, para economizar espaço.
-async function compress(file: File): Promise<Blob> {
+export async function compress(file: File): Promise<Blob> {
   const img = await createImageBitmap(file)
   const s = Math.min(1, 1280 / Math.max(img.width, img.height))
   const c = document.createElement('canvas')
