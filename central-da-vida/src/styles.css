@@ -491,3 +491,15 @@ body.agenda-fs .month-cell { min-height: calc((100dvh - 240px) / 6); }
 .heat-legend { flex-wrap: wrap; gap: 10px; font-size: 12px; }
 .heat-legend i { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
 .heat-legend i.lv-full { background: var(--accent); }
+
+/* Fale comigo */
+.talk-bar { display: flex; align-items: center; gap: 10px; width: 100%; padding: 12px 14px; border-radius: 14px; background: var(--accent-soft); color: var(--accent); font-weight: 600; text-align: left; }
+.sheet .talk-bar { margin-bottom: 12px; }
+.card.proposal { flex-direction: column; align-items: stretch; gap: 10px; border: 2px solid var(--accent); }
+.prop-rows { margin: 0; display: flex; flex-direction: column; gap: 4px; }
+.prop-rows > div { display: grid; grid-template-columns: 100px 1fr; gap: 8px; font-size: 14px; }
+.prop-rows dt { color: var(--muted); }
+.prop-rows dd { margin: 0; font-weight: 600; }
+.chip.small-chip { font-size: 13px; min-height: 32px; white-space: normal; text-align: left; }
+.card.answer { flex-direction: column; align-items: stretch; gap: 4px; }
+.card.warn > strong { display: block; margin-bottom: 4px; }

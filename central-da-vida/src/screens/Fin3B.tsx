@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { takeSimPrefill } from './FaleComigo'
 import { Icon } from '../components/Icon'
 import { Segmented, useModuleCategories } from '../components/ui'
 import { useData } from '../lib/data'
@@ -219,6 +220,13 @@ export function Simulador({ cur }: { cur: CtxOpt }) {
   const [income, setIncome] = useState('')
   const [savings, setSavings] = useState('')
   const [launch, setLaunch] = useState<TxInitial | null>(null)
+  // Pedido vindo do "Fale comigo" ("posso comprar…").
+  useEffect(() => {
+    const pre = takeSimPrefill()
+    if (!pre) return
+    setDesc(pre.description); setValue((pre.cents / 100).toFixed(2).replace('.', ','))
+    if (pre.installments > 1) { setPayWith('cartao'); setN(pre.installments); const cc = cards.find((c) => c.is_couple_card && !c.archived_at); if (cc && target.ctx === 'casal') setCardId(cc.id) }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
   const cats = useModuleCategories('financas', { scope: target.ctx === 'casal' ? 'casal' : 'pessoal', ownerId: me!.id }).filter((c) => !c.parent_id)
   const cardOpts = cards.filter((c) => !c.archived_at && (c.context === 'casal' || (c.context === target.ctx && c.owner_id === me!.id)))
   const total = parseMoney(value)

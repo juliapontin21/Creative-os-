@@ -9,6 +9,7 @@ import { download, isIOS, isStandalone, norm, PALETTE, todayISO } from '../lib/u
 import { NoteEditor, NotesList } from './Notas'
 import { HabitRow, WaterCard } from './Habitos'
 import { EventEditor } from './AgendaEditors'
+import { FaleComigo } from './FaleComigo'
 import { isDue, ymd } from '../lib/agenda'
 import type { AgendaEvent } from '../lib/types'
 import { MoneyInput } from './FinEditors'
@@ -36,6 +37,7 @@ export function Hoje() {
   const { notes, me, partner, events, partner_reminders, habits, update } = useData()
   const [edit, setEdit] = useState<Note | null>(null)
   const [evEdit, setEvEdit] = useState<AgendaEvent | null>(null)
+  const [talk, setTalk] = useState(false)
   const day = ymd(new Date())
   const todays = events.filter((e) => !e.archived_at && ymd(new Date(e.start_at)) <= day && ymd(new Date(new Date(e.end_at).getTime() - 1)) >= day &&
     (e.context === 'casal' || e.owner_id === me!.id || e.impacts_partner)).sort((a, b) => a.start_at.localeCompare(b.start_at))
@@ -56,6 +58,8 @@ export function Hoje() {
         <h1>{hello}, {me?.display_name}</h1>
         <p className="sub">{partner ? <><Dot color={partner.color} /> Conectado com {partner.display_name}</> : 'Seu parceiro ainda não entrou no app.'}</p>
       </section>
+      <button className="talk-bar" onClick={() => setTalk(true)}><Icon name="sparkle" size={20} /><span className="grow">Fale comigo: gastos, agenda, água, mercado…</span><Icon name="right" size={18} /></button>
+      {talk && <FaleComigo onClose={() => setTalk(false)} />}
       <InstallTip />
       {forMe.length > 0 && <section><div className="section-head"><h2>Lembretes de {partner?.display_name}</h2></div>
         <div className="list">{forMe.map((r) => (

@@ -264,3 +264,80 @@ test('grade geral: completo, parcial, não feito e sem nada previsto (inclui tre
   assert.equal(dayScore({ ...inp, habits: [] }, '2026-11-05').level, 'none')
   assert.equal(dayScore(inp, '2026-09-20').level, 'none')              // antes de criar os hábitos
 })
+
+import { parseCommand, parseMoneyIn, parseWhen } from '../src/lib/command.ts'
+
+// Sábado, 31/10/2026, 14:00
+const NOW = new Date(2026, 9, 31, 14, 0)
+const CTX = {
+  now: NOW, partnerNames: ['michelangelo', 'mi'], hasCompany: true,
+  financeCategories: [{ id: 'cMerc', name: 'Mercado' }, { id: 'cMor', name: 'Moradia' }, { id: 'cLaz', name: 'Lazer' }],
+  cards: [{ id: 'kCasal', name: 'Nubank Casal', couple: true }, { id: 'kJu', name: 'Inter', couple: false }],
+  accounts: [{ id: 'aNu', name: 'Nubank Júlia' }],
+  habits: [{ id: 'hLer', name: 'Ler 20 minutos' }, { id: 'hMed', name: 'Meditação' }],
+}
+const P = (s: string) => parseCommand(s, CTX) as Record<string, unknown>
+
+test('fale comigo: datas e horas', () => {
+  assert.deepEqual(parseWhen('dentista sexta 15h', NOW).date, '2026-11-06')
+  assert.equal(parseWhen('amanhã às 9', NOW).time, '09:00')
+  assert.equal(parseWhen('dia 12 às 20h30', NOW).date, '2026-11-12')
+  assert.equal(parseWhen('8 da noite', NOW).time, '20:00')
+  assert.equal(parseWhen('gastei sexta', NOW, 'past').date, '2026-10-30')
+  assert.equal(parseWhen('05/11 meio-dia', NOW).date, '2026-11-05')
+})
+
+test('fale comigo: valores em reais', () => {
+  assert.equal(parseMoneyIn('R$ 1.250,90')!.cents, 125090)
+  assert.equal(parseMoneyIn('85 reais no mercado')!.cents, 8500)
+  assert.equal(parseMoneyIn('3 mil')!.cents, 300000)
+  assert.equal(parseMoneyIn('85,5')!.cents, 8550)
+})
+
+test('fale comigo: despesas e receitas', () => {
+  let r = P('gastei 85 no mercado no cartão do casal')
+  assert.equal(r.kind, 'despesa'); assert.equal(r.cents, 8500); assert.equal(r.context, 'casal'); assert.equal(r.cardId, 'kCasal'); assert.equal(r.categoryId, 'cMerc'); assert.equal(r.done, true); assert.equal(r.date, '2026-10-31')
+  r = P('paguei 1.250,90 de moradia ontem no pix')
+  assert.equal(r.cents, 125090); assert.equal(r.method, 'pix'); assert.equal(r.date, '2026-10-30'); assert.equal(r.categoryId, 'cMor'); assert.equal(r.context, 'pf')
+  r = P('comprei tênis 600 em 3x no cartão inter')
+  assert.equal(r.installments, 3); assert.equal(r.cardId, 'kJu'); assert.equal(r.cents, 60000); assert.match(String(r.description), /Tenis|Tênis/)
+  r = P('recebi 1800 da marca X')
+  assert.equal(r.kind, 'receita'); assert.equal(r.cents, 180000); assert.equal(r.client, 'X')
+  r = P('vou pagar 350 de condomínio dia 10')
+  assert.equal(r.done, false); assert.equal(r.date, '2026-11-10')
+})
+
+test('fale comigo: água, mercado, treino, refeição, hábito, nota', () => {
+  assert.deepEqual(P('bebi 500 ml'), { kind: 'agua', ml: 500 })
+  assert.deepEqual(P('bebi 2 copos de água'), { kind: 'agua', ml: 500 })
+  assert.deepEqual(P('bebi 1,5 litro'), { kind: 'agua', ml: 1500 })
+  assert.deepEqual(P('mercado: 2 kg tomate, leite e pão'), { kind: 'mercado', items: ['2 kg tomate', 'leite', 'pão'] })
+  assert.deepEqual(P('adiciona leite na lista'), { kind: 'mercado', items: ['leite'] })
+  assert.deepEqual(P('fiz 40 min de dança'), { kind: 'treino', activity: 'Dança', minutes: 40, date: '2026-10-31' })
+  const c = P('comi salada com frango no almoço 450 kcal')
+  assert.equal(c.kind, 'comi'); assert.equal(c.meal, 'almoco'); assert.equal(c.kcal, 450); assert.match(String(c.text), /Salada com frango/)
+  assert.equal(P('fiz meditação').habitId, 'hMed')
+  assert.equal(P('li 20 minutos').habitId, 'hLer')
+  assert.equal(P('nota: ligar pro encanador').kind, 'nota')
+})
+
+test('fale comigo: compromissos e lembrete para o parceiro', () => {
+  let r = P('dentista sexta 15h')
+  assert.deepEqual([r.kind, r.title, r.date, r.start, r.end], ['compromisso', 'Dentista', '2026-11-06', '15:00', '16:00'])
+  r = P('jantar com a Ana amanhã às 20h30 casal')
+  assert.equal(r.context, 'casal'); assert.equal(r.start, '20:30'); assert.match(String(r.title), /Jantar com a ana/i)
+  r = P('reunião com cliente segunda 10h por 30 min')
+  assert.equal(r.nature, 'trabalho'); assert.equal(r.end, '10:30')
+  r = P('lembra o Mi de pagar o condomínio amanhã às 9')
+  assert.deepEqual([r.kind, r.text, r.date, r.time], ['lembrete', 'Pagar o condominio', '2026-11-01', '09:00'])
+})
+
+test('fale comigo: consultas e simulação', () => {
+  assert.equal(P('quanto ainda tenho de mesada?').topic, 'mesada')
+  assert.equal(P('o que tenho amanhã?').topic, 'agenda')
+  assert.equal(P('o que vence essa semana?').topic, 'vencimentos')
+  assert.equal(P('quanto gastei com mercado?').categoryId, 'cMerc')
+  const s = P('posso comprar uma vara de pesca de 3000 em 10x?')
+  assert.deepEqual([s.kind, s.cents, s.installments], ['simular', 300000, 10]); assert.match(String(s.description), /Vara de pesca/i)
+  assert.equal(P('blablabla').kind, 'desconhecido')
+})
