@@ -1,5 +1,7 @@
 # Central da Vida · Fase 7 · IA dentro do app (proposta)
 
+**Decisão (01/11/2026):** começar pela versão **sem IA** (Fase 7A, `FASE7A.md`); quando ligar a IA: Claude Haiku 5.5 nos comandos, Claude Sonnet 5.5 nas fotos, teto de US$ 5/mês (≈ 160 comandos/dia), internet desligada no início.
+
 Esta é a primeira fase **com custo**: a API do Claude é cobrada por uso, separada da assinatura do Claude (claude.ai). Nada é programado antes da aprovação.
 
 ## O que entra

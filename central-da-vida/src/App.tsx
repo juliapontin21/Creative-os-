@@ -16,6 +16,7 @@ import { Habitos } from './screens/Habitos'
 import { Notificacoes } from './screens/Notificacoes'
 import { Alimentacao } from './screens/Alimentacao'
 import { Treinos } from './screens/Treinos'
+import { FaleComigo } from './screens/FaleComigo'
 import { EventEditor, ReminderEditor } from './screens/AgendaEditors'
 import { TxEditor } from './screens/FinEditors'
 import type { Transaction } from './lib/types'
@@ -112,6 +113,7 @@ function Shell() {
   const [newTx, setNewTx] = useState<Transaction['kind'] | null>(null)
   const [newEvent, setNewEvent] = useState(false)
   const [newReminder, setNewReminder] = useState(false)
+  const [talk, setTalk] = useState(false)
   const fin = useFinCtx()
   useRecurrenceSync()
   const isSub = SUB.includes(route)
@@ -152,7 +154,8 @@ function Shell() {
         <button className="tab plus" aria-label="Adicionar" onClick={() => setQuick(true)}><span><Icon name="plus" size={26} /></span></button>
         {TABS.slice(2).map((t) => <Tab key={t.id} t={t} active={route === t.id || (isSub && t.id === 'mais')} />)}
       </nav>
-      {quick && <QuickAdd onClose={() => setQuick(false)} onNote={() => { setQuick(false); setNewNote(true) }} onTx={(k) => { setQuick(false); setNewTx(k) }} onEvent={() => { setQuick(false); setNewEvent(true) }} onReminder={() => { setQuick(false); setNewReminder(true) }} />}
+      {quick && <QuickAdd onClose={() => setQuick(false)} onNote={() => { setQuick(false); setNewNote(true) }} onTx={(k) => { setQuick(false); setNewTx(k) }} onEvent={() => { setQuick(false); setNewEvent(true) }} onReminder={() => { setQuick(false); setNewReminder(true) }} onTalk={() => { setQuick(false); setTalk(true) }} />}
+      {talk && <FaleComigo onClose={() => setTalk(false)} />}
       {newEvent && <EventEditor ev={null} onClose={() => setNewEvent(false)} />}
       {newReminder && <ReminderEditor onClose={() => setNewReminder(false)} />}
       {newTx && fin.cur && <TxEditor tx={null} preset={{ kind: newTx, ctx: fin.cur }} onClose={() => setNewTx(null)} />}
@@ -170,9 +173,10 @@ function Tab({ t, active }: { t: { id: Route; label: string; icon: string }; act
   )
 }
 
-function QuickAdd({ onClose, onNote, onTx, onEvent, onReminder }: { onClose: () => void; onNote: () => void; onTx: (k: Transaction['kind']) => void; onEvent: () => void; onReminder: () => void }) {
+function QuickAdd({ onClose, onNote, onTx, onEvent, onReminder, onTalk }: { onClose: () => void; onNote: () => void; onTx: (k: Transaction['kind']) => void; onEvent: () => void; onReminder: () => void; onTalk: () => void }) {
   return (
     <Sheet title="Adicionar" onClose={onClose}>
+      <button className="talk-bar" onClick={onTalk}><Icon name="sparkle" size={20} /><span className="grow">Fale comigo: "gastei 85 no mercado…"</span></button>
       <div className="quick">
         <button className="quick-item" onClick={onEvent}><Icon name="calendar" size={24} />Compromisso</button>
         <button className="quick-item" onClick={() => { onClose(); go('alimentacao', 'mercado') }}><Icon name="cart" size={24} />Mercado</button>
