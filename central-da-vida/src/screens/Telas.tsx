@@ -10,10 +10,11 @@ import { NoteEditor, NotesList } from './Notas'
 import { HabitRow, WaterCard } from './Habitos'
 import { EventEditor } from './AgendaEditors'
 import { FaleComigo } from './FaleComigo'
-import { isDue, ymd } from '../lib/agenda'
+import { checklistProgress, isDue, ymd } from '../lib/agenda'
 import type { AgendaEvent } from '../lib/types'
 import { MoneyInput } from './FinEditors'
 import { fmtMoney, parseMoney } from '../lib/finance'
+const progress = (e: { checklist?: { done: boolean }[] }) => checklistProgress(e.checklist)
 
 export const ROADMAP: { id: string; title: string; icon: string; phase: number; text: string }[] = [
   { id: 'assistente', title: 'Assistente', icon: 'chef', phase: 7, text: 'Comandos em linguagem natural com confirmação, assistente culinário e estimativas.' },
@@ -75,7 +76,7 @@ export function Hoje() {
             <div key={e.id} className={'card ev-row' + (e.done_at ? ' done' : '')} style={{ ['--c' as string]: e.color }}>
               {can && <button className="ev-check big" aria-label="Marcar como feito" onClick={() => update('events', e.id, { done_at: e.done_at ? null : new Date().toISOString() })}>{e.done_at && <Icon name="check" size={12} />}</button>}
               <button className="grow ev-row-main" onClick={() => setEvEdit(e)}><strong>{e.title}</strong>
-                <span className="muted small">{e.all_day ? 'dia inteiro' : `${hhmm(e.start_at)}–${hhmm(e.end_at)}`}{e.context === 'casal' ? ' · casal' : e.owner_id !== me!.id ? ` · ${partner?.display_name}, afeta você` : ''}</span></button>
+                <span className="muted small">{e.all_day ? 'dia inteiro' : `${hhmm(e.start_at)}–${hhmm(e.end_at)}`}{e.context === 'casal' ? ' · casal' : e.owner_id !== me!.id ? ` · ${partner?.display_name}, afeta você` : ''}{progress(e)}</span></button>
             </div>
           )
         })}</div> : <p className="muted pad">Nenhum compromisso hoje.</p>}

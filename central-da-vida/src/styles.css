@@ -340,26 +340,34 @@ body.agenda-fs .topbar, body.agenda-fs .tabbar, body.agenda-fs .offline { displa
 body.agenda-fs .content { padding: calc(env(safe-area-inset-top) + 4px) 8px calc(env(safe-area-inset-bottom) + 8px); max-width: none; }
 body.agenda-fs .app { max-width: none; }
 .tg { --tg-gutter: 40px; display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
-.tg-head { display: flex; border-bottom: 1px solid var(--line); }
+/* Uma só área rola para os lados (dias) e para baixo (horas); cabeçalho e horas ficam presos. */
+.tg-scroll { overflow: auto; height: calc(100dvh - 230px); min-height: 380px; -webkit-overflow-scrolling: touch; overscroll-behavior: contain;
+  scroll-snap-type: x proximity; scroll-padding-left: var(--tg-gutter); scrollbar-width: none; }
+.tg-scroll::-webkit-scrollbar { display: none; }
+.tg.dragging .tg-scroll { scroll-snap-type: none; }
+body.agenda-fs .tg-scroll { height: calc(100dvh - 140px); }
+.tg-inner { position: relative; }
+.tg-head { display: flex; position: sticky; top: 0; z-index: 6; background: var(--surface); border-bottom: 1px solid var(--line); }
 .tg-gutter { width: var(--tg-gutter); flex: none; position: relative; }
-.tg-dayhead { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; padding: 6px 2px 4px; border-left: 1px solid var(--line); gap: 2px; }
+.tg-corner { position: sticky; left: 0; z-index: 7; background: var(--surface); }
+.tg-dayhead { flex: none; min-width: 0; display: flex; flex-direction: column; align-items: center; padding: 6px 2px 4px; border-left: 1px solid var(--line); gap: 2px; }
+.tg-dayhead.monday, .tg-col.monday { border-left-color: var(--muted); }
 .tg-dayhead .wd { font-size: 11px; color: var(--muted); text-transform: uppercase; }
 .tg-dayhead .dn { font-size: 18px; font-weight: 700; width: 32px; height: 32px; display: grid; place-items: center; border-radius: 50%; }
 .tg-dayhead.today .dn { background: var(--accent); color: var(--accent-ink); }
 .tg-allday { width: 100%; display: flex; flex-direction: column; gap: 2px; }
 .tg-allday .more { font-size: 10px; color: var(--muted); text-align: center; }
-.tg-scroll { overflow-y: auto; height: calc(100dvh - 290px); min-height: 320px; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
-body.agenda-fs .tg-scroll { height: calc(100dvh - 200px); }
 .tg-body { display: flex; position: relative; }
+.tg-body > .tg-gutter { position: sticky; left: 0; z-index: 5; background: var(--surface); }
 .tg-body .tg-gutter span { position: absolute; right: 6px; transform: translateY(-50%); font-size: 10px; color: var(--muted); font-variant-numeric: tabular-nums; }
-.tg-cols { flex: 1; display: flex; position: relative; }
-.tg-col { flex: 1; min-width: 0; position: relative; border-left: 1px solid var(--line); }
-.tg-line { position: absolute; left: 0; right: 0; border-top: 1px solid var(--grid); }
+.tg-cols { display: flex; position: relative; }
+.tg-col { flex: none; min-width: 0; position: relative; border-left: 1px solid var(--line); scroll-snap-align: start;
+  background-image: repeating-linear-gradient(to bottom, var(--grid) 0 1px, transparent 1px 56px); }
 .tg-now { position: absolute; left: -4px; right: 0; border-top: 2px solid var(--danger); z-index: 3; }
 .tg-now::before { content: ''; position: absolute; left: 0; top: -5px; width: 8px; height: 8px; border-radius: 50%; background: var(--danger); }
 .ev { position: absolute; z-index: 2; border-radius: 8px; padding: 3px 6px 6px; overflow: hidden; color: #fff; background: var(--c);
   box-shadow: 0 0 0 1.5px var(--surface); display: flex; flex-direction: column; gap: 1px; font-size: 12px; line-height: 1.2; cursor: grab;
-  user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; touch-action: pan-y; transition: opacity .15s; }
+  user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; touch-action: manipulation; transition: opacity .15s; }
 .ev { container-type: inline-size; }
 .ev .ev-title { font-weight: 600; overflow: hidden; padding-left: 16px; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow-wrap: anywhere; hyphens: auto; -webkit-hyphens: auto; }
 .ev .ev-time { opacity: .9; font-size: 11px; padding-left: 16px; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; }
@@ -503,3 +511,14 @@ body.agenda-fs .month-cell { min-height: calc((100dvh - 240px) / 6); }
 .chip.small-chip { font-size: 13px; min-height: 32px; white-space: normal; text-align: left; }
 .card.answer { flex-direction: column; align-items: stretch; gap: 4px; }
 .card.warn > strong { display: block; margin-bottom: 4px; }
+
+/* Título que cresce e checklist do compromisso */
+textarea.autotext { resize: none; overflow: hidden; min-height: 0; line-height: 1.25; font-family: inherit; }
+.checklist { gap: 6px; }
+.checklist .progress { height: 4px; border-radius: 2px; background: var(--grid); overflow: hidden; }
+.checklist .progress i { display: block; height: 100%; background: var(--pos, var(--accent)); transition: width .2s; }
+.check-item { display: flex; align-items: center; gap: 8px; --c: var(--pos, var(--accent)); }
+.check-item input { flex: 1; min-width: 0; border: 0 !important; border-bottom: 1px solid var(--grid) !important; border-radius: 0 !important; background: none !important; padding: 6px 0 !important; }
+.check-item.done .ev-check.big { background: var(--c); }
+.check-item.done input { text-decoration: line-through; color: var(--muted); }
+.check-item.add .plus { width: 24px; height: 24px; display: grid; place-items: center; color: var(--muted); flex: none; }

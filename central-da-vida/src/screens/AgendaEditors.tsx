@@ -1,10 +1,10 @@
-import { useState } from 'react'
+import { useLayoutEffect, useRef, useState } from 'react'
 import { Icon } from '../components/Icon'
 import { CategoryPicker, Segmented, Sheet } from '../components/ui'
 import { addDays, seriesDays, ymd, type Rule } from '../lib/agenda'
 import { useData } from '../lib/data'
 import { sb, friendly } from '../lib/supabase'
-import type { AgendaEvent } from '../lib/types'
+import type { AgendaEvent, ChecklistItem } from '../lib/types'
 
 const hm = (d: Date) => `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
 const toDate = (day: string, time: string) => { const [y, m, d] = day.split('-').map(Number); const [h, mi] = time.split(':').map(Number); return new Date(y, m - 1, d, h || 0, mi || 0) }
@@ -34,6 +34,9 @@ export function EventEditor({ ev, draft, onClose }: { ev: AgendaEvent | null; dr
   const [reminders, setReminders] = useState<number[]>(ev?.reminders ?? [30])
   const [rule, setRule] = useState<'nao' | Rule>(ev?.series_rule ?? 'nao')
   const [done, setDone] = useState(Boolean(ev?.done_at))
+  const [checklist, setChecklistState] = useState<ChecklistItem[]>(ev?.checklist ?? [])
+  // Em compromisso já salvo, marcar/desmarcar um item salva na hora (não precisa apertar Salvar).
+  const setChecklist = (next: ChecklistItem[], saveNow = false) => { setChecklistState(next); if (saveNow && ev && editable) update('events', ev.id, { checklist: next }) }
   const [busy, setBusy] = useState(false)
   const [askScope, setAskScope] = useState<null | 'save' | 'delete'>(null)
   const owner = profiles.find((p) => p.id === ev?.owner_id)
@@ -45,14 +48,14 @@ export function EventEditor({ ev, draft, onClose }: { ev: AgendaEvent | null; dr
 
   const rowFor = (dayStart: Date) => ({
     title: title.trim(), context, all_day: allDay, start_at: dayStart.toISOString(), end_at: new Date(dayStart.getTime() + durMs).toISOString(),
-    category_id: category, location: location.trim(), notes, impacts_partner: context === 'pf' && impacts, reminders, nature,
+    category_id: category, location: location.trim(), notes, impacts_partner: context === 'pf' && impacts, reminders, nature, checklist: checklist.filter((c) => c.text.trim()),
     done_at: done ? ev?.done_at ?? new Date().toISOString() : null,
   })
 
   const createSeries = async (from: Date, r: Rule) => {
     const sid = crypto.randomUUID()
     const days = seriesDays(ymd(from), r)
-    const rows = days.map((d) => { const x = toDate(d, '00:00'); x.setHours(from.getHours(), from.getMinutes()); return { ...rowFor(x), series_id: sid, series_rule: r, done_at: null } })
+    const rows = days.map((d) => { const x = toDate(d, '00:00'); x.setHours(from.getHours(), from.getMinutes()); const row = rowFor(x); return { ...row, checklist: row.checklist.map((c) => ({ ...c, done: false })), series_id: sid, series_rule: r, done_at: null } })
     return insertMany('events', rows)
   }
 
@@ -89,7 +92,8 @@ export function EventEditor({ ev, draft, onClose }: { ev: AgendaEvent | null; dr
     </>}>
       {!editable && <p className="card info">Compromisso de {owner?.display_name}. Você vê, mas só {owner?.display_name} edita.</p>}
       <fieldset disabled={!editable} className="plain">
-        <input className="title-input" autoFocus={!ev} maxLength={120} value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Título do compromisso" aria-label="Título" />
+        <AutoText className="title-input" autoFocus={!ev} value={title} onChange={setTitle} placeholder="Título do compromisso" aria-label="Título" />
+        <Checklist items={checklist} editable={editable} onChange={setChecklist} />
         <div className="field"><span className="label">Agenda</span>
           <Segmented value={context} disabled={!!ev && ev.owner_id !== meId} onChange={(c) => { setContext(c); setCategory(null) }} options={[{ id: 'pf', label: me!.display_name }, { id: 'casal', label: 'Casal' }]} /></div>
         <div className="field"><span className="label">Tipo</span>
@@ -130,6 +134,46 @@ export function EventEditor({ ev, draft, onClose }: { ev: AgendaEvent | null; dr
         </>}><p>Este compromisso se repete. A mudança vale só para ele ou também para os próximos?</p></Sheet>
       )}
     </Sheet>
+  )
+}
+
+// Campo de texto que cresce com o conteúdo (título sem limite de tamanho).
+function AutoText({ value, onChange, className, placeholder, autoFocus, ...rest }: { value: string; onChange: (v: string) => void; className?: string; placeholder?: string; autoFocus?: boolean; 'aria-label'?: string }) {
+  const ref = useRef<HTMLTextAreaElement>(null)
+  useLayoutEffect(() => { const el = ref.current; if (el) { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px' } }, [value])
+  return <textarea ref={ref} rows={1} className={(className ?? '') + ' autotext'} value={value} placeholder={placeholder} autoFocus={autoFocus} aria-label={rest['aria-label']}
+    onChange={(e) => onChange(e.target.value.replace(/\n/g, ' '))} onKeyDown={(e) => { if (e.key === 'Enter') e.preventDefault() }} />
+}
+
+// Checklist de atividades dentro do compromisso.
+function Checklist({ items, editable, onChange }: { items: ChecklistItem[]; editable: boolean; onChange: (next: ChecklistItem[], saveNow?: boolean) => void }) {
+  const [text, setText] = useState('')
+  const add = () => {
+    const parts = text.split('\n').map((t) => t.trim()).filter(Boolean)
+    if (!parts.length) return
+    onChange([...items, ...parts.map((t) => ({ id: crypto.randomUUID(), text: t, done: false }))], true)
+    setText('')
+  }
+  const doneN = items.filter((i) => i.done).length
+  return (
+    <div className="field checklist">
+      <span className="label">Checklist {items.length > 0 && <span className="muted">· {doneN}/{items.length}</span>}</span>
+      {items.length > 0 && <div className="progress"><i style={{ width: `${(doneN / items.length) * 100}%` }} /></div>}
+      {items.map((it, i) => (
+        <div key={it.id} className={'check-item' + (it.done ? ' done' : '')}>
+          <button type="button" className="ev-check big" aria-label={it.done ? 'Desmarcar' : 'Marcar'} disabled={!editable}
+            onClick={() => onChange(items.map((x) => x.id === it.id ? { ...x, done: !x.done } : x), true)}>{it.done && <Icon name="check" size={12} />}</button>
+          <input value={it.text} aria-label={`Item ${i + 1}`} onChange={(e) => onChange(items.map((x) => x.id === it.id ? { ...x, text: e.target.value } : x))}
+            onBlur={() => onChange(items.filter((x) => x.text.trim()), true)} />
+          {editable && <button type="button" className="icon-btn" aria-label="Remover item" onClick={() => onChange(items.filter((x) => x.id !== it.id), true)}><Icon name="x" size={16} /></button>}
+        </div>
+      ))}
+      {editable && <div className="check-item add">
+        <span className="plus"><Icon name="plus" size={16} /></span>
+        <input value={text} placeholder="Adicionar atividade" aria-label="Nova atividade" onChange={(e) => setText(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); add() } }} onBlur={add} />
+      </div>}
+    </div>
   )
 }
 

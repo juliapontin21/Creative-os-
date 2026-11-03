@@ -1,13 +1,14 @@
-import { useEffect, useMemo, useRef, useState, type PointerEvent as RPointerEvent } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as RPointerEvent } from 'react'
 import { Icon } from '../components/Icon'
 import { CategoryChip, Segmented, Sheet, useModuleCategories } from '../components/ui'
 import { expandCategories } from '../lib/filters'
-import { addDays, atMinutes, isDue, layoutColumns, minutesOfDay, parseYmd, snap, weekStart, ymd } from '../lib/agenda'
+import { addDays, atMinutes, checklistProgress, isDue, layoutColumns, minutesOfDay, parseYmd, snap, weekStart, ymd } from '../lib/agenda'
 import { useData } from '../lib/data'
 import { fmtMoney, invoices } from '../lib/finance'
 import { go } from '../lib/route'
 import type { AgendaEvent } from '../lib/types'
 import { EventEditor, ReminderEditor, type EventDraft } from './AgendaEditors'
+const progress = (e: { checklist?: { done: boolean }[] }) => checklistProgress(e.checklist)
 
 type View = 'dia' | '3dias' | 'semana' | 'mes' | 'lista'
 const HOUR = 56
@@ -32,7 +33,10 @@ export function Agenda() {
   const meId = d.me!.id
   const today = ymd(new Date())
   const [view, setView] = useStored<{ v: View }>('cdv-agenda-view', { v: '3dias' })
-  const [anchor, setAnchor] = useState(today)
+  const [anchor, setAnchor] = useState(() => view.v === 'semana' ? weekStart(today) : today)
+  // Pedido de "pular" para um dia na linha do tempo (setas, Hoje, troca de visão). O resto é rolagem livre com o dedo.
+  const [jump, setJump] = useState(() => ({ day: anchor, n: 0 }))
+  const goTo = (day: string) => { setAnchor(day); setJump((j) => ({ day, n: j.n + 1 })) }
   const [f, setF] = useStored<AgendaFilters>('cdv-agenda-filters', DEFAULT_F)
   const [fs, setFs] = useState(false)
   const [showFilters, setShowFilters] = useState(false)
@@ -47,8 +51,8 @@ export function Agenda() {
 
   const v = view.v
   const nDays = v === 'dia' ? 1 : v === '3dias' ? 3 : 7
-  const firstDay = v === 'semana' ? weekStart(anchor) : anchor
-  const days = Array.from({ length: nDays }, (_, i) => addDays(firstDay, i))
+  const days = Array.from({ length: nDays }, (_, i) => addDays(anchor, i))
+  const isGrid = v === 'dia' || v === '3dias' || v === 'semana'
 
   // Compromissos visíveis conforme filtros (quem + categorias).
   const agendaCats = useModuleCategories('agenda')
@@ -120,7 +124,7 @@ export function Agenda() {
   const nav = (dir: number) => {
     if (v === 'mes') { const x = parseYmd(anchor); x.setMonth(x.getMonth() + dir, 1); setAnchor(ymd(x)) }
     else if (v === 'lista') setAnchor(addDays(anchor, 14 * dir))
-    else setAnchor(addDays(anchor, step * dir))
+    else goTo(addDays(anchor, step * dir))
   }
   const title = (() => {
     const a = parseYmd(days[0]), b = parseYmd(days[days.length - 1])
@@ -135,12 +139,12 @@ export function Agenda() {
         <button className="icon-btn" aria-label="Anterior" onClick={() => nav(-1)}><Icon name="back" /></button>
         <strong className="grow agenda-title">{title}</strong>
         <button className="icon-btn" aria-label="Próximo" onClick={() => nav(1)}><Icon name="right" /></button>
-        <button className="btn small" onClick={() => { setAnchor(today); setMonthSel(today) }}>Hoje</button>
+        <button className="btn small" onClick={() => { setMonthSel(today); if (isGrid) goTo(v === 'semana' ? weekStart(today) : today); else setAnchor(today) }}>Hoje</button>
         <button className="icon-btn" aria-label="Filtros" onClick={() => setShowFilters(true)}><Icon name="filter" /></button>
         <button className="icon-btn" aria-label={fs ? 'Sair da tela cheia' : 'Tela cheia'} onClick={() => setFs(!fs)}><Icon name={fs ? 'x' : 'grid'} /></button>
       </div>
       <div className="chips scroll agenda-views">
-        <Segmented value={v} onChange={(x) => setView({ v: x })} options={[{ id: 'dia', label: 'Dia' }, { id: '3dias', label: '3 dias' }, { id: 'semana', label: 'Semana' }, { id: 'mes', label: 'Mês' }, { id: 'lista', label: 'Lista' }]} />
+        <Segmented value={v} onChange={(x) => { setView({ v: x }); if (x === 'semana') goTo(weekStart(anchor)); else if (x !== 'mes' && x !== 'lista') goTo(anchor) }} options={[{ id: 'dia', label: 'Dia' }, { id: '3dias', label: '3 dias' }, { id: 'semana', label: 'Semana' }, { id: 'mes', label: 'Mês' }, { id: 'lista', label: 'Lista' }]} />
       </div>
       <div className="chips scroll quick-filters">
         <button className={'chip' + (f.meus && f.casal && f.parceiro === 'todos' && !f.cats.length && f.tipo === 'todos' ? ' on' : '')} onClick={() => setF({ ...f, meus: true, casal: true, parceiro: 'todos', cats: [], tipo: 'todos' })}>Tudo</button>
@@ -152,8 +156,8 @@ export function Agenda() {
         {agendaCats.filter((c) => !c.parent_id).map((c) => <CategoryChip key={c.id} cat={c} on={f.cats.includes(c.id)} onClick={() => setF({ ...f, cats: f.cats.includes(c.id) ? f.cats.filter((x) => x !== c.id) : [...f.cats, c.id] })} />)}
       </div>
 
-      {(v === 'dia' || v === '3dias' || v === 'semana') && (
-        <TimeGrid days={days} today={today} timed={timedFor(days)} chips={days.map(chipsFor)} compact={v === 'semana'}
+      {isGrid && (
+        <TimeGrid jump={jump} visibleN={nDays} today={today} timedOf={(day) => timedFor([day])} chipsOf={chipsFor} compact={v === 'semana'} onShown={setAnchor}
           onCreate={(day, min) => setEdit({ ev: null, draft: { day, startMin: min, durMin: 60 } })}
           onOpen={(e) => setEdit({ ev: e })} onToggle={toggleDone} onMove={moveEvent} />
       )}
@@ -200,9 +204,9 @@ export function Agenda() {
 // ───────────────────────── Arrastar com o dedo ─────────────────────────
 // Toque curto: abre. Segurar ~0,4 s: arrasta (o celular vibra, se puder). A borda de baixo: muda a duração.
 
-type DragState = { key: string; mode: 'move' | 'resize'; dx: number; dy: number }
+type DragState = { key: string; mode: 'move' | 'resize'; dx: number; dy: number; x: number; y: number }
 
-function useDrag(container: React.RefObject<HTMLElement | null>, onEnd: (key: string, mode: 'move' | 'resize', dx: number, dy: number, x: number, y: number) => void, onTap: (key: string) => void) {
+function useDrag(container: React.RefObject<HTMLElement | null>, onEnd: (key: string, mode: 'move' | 'resize', dx: number, dy: number, x: number, y: number) => void, onTap: (key: string) => void, onActivate?: () => void) {
   const [drag, setDrag] = useState<DragState | null>(null)
   const active = useRef<DragState | null>(null)
   // Enquanto arrasta, impede a rolagem da tela (iPhone precisa de listener não passivo).
@@ -220,7 +224,8 @@ function useDrag(container: React.RefObject<HTMLElement | null>, onEnd: (key: st
     let moved = false
     let timer = 0
     const activate = () => {
-      active.current = { key, mode, dx: 0, dy: 0 }
+      onActivate?.()
+      active.current = { key, mode, dx: 0, dy: 0, x: x0, y: y0 }
       setDrag(active.current)
       try { navigator.vibrate?.(12) } catch { /* sem vibração */ }
     }
@@ -229,7 +234,7 @@ function useDrag(container: React.RefObject<HTMLElement | null>, onEnd: (key: st
       const dx = ev.clientX - x0, dy = ev.clientY - y0
       if (!active.current) { if (Math.abs(dx) > 8 || Math.abs(dy) > 8) { moved = true; window.clearTimeout(timer) } return }
       ev.preventDefault()
-      active.current = { ...active.current, dx, dy }
+      active.current = { ...active.current, dx, dy, x: ev.clientX, y: ev.clientY }
       setDrag(active.current)
     }
     const up = (ev: PointerEvent) => {
@@ -259,86 +264,187 @@ function useDrag(container: React.RefObject<HTMLElement | null>, onEnd: (key: st
 
 // ───────────────────────── Linha do tempo (dia, 3 dias, semana) ─────────────────────────
 
-function TimeGrid({ days, today, timed, chips, compact, onCreate, onOpen, onToggle, onMove }: {
-  days: string[]; today: string; timed: Timed[]; chips: Chip[][]; compact: boolean
+const GUT = 40   // largura da coluna de horas
+const SPAN = 60  // dias carregados para cada lado; ao chegar perto da ponta, a faixa se recentra sozinha
+
+function TimeGrid({ jump, visibleN, today, timedOf, chipsOf, compact, onShown, onCreate, onOpen, onToggle, onMove }: {
+  jump: { day: string; n: number }; visibleN: number; today: string; timedOf: (day: string) => Timed[]; chipsOf: (day: string) => Chip[]; compact: boolean
+  onShown: (firstDay: string) => void
   onCreate: (day: string, min: number) => void; onOpen: (e: AgendaEvent) => void; onToggle: (e: AgendaEvent) => void
   onMove: (e: AgendaEvent, start: Date, end: Date) => void
 }) {
   const scroll = useRef<HTMLDivElement>(null)
-  const cols = useRef<HTMLDivElement>(null)
+  const head = useRef<HTMLDivElement>(null)
+  const [center, setCenter] = useState(jump.day)
+  const [first, setFirst] = useState(SPAN)   // índice do primeiro dia visível
+  const [width, setWidth] = useState(0)
+  const [, force] = useState(0)
+  const colW = width ? (width - GUT) / visibleN : 0
+  const range = useMemo(() => Array.from({ length: 2 * SPAN + 1 }, (_, i) => addDays(center, i - SPAN)), [center])
+  const pending = useRef<{ day: string; off: number } | null>({ day: jump.day, off: 0 })
   const [now, setNow] = useState(new Date())
   useEffect(() => { const t = window.setInterval(() => setNow(new Date()), 60000); return () => window.clearInterval(t) }, [])
-  useEffect(() => { if (scroll.current) scroll.current.scrollTop = Math.max(0, (Math.min(minutesOfDay(new Date()), 20 * 60) - 90) / 60 * HOUR) }, [])
-  const colW = () => (cols.current?.clientWidth ?? 300) / days.length
-  const byKey = Object.fromEntries(timed.map((t) => [t.key, t]))
+
+  // Largura das colunas = tela ÷ dias visíveis.
+  useLayoutEffect(() => {
+    const el = scroll.current
+    if (!el) return
+    setWidth(el.clientWidth)
+    el.scrollTop = Math.max(0, (Math.min(minutesOfDay(new Date()), 20 * 60) - 90) / 60 * HOUR)
+    const ro = new ResizeObserver(() => setWidth(el.clientWidth))
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+  // Posiciona a rolagem depois de recentrar a faixa ou mudar a largura (mantém o mesmo dia na esquerda).
+  const firstRef = useRef(first); firstRef.current = first
+  useLayoutEffect(() => {
+    const el = scroll.current
+    if (!el || !colW) return
+    const p = pending.current; pending.current = null
+    const idx = p ? range.indexOf(p.day) : firstRef.current
+    if (idx >= 0) el.scrollLeft = idx * colW + (p?.off ?? 0)
+  }, [range, colW])
+  // Setas / Hoje / troca de visão.
+  const lastJump = useRef(jump.n)
+  useEffect(() => {
+    if (jump.n === lastJump.current) return
+    lastJump.current = jump.n
+    const el = scroll.current
+    const idx = range.indexOf(jump.day)
+    if (el && colW && Math.abs(idx - firstRef.current) <= 3 * visibleN && idx >= visibleN + 7 && idx <= range.length - 2 * visibleN - 7) el.scrollTo({ left: idx * colW, behavior: 'smooth' })
+    else if (jump.day === center) { if (el) el.scrollLeft = SPAN * colW; setFirst(SPAN) }
+    else { pending.current = { day: jump.day, off: 0 }; setFirst(SPAN); setCenter(jump.day) }
+  }, [jump])
+  useEffect(() => { if (range[first]) onShown(range[first]) }, [first, range])
+
+  const dragging = useRef(false)
+  const onScroll = () => {
+    const el = scroll.current
+    if (!el || !colW) return
+    const i = Math.max(0, Math.min(range.length - 1, Math.round(el.scrollLeft / colW)))
+    if (i !== first) setFirst(i)
+    if (!dragging.current && (i < visibleN + 5 || i > range.length - 2 * visibleN - 5)) {
+      pending.current = { day: range[i], off: el.scrollLeft - i * colW }
+      setFirst(SPAN); setCenter(range[i])
+    }
+  }
+
+  // Só os dias perto da tela recebem conteúdo (o resto é coluna vazia, leve).
+  const lo = first - visibleN - 2, hi = first + 2 * visibleN + 2
+  const win: Record<number, { timed: Timed[]; chips: Chip[] }> = {}
+  const byKey: Record<string, Timed> = {}
+  for (let i = Math.max(0, lo); i <= Math.min(range.length - 1, hi); i++) {
+    const timed = timedOf(range[i]).map((t) => ({ ...t, dayIdx: i }))
+    timed.forEach((t) => { byKey[t.key] = t })
+    win[i] = { timed, chips: chipsOf(range[i]) }
+  }
+
+  // Ao arrastar, conta também o quanto a tela rolou (rolagem automática nas bordas).
+  const s0 = useRef({ x: 0, y: 0 })
+  const shift = () => { const el = scroll.current; return el ? { x: el.scrollLeft - s0.current.x, y: el.scrollTop - s0.current.y } : { x: 0, y: 0 } }
   const { drag, start } = useDrag(scroll, (key, mode, dx, dy) => {
+    dragging.current = false
     const t = byKey[key]
-    if (!t) return
+    if (!t || !colW) return
+    const sh = shift(); dx += sh.x; dy += sh.y
     const dmin = snap((dy / HOUR) * 60)
     const dur = t.end - t.start
+    const day0 = range[t.dayIdx]
     if (mode === 'resize') {
       const newEnd = Math.min(24 * 60, Math.max(t.start + 15, t.end + dmin))
-      if (newEnd !== t.end) onMove(t.ev, atMinutes(days[t.dayIdx], t.start), atMinutes(days[t.dayIdx], newEnd))
+      if (newEnd !== t.end) onMove(t.ev, atMinutes(day0, t.start), atMinutes(day0, newEnd))
       return
     }
-    const dayIdx = Math.min(days.length - 1, Math.max(0, t.dayIdx + Math.round(dx / colW())))
+    const dayIdx = Math.min(range.length - 1, Math.max(0, t.dayIdx + Math.round(dx / colW)))
     const ns = Math.min(24 * 60 - dur, Math.max(0, t.start + dmin))
-    if (ns !== t.start || dayIdx !== t.dayIdx) onMove(t.ev, atMinutes(days[dayIdx], ns), atMinutes(days[dayIdx], ns + dur))
-  }, (key) => { const t = byKey[key]; if (t) onOpen(t.ev) })
+    if (ns !== t.start || dayIdx !== t.dayIdx) onMove(t.ev, atMinutes(range[dayIdx], ns), atMinutes(range[dayIdx], ns + dur))
+  }, (key) => { const t = byKey[key]; if (t) onOpen(t.ev) }, () => {
+    dragging.current = true
+    const el = scroll.current
+    s0.current = { x: el?.scrollLeft ?? 0, y: el?.scrollTop ?? 0 }
+  })
+  const dragRef = useRef(drag); dragRef.current = drag
+  useEffect(() => {
+    if (!drag) return
+    let raf = 0
+    const tick = () => {
+      const el = scroll.current, a = dragRef.current
+      if (el && a) {
+        // Só rola sozinho quando o dedo já se moveu em direção à borda (não ao começar a arrastar perto dela).
+        const r = el.getBoundingClientRect(), top = r.top + (head.current?.offsetHeight ?? 0), edge = 28
+        let vx = 0, vy = 0
+        if (a.mode === 'move') { if (a.dx < -16 && a.x < r.left + GUT + edge) vx = -1; else if (a.dx > 16 && a.x > r.right - edge) vx = 1 }
+        if (a.dy < -16 && a.y < top + edge) vy = -1; else if (a.dy > 16 && a.y > r.bottom - edge) vy = 1
+        if (vx || vy) { el.scrollLeft += vx * Math.max(6, colW / 8); el.scrollTop += vy * 8; force((n) => n + 1) }
+      }
+      raf = requestAnimationFrame(tick)
+    }
+    raf = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(raf)
+  }, [drag?.key, drag?.mode])
 
+  const maxChips = compact ? 2 : 4
+  const hhmm = (d: Date) => `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
   return (
-    <div className={'tg' + (compact ? ' compact' : '')}>
-      <div className="tg-head">
-        <span className="tg-gutter" />
-        {days.map((day, i) => {
-          const dt = parseYmd(day)
-          return (
-            <div key={day} className={'tg-dayhead' + (day === today ? ' today' : '')}>
-              <span className="wd">{WD[dt.getDay()]}</span><span className="dn">{dt.getDate()}</span>
-              <div className="tg-allday">{chips[i].slice(0, compact ? 2 : 4).map((c) => <ChipView key={c.key} c={c} />)}
-                {chips[i].length > (compact ? 2 : 4) && <span className="more">+{chips[i].length - (compact ? 2 : 4)}</span>}</div>
-            </div>
-          )
-        })}
-      </div>
-      <div className="tg-scroll" ref={scroll}>
-        <div className="tg-body" style={{ height: 24 * HOUR }}>
-          <div className="tg-gutter">{Array.from({ length: 24 }, (_, h) => <span key={h} style={{ top: h * HOUR }}>{h ? `${String(h).padStart(2, '0')}:00` : ''}</span>)}</div>
-          <div className="tg-cols" ref={cols}>
-            {days.map((day, i) => {
-              const items = timed.filter((t) => t.dayIdx === i)
-              const lay = layoutColumns(items.map((t) => ({ id: t.key, start: t.start, end: t.end })))
+    <div className={'tg' + (compact ? ' compact' : '') + (drag ? ' dragging' : '')}>
+      <div className="tg-scroll" ref={scroll} onScroll={onScroll}>
+        <div className="tg-inner" style={{ width: GUT + range.length * colW }}>
+          <div className="tg-head" ref={head}>
+            <span className="tg-gutter tg-corner" />
+            {range.map((day, i) => {
+              const dt = parseYmd(day), w = win[i]
               return (
-                <div key={day} className="tg-col" onClick={(e) => {
-                  const r = (e.currentTarget as HTMLElement).getBoundingClientRect()
-                  onCreate(day, Math.min(23 * 60, snap(((e.clientY - r.top) / HOUR) * 60, 30)))
-                }}>
-                  {Array.from({ length: 24 }, (_, h) => <i key={h} className="tg-line" style={{ top: h * HOUR }} />)}
-                  {day === today && <i className="tg-now" style={{ top: (minutesOfDay(now) / 60) * HOUR }} />}
-                  {items.map((t) => {
-                    const L = lay[t.key]
-                    const dragging = drag?.key === t.key
-                    let top = (t.start / 60) * HOUR, height = Math.max(20, ((t.end - t.start) / 60) * HOUR), shiftX = 0
-                    if (dragging && drag.mode === 'move') { top += (snap((drag.dy / HOUR) * 60) / 60) * HOUR; shiftX = Math.round(drag.dx / colW()) * colW() }
-                    if (dragging && drag.mode === 'resize') height = Math.max((15 / 60) * HOUR, height + (snap((drag.dy / HOUR) * 60) / 60) * HOUR)
-                    const s = new Date(t.ev.start_at), en = new Date(t.ev.end_at)
-                    return (
-                      <div key={t.key} role="button" tabIndex={0}
-                        className={'ev' + (t.ev.done_at ? ' done' : '') + (dragging ? ' dragging' : '') + (t.partner ? ' partner' : '') + (t.ev.impacts_partner && t.partner ? ' impacts' : '')}
-                        style={{ top, height, left: `calc(${(L.col / L.cols) * 100}% + 1px)`, width: `calc(${100 / L.cols}% - 3px)`, transform: shiftX ? `translateX(${shiftX}px)` : undefined, ['--c' as string]: t.ev.color }}
-                        onPointerDown={(e) => start(e, t.key, 'move', t.editable)} onClick={(e) => e.stopPropagation()}
-                        onKeyDown={(e) => { if (e.key === 'Enter') onOpen(t.ev) }}>
-                        {t.editable && <button className="ev-check" aria-label={t.ev.done_at ? 'Desmarcar' : 'Marcar como feito'}
-                          onPointerDown={(e) => e.stopPropagation()} onClick={(e) => { e.stopPropagation(); onToggle(t.ev) }}>{t.ev.done_at && <Icon name="check" size={10} />}</button>}
-                        <span className="ev-title">{t.ev.title}</span>
-                        {height > 34 && <span className="ev-time">{`${String(s.getHours()).padStart(2, '0')}:${String(s.getMinutes()).padStart(2, '0')}–${String(en.getHours()).padStart(2, '0')}:${String(en.getMinutes()).padStart(2, '0')}`}</span>}
-                        {t.editable && <span className="ev-resize" aria-hidden="true" onPointerDown={(e) => start(e, t.key, 'resize', true)} />}
-                      </div>
-                    )
-                  })}
+                <div key={day} className={'tg-dayhead' + (day === today ? ' today' : '') + (dt.getDay() === 1 ? ' monday' : '')} style={{ width: colW }}>
+                  <span className="wd">{WD[dt.getDay()]}</span><span className="dn">{dt.getDate()}</span>
+                  {w && <div className="tg-allday">{w.chips.slice(0, maxChips).map((c) => <ChipView key={c.key} c={c} />)}
+                    {w.chips.length > maxChips && <span className="more">+{w.chips.length - maxChips}</span>}</div>}
                 </div>
               )
             })}
+          </div>
+          <div className="tg-body" style={{ height: 24 * HOUR }}>
+            <div className="tg-gutter">{Array.from({ length: 24 }, (_, h) => <span key={h} style={{ top: h * HOUR }}>{h ? `${String(h).padStart(2, '0')}:00` : ''}</span>)}</div>
+            <div className="tg-cols">
+              {range.map((day, i) => {
+                const w = win[i]
+                const lay = w ? layoutColumns(w.timed.map((t) => ({ id: t.key, start: t.start, end: t.end }))) : {}
+                return (
+                  <div key={day} className={'tg-col' + (parseYmd(day).getDay() === 1 ? ' monday' : '')} style={{ width: colW }} onClick={(e) => {
+                    const r = (e.currentTarget as HTMLElement).getBoundingClientRect()
+                    onCreate(day, Math.min(23 * 60, snap(((e.clientY - r.top) / HOUR) * 60, 30)))
+                  }}>
+                    {day === today && <i className="tg-now" style={{ top: (minutesOfDay(now) / 60) * HOUR }} />}
+                    {w?.timed.map((t) => {
+                      const L = lay[t.key]
+                      const isDrag = drag?.key === t.key
+                      let top = (t.start / 60) * HOUR, height = Math.max(20, ((t.end - t.start) / 60) * HOUR), shiftX = 0
+                      if (isDrag) {
+                        const sh = shift()
+                        const dy = snap(((drag.dy + sh.y) / HOUR) * 60) / 60 * HOUR
+                        if (drag.mode === 'move') { top += dy; shiftX = Math.round((drag.dx + sh.x) / colW) * colW }
+                        else height = Math.max((15 / 60) * HOUR, height + dy)
+                      }
+                      const s = new Date(t.ev.start_at), en = new Date(t.ev.end_at)
+                      const cl = t.ev.checklist ?? []
+                      return (
+                        <div key={t.key} role="button" tabIndex={0}
+                          className={'ev' + (t.ev.done_at ? ' done' : '') + (isDrag ? ' dragging' : '') + (t.partner ? ' partner' : '') + (t.ev.impacts_partner && t.partner ? ' impacts' : '')}
+                          style={{ top, height, left: `calc(${(L.col / L.cols) * 100}% + 1px)`, width: `calc(${100 / L.cols}% - 3px)`, transform: shiftX ? `translateX(${shiftX}px)` : undefined, ['--c' as string]: t.ev.color }}
+                          onPointerDown={(e) => start(e, t.key, 'move', t.editable)} onClick={(e) => e.stopPropagation()}
+                          onKeyDown={(e) => { if (e.key === 'Enter') onOpen(t.ev) }}>
+                          {t.editable && <button className="ev-check" aria-label={t.ev.done_at ? 'Desmarcar' : 'Marcar como feito'}
+                            onPointerDown={(e) => e.stopPropagation()} onClick={(e) => { e.stopPropagation(); onToggle(t.ev) }}>{t.ev.done_at && <Icon name="check" size={10} />}</button>}
+                          <span className="ev-title">{t.ev.title}</span>
+                          {height > 34 && <span className="ev-time">{`${hhmm(s)}–${hhmm(en)}`}</span>}
+                          {cl.length > 0 && height > 48 && <span className="ev-time">☑ {cl.filter((c) => c.done).length}/{cl.length}</span>}
+                          {t.editable && <span className="ev-resize" aria-hidden="true" onPointerDown={(e) => start(e, t.key, 'resize', true)} />}
+                        </div>
+                      )
+                    })}
+                  </div>
+                )
+              })}
+            </div>
           </div>
         </div>
       </div>
@@ -427,7 +533,7 @@ function DayList({ items, onOpen, onToggle }: { items: ({ t: Timed } | { c: Chip
       <div key={it.t.key} className={'card ev-row' + (it.t.ev.done_at ? ' done' : '')} style={{ ['--c' as string]: it.t.ev.color }}>
         {it.t.editable && <button className="ev-check big" aria-label="Marcar como feito" onClick={() => onToggle(it.t.ev)}>{it.t.ev.done_at && <Icon name="check" size={12} />}</button>}
         <button className="grow ev-row-main" onClick={() => onOpen(it.t.ev)}><strong>{it.t.ev.title}</strong>
-          <span className="muted small">{hhmm(it.t.ev.start_at)}–{hhmm(it.t.ev.end_at)}{it.t.ev.location ? ` · ${it.t.ev.location}` : ''}{it.t.partner ? ' · do parceiro' : ''}</span></button>
+          <span className="muted small">{hhmm(it.t.ev.start_at)}–{hhmm(it.t.ev.end_at)}{it.t.ev.location ? ` · ${it.t.ev.location}` : ''}{it.t.partner ? ' · do parceiro' : ''}{progress(it.t.ev)}</span></button>
       </div>
     ) : (
       <div key={it.c.key} className={'card ev-row' + (it.c.done ? ' done' : '')} style={{ ['--c' as string]: it.c.color }}>

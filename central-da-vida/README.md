@@ -14,7 +14,7 @@ PWA (React + TypeScript + Vite) com Supabase (Postgres, login Google, RLS, tempo
 | `supabase/fase2a.sql` | Finanças 2A: contas, cartões, favorecidos, lançamentos (rodar depois) |
 | `supabase/fase2b.sql` | Finanças 2B: renda de referência, contas fixas/assinaturas, mês do casal |
 | `supabase/fase3a.sql` | Planejamento 3A: regras da casa, caixinhas, limites, tipo de gasto |
-| `supabase/fase4a.sql` · `fase4a2.sql` | Agenda (tipo pessoal/trabalho), lembretes para o parceiro, hábitos e água |
+| `supabase/fase4a.sql` · `fase4a2.sql` · `fase4c.sql` | Agenda (tipo pessoal/trabalho, título sem limite, checklist), lembretes para o parceiro, hábitos e água |
 | `supabase/fase4b.sql` | Notificações: aparelhos, preferências, segredo do servidor e rotina de cada minuto |
 | `supabase/fase5.sql` | Receitas, cardápio, diário alimentar, lista de mercado e fotos |
 | `supabase/fase6.sql` | Fichas de treino, exercícios, histórico e biblioteca |

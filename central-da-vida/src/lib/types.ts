@@ -63,11 +63,14 @@ export interface HouseRule extends FinOwned { params: Record<string, number | bo
 export interface Goal extends FinOwned { name: string; kind: 'desejo' | 'reserva' | 'investimento'; target_cents: number; deadline: string | null; color: string; position: number }
 export interface GoalMove extends FinOwned { goal_id: string; amount_cents: number; date: string; note: string }
 export interface Budget extends FinOwned { category_id: string; limit_cents: number }
+export interface ChecklistItem { id: string; text: string; done: boolean }
+
 export interface AgendaEvent {
   id: string; household_id: string; owner_id: string; context: 'pf' | 'casal'
   title: string; notes: string; location: string; start_at: string; end_at: string; all_day: boolean
   category_id: string | null; color: string; impacts_partner: boolean; done_at: string | null; nature: 'pessoal' | 'trabalho'
   series_id: string | null; series_rule: 'diario' | 'semanal' | 'mensal' | 'anual' | null; reminders: number[]
+  checklist: ChecklistItem[]
   archived_at: string | null; created_at: string; updated_at: string
 }
 export interface PartnerReminder { id: string; household_id: string; from_id: string; to_id: string; text: string; remind_at: string; done_at: string | null; created_at: string; updated_at: string }
