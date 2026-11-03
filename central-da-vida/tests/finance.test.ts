@@ -341,3 +341,10 @@ test('fale comigo: consultas e simulação', () => {
   assert.deepEqual([s.kind, s.cents, s.installments], ['simular', 300000, 10]); assert.match(String(s.description), /Vara de pesca/i)
   assert.equal(P('blablabla').kind, 'desconhecido')
 })
+
+import { checklistProgress } from '../src/lib/agenda.ts'
+test('agenda: progresso do checklist', () => {
+  assert.equal(checklistProgress([]), '')
+  assert.equal(checklistProgress(undefined), '')
+  assert.equal(checklistProgress([{ done: true }, { done: false }, { done: true }]), ' · ☑ 2/3')
+})

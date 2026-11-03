@@ -104,3 +104,9 @@ export function dayScore(inp: DayInput, day: string): { due: number; done: numbe
   const ratio = done / due
   return { due, done, ratio, level: ratio >= 0.999 ? 'full' : ratio > 0 ? 'partial' : 'zero' }
 }
+
+// Progresso do checklist de um compromisso: " · ☑ 2/5" (vazio se não tem checklist).
+export function checklistProgress(items: { done: boolean }[] | null | undefined): string {
+  if (!items || !items.length) return ''
+  return ` · ☑ ${items.filter((i) => i.done).length}/${items.length}`
+}

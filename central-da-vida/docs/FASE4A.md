@@ -68,3 +68,11 @@ Testes já feitos aqui: banco em Postgres 16 com os dois usuários (parceiro vê
 - Compromissos de vários dias com horário aparecem na faixa de dia inteiro e não são arrastáveis.
 - Widget de água na tela do iPhone não é possível para app instalado pelo navegador.
 - Sincronização com Google Agenda/Apple Calendário: não incluída.
+
+## Ajuste 4C · Rolagem livre, título sem limite e checklist
+
+- **Rolar os dias com o dedo:** em Dia, 3 dias e Semana a agenda é uma faixa contínua. Arraste para os lados e monte a tela como quiser (ex.: qui, sex, sáb, dom de uma semana + seg, ter, qua da outra). As colunas encaixam no início de cada dia. Uma linha mais escura marca onde começa cada nova semana (segunda). As setas andam 1, 3 ou 7 dias. "Hoje" volta para hoje (na Semana, para o domingo desta semana).
+- **Arrastar compromisso para outro dia fora da tela:** segure e leve até a borda; a agenda rola sozinha.
+- **Título sem limite de caracteres:** o campo cresce conforme você escreve.
+- **Checklist em cada compromisso:** "Adicionar atividade" (Enter adiciona). Marcar/desmarcar salva na hora. O progresso (☑ 2/5) aparece no bloco da agenda, na Lista e em "Agenda de hoje". Em compromisso repetido, as atividades são copiadas desmarcadas para cada dia.
+- **SQL:** rode `supabase/fase4c.sql` uma vez (também foi adicionado ao final do `fase4a.sql`).
