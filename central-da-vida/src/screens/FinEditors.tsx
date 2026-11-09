@@ -78,6 +78,7 @@ export function TxEditor({ tx, preset, initial, onClose }: { tx: Transaction | n
   const [installments, setInstallments] = useState(initial?.installments ?? 1)
   const [payeeId, setPayeeId] = useState<string>(tx?.payee_id ?? '')
   const [client, setClient] = useState(tx?.client ?? '')
+  const [incomeOf, setIncomeOf] = useState<string>(tx?.income_of ?? '')
   const [category, setCategory] = useState<string | null>(tx?.category_id ?? initial?.category ?? null)
   const [link, setLink] = useState(tx?.payment_link ?? '')
   const [tags, setTags] = useState((tx?.tags ?? []).join(', '))
@@ -139,7 +140,7 @@ export function TxEditor({ tx, preset, initial, onClose }: { tx: Transaction | n
         paid_date: status === 'realizado' ? (tx?.paid_date ?? paidDate(useCard ? tx?.due_date ?? date : due || date)) : null,
         account_id: useCard ? null : accountId || null, card_id: useCard ? cardId : null,
         payment_method: useCard ? 'cartao' : kind === 'receita' ? (method === 'cartao' ? 'pix' : method) : method,
-        payee_id: kind === 'despesa' ? payeeId || null : null, client: kind === 'receita' ? client.trim() : '',
+        payee_id: kind === 'despesa' ? payeeId || null : null, client: kind === 'receita' ? client.trim() : '', income_of: kind === 'receita' && ctx.ctx === 'casal' && incomeOf ? incomeOf : null,
       }
       if (tx) ok = !!(await update('transactions', tx.id, row))
       else if (useCard && installments > 1) {
@@ -221,6 +222,10 @@ export function TxEditor({ tx, preset, initial, onClose }: { tx: Transaction | n
                 {accOpts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}</select></label>
             <label className="field"><span className="label">Cliente ou fonte</span>
               <input value={client} onChange={(e) => setClient(e.target.value)} placeholder="Ex.: Marca X" /></label>
+            {ctx.ctx === 'casal' && <label className="field"><span className="label">Renda de quem</span>
+              <select value={incomeOf} onChange={(e) => setIncomeOf(e.target.value)}><option value="">Do casal (não é renda de um de nós)</option>
+                {profiles.map((p) => <option key={p.id} value={p.id}>{p.display_name}</option>)}</select>
+              <span className="hint">Conta como renda dessa pessoa no Mês do casal (base da divisão do saldo em conta corrente).</span></label>}
           </div>
         )}
 

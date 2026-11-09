@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Icon } from '../components/Icon'
 import { CategoryPicker, Confirm, Dot, Empty, Segmented, Sheet } from '../components/ui'
 import { useData } from '../lib/data'
-import { addMonths, cashDate, fmtAmount, nextPayDay, withAllowanceOverrides, coupleMonth, fmtMoney, isOverdue, monthEnd, monthOf, occurrenceDates, parseMoney, signed, accountOf } from '../lib/finance'
+import { addMonths, cashDate, fmtAmount, nextPayDay, fmtMoney, isOverdue, monthEnd, monthOf, occurrenceDates, parseMoney, signed, accountOf } from '../lib/finance'
 import { canWrite, inCtx, linkOk, METHODS, type CtxOpt } from '../lib/finctx'
 import { go } from '../lib/route'
 import { sb, friendly } from '../lib/supabase'
@@ -10,7 +10,7 @@ import type { FinContext, MonthPlan, PayMethod, Recurrence, Transaction } from '
 import { fmtDate, todayISO } from '../lib/util'
 import { MoneyInput } from './FinEditors'
 import { TxList } from './Financas'
-import { usePlanning } from '../lib/usePlanning'
+import { useCoupleMonth, usePlanning } from '../lib/usePlanning'
 import { useCtxOptions } from '../lib/finctx'
 
 function useCoupleSuggestion(month: string) {
@@ -65,16 +65,14 @@ export function useRecurrenceSync() {
 // ───────────────────────── Mês do casal ─────────────────────────
 
 export function MesCasal({ month }: { month: string }) {
-  const { me, partner, transactions, month_plans, insert, update, toast } = useData()
+  const { me, insert, update, toast } = useData()
   const [edit, setEdit] = useState(false)
-  const plan = month_plans.find((p) => p.month.slice(0, 7) === month)
-  const people = [me!, ...(partner ? [partner] : [])]
-  const incomeOf = (id: string, ref: number) => plan?.income_overrides?.[id] ?? ref
-  const live = transactions.filter((t) => t.status !== 'cancelado' && t.kind === 'despesa' && monthOf(cashDate(t)) === month)
-  const fixed = live.filter((t) => t.context === 'casal').reduce((s, t) => s + t.amount_cents, 0)
-  const cm = withAllowanceOverrides(coupleMonth(people.map((p) => ({ id: p.id, income: incomeOf(p.id, p.income_ref_cents) })), fixed, plan?.savings_cents ?? 0), plan?.allowance_overrides)
-  const usedBy = (id: string) => live.filter((t) => t.context === 'pf' && t.owner_id === id).reduce((s, t) => s + t.amount_cents, 0)
-  const missing = people.filter((p) => plan?.income_overrides?.[p.id] === undefined && !p.income_ref_cents)
+  const C = useCoupleMonth(month)
+  const { people, plan, cm } = C
+  const incomeOf = (id: string) => C.incomes.find((x) => x.id === id)?.income ?? 0
+  const srcLabel = (id: string) => ({ lancado: 'lançado', ajuste: 'ajuste do mês', referencia: 'referência' } as const)[C.incomes.find((x) => x.id === id)?.source ?? 'referencia']
+  const usedBy = (id: string) => C.live.filter((t) => t.kind === 'despesa' && t.context === 'pf' && t.owner_id === id).reduce((s, t) => s + t.amount_cents, 0)
+  const missing = people.filter((p) => C.incomes.find((x) => x.id === p.id)?.source === 'referencia' && !p.income_ref_cents)
 
   return (
     <>
@@ -85,9 +83,9 @@ export function MesCasal({ month }: { month: string }) {
           {p.id === me!.id && <button className="btn" onClick={() => go('ajustes')}>Informar</button>}</div>
       ))}
       <div className="card flow">
-        <FlowRow label="Renda do casal" value={cm.total} detail={people.map((p) => `${p.display_name} ${fmtMoney(incomeOf(p.id, p.income_ref_cents))}`).join(' + ')} />
+        <FlowRow label="Renda do casal" value={cm.total} detail={people.map((p) => `${p.display_name} ${fmtMoney(incomeOf(p.id))} (${srcLabel(p.id)})`).join(' + ') + (C.extra ? ` + outras receitas do casal ${fmtMoney(C.extra)}` : '')} onClick={() => go('financas', 'lancamentos')} />
         <FlowRow label="− Contas do casal" value={-cm.fixed} detail="despesas da aba Casal neste mês (pagas e a pagar)" onClick={() => go('financas', 'lancamentos')} />
-        <FlowRow label="− Caixinhas e reserva" value={-cm.savings} detail={cm.savings ? 'definido para este mês' : 'ainda não definido'} />
+        <FlowRow label="− Guardado nas caixinhas" value={-cm.savings} detail={(C.savingsSource === 'real' ? 'aportes feitos neste mês' : C.savingsSource === 'plano' ? 'planejado para este mês (sem aportes ainda)' : 'nenhum aporte neste mês') + (C.metaMonthly ? ` · meta: ${fmtMoney(C.metaMonthly)} (não obrigatória)` : '')} onClick={() => go('financas', 'metas')} />
         <div className="flow-total"><span>= Sobra para o saldo em conta corrente</span><strong className={cm.leftover < 0 ? 'neg' : 'pos'}>{fmtMoney(cm.leftover)}</strong></div>
       </div>
       {plan?.notes && <p className="card info small">📝 {plan.notes}</p>}

@@ -1,6 +1,6 @@
 import { useData } from './data'
 import { expandCategories } from './filters'
-import { accountBalance, cashDate, fmtMoney, monthOf } from './finance'
+import { accountBalance, cashDate, coupleMonth, fmtMoney, monthIncomes, monthOf, withAllowanceOverrides } from './finance'
 import { inCtx, type CtxOpt } from './finctx'
 import { budgetStatus, companyIndicators, goalPlan, pfIndicators, withDefaults, type Indicator, type RuleCtx } from './planning'
 import type { Goal } from './types'
@@ -30,9 +30,10 @@ export function usePlanning(cur: CtxOpt, month: string) {
   const today = todayISO()
   const people = [d.me!, ...(d.partner ? [d.partner] : [])]
   const plan = d.month_plans.find((p) => p.month.slice(0, 7) === month)
-  const incomeOf = (id: string) => plan?.income_overrides?.[id] ?? people.find((p) => p.id === id)?.income_ref_cents ?? 0
-  const coupleIncome = people.reduce((s, p) => s + incomeOf(p.id), 0)
   const live = d.transactions.filter((t) => t.status !== 'cancelado' && monthOf(cashDate(t)) === month)
+  const mi = monthIncomes(people.map((p) => ({ id: p.id, ref: p.income_ref_cents })), plan?.income_overrides, live.filter((t) => t.context === 'casal' && t.kind === 'receita'))
+  const incomeOf = (id: string) => mi.incomes.find((x) => x.id === id)?.income ?? 0
+  const coupleIncome = mi.incomes.reduce((s, x) => s + x.income, 0) + mi.extra
   const ctxTx = live.filter((t) => inCtx(t, cur))
   // Tipo de gasto (fixo, lazer, imposto); subcategoria herda da mãe.
   const bucketOf = (catId: string | null) => {
@@ -130,6 +131,27 @@ export function usePlanning(cur: CtxOpt, month: string) {
 export function dismissed(month: string): Set<string> {
   try { return new Set(JSON.parse(localStorage.getItem(`cdv-dismiss-${month}`) ?? '[]') as string[]) } catch { return new Set() }
 }
+export function undismiss(month: string, ids: string[]) {
+  try { const s = dismissed(month); ids.forEach((i) => s.delete(i)); localStorage.setItem(`cdv-dismiss-${month}`, JSON.stringify([...s])) } catch { /* sem armazenamento */ }
+}
 export function dismiss(month: string, id: string) {
   try { const s = dismissed(month); s.add(id); localStorage.setItem(`cdv-dismiss-${month}`, JSON.stringify([...s])) } catch { /* sem armazenamento */ }
+}
+
+// Mês do casal com dados reais: renda lançada (ou ajuste/referência), contas do casal do mês e o que foi guardado nas caixinhas no mês.
+export function useCoupleMonth(month: string) {
+  const d = useData()
+  const people = [d.me!, ...(d.partner ? [d.partner] : [])]
+  const plan = d.month_plans.find((p) => p.month.slice(0, 7) === month)
+  const live = d.transactions.filter((t) => t.status !== 'cancelado' && monthOf(cashDate(t)) === month)
+  const mi = monthIncomes(people.map((p) => ({ id: p.id, ref: p.income_ref_cents })), plan?.income_overrides, live.filter((t) => t.context === 'casal' && t.kind === 'receita'))
+  const fixed = live.filter((t) => t.context === 'casal' && t.kind === 'despesa').reduce((s, t) => s + t.amount_cents, 0)
+  const casalGoals = d.goals.filter((g) => !g.archived_at && g.context === 'casal')
+  const moves = d.goal_moves.filter((m) => monthOf(m.date) === month && casalGoals.some((g) => g.id === m.goal_id))
+  const saved = moves.reduce((s, m) => s + m.amount_cents, 0)
+  const savings = moves.length ? saved : plan?.savings_cents ?? 0
+  const savingsSource: 'real' | 'plano' | 'nada' = moves.length ? 'real' : plan?.savings_cents ? 'plano' : 'nada'
+  const metaMonthly = casalGoals.reduce((s, g) => s + (g.monthly_cents ?? 0), 0)
+  const cm = withAllowanceOverrides(coupleMonth(mi.incomes.map((x) => ({ id: x.id, income: x.income })), fixed, savings, mi.extra), plan?.allowance_overrides)
+  return { people, plan, live, incomes: mi.incomes, extra: mi.extra, fixed, savings, savingsSource, metaMonthly, cm }
 }

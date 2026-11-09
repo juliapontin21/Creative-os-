@@ -3,7 +3,7 @@ import { takeSimPrefill } from './FaleComigo'
 import { Icon } from '../components/Icon'
 import { Segmented, useModuleCategories } from '../components/ui'
 import { useData } from '../lib/data'
-import { addMonths, cashDate, coupleMonth, fmtMoney, forecast, monthOf, monthSummary, parseMoney, splitInstallments, withAllowanceOverrides } from '../lib/finance'
+import { addMonths, cashDate, coupleMonth, fmtMoney, forecast, monthOf, monthSummary, parseMoney, splitInstallments, monthIncomes, withAllowanceOverrides } from '../lib/finance'
 import { inCtx, useCtxOptions, type CtxOpt } from '../lib/finctx'
 import { goalPlan } from '../lib/planning'
 import { simulate, type SimMonth } from '../lib/simulate'
@@ -34,11 +34,15 @@ export function useMonthModel() {
 
   return (cur: CtxOpt, month: string, premise: { income?: number | null; savings?: number | null } = {}): SimMonth & { allowance: number | null } => {
     const plan = d.month_plans.find((p) => p.month.slice(0, 7) === month)
-    const incomeOf = (id: string) => (id === (cur.ctx === 'pf' ? cur.owner : d.me!.id) && premise.income != null ? premise.income : plan?.income_overrides?.[id] ?? people.find((p) => p.id === id)?.income_ref_cents ?? 0)
     const live = d.transactions.filter((t) => t.status !== 'cancelado' && monthOf(cashDate(t)) === month)
+    const mi = monthIncomes(people.map((p) => ({ id: p.id, ref: p.income_ref_cents })), plan?.income_overrides, live.filter((t) => t.context === 'casal' && t.kind === 'receita'))
+    const incomeOf = (id: string) => (id === (cur.ctx === 'pf' ? cur.owner : d.me!.id) && premise.income != null ? premise.income : mi.incomes.find((x) => x.id === id)?.income ?? 0)
     const fixed = live.filter((t) => t.context === 'casal' && t.kind === 'despesa').reduce((s, t) => s + t.amount_cents, 0)
-    const savings = premise.savings ?? plan?.savings_cents ?? coupleSuggestion
-    const cm = withAllowanceOverrides(coupleMonth(people.map((p) => ({ id: p.id, income: incomeOf(p.id) })), fixed, savings), plan?.allowance_overrides)
+    // Guardado: o que foi aportado de verdade no mês; sem aportes, o plano do mês; sem plano, a meta (projeção).
+    const casalGoalIds = new Set(d.goals.filter((g) => g.context === 'casal').map((g) => g.id))
+    const moves = d.goal_moves.filter((m) => monthOf(m.date) === month && casalGoalIds.has(m.goal_id))
+    const savings = premise.savings ?? (moves.length ? moves.reduce((s, m) => s + m.amount_cents, 0) : plan?.savings_cents ?? coupleSuggestion)
+    const cm = withAllowanceOverrides(coupleMonth(people.map((p) => ({ id: p.id, income: incomeOf(p.id) })), fixed, savings, mi.extra), plan?.allowance_overrides)
     const accs = d.accounts.filter((a) => !a.archived_at && inCtx(a, cur))
     const inst = (pred: (t: Transaction) => boolean) => live.filter((t) => t.installment_total && t.kind === 'despesa' && pred(t)).reduce((s, t) => s + t.amount_cents, 0)
     if (cur.ctx === 'pf') {

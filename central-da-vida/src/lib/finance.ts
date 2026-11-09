@@ -150,11 +150,13 @@ export interface CoupleMonth {
   total: number; fixed: number; savings: number; leftover: number
   allowances: { id: string; income: number; share: number; allowance: number }[]
 }
-export function coupleMonth(incomes: { id: string; income: number }[], fixed: number, savings: number): CoupleMonth {
-  const total = incomes.reduce((s, x) => s + x.income, 0)
+export function coupleMonth(incomes: { id: string; income: number }[], fixed: number, savings: number, extra = 0): CoupleMonth {
+  // extra: renda do casal lançada sem dizer de quem é (entra na sobra, mas não muda a proporção).
+  const people = incomes.reduce((s, x) => s + x.income, 0)
+  const total = people + extra
   const leftover = total - fixed - savings
   const pool = Math.max(0, leftover)
-  const allowances = incomes.map((x) => ({ id: x.id, income: x.income, share: total ? x.income / total : 0, allowance: total ? Math.floor((pool * x.income) / total) : 0 }))
+  const allowances = incomes.map((x) => ({ id: x.id, income: x.income, share: people ? x.income / people : 0, allowance: people ? Math.floor((pool * x.income) / people) : 0 }))
   // Centavos que sobram da divisão ficam com quem tem a maior renda.
   const rest = pool - allowances.reduce((s, a) => s + a.allowance, 0)
   if (rest > 0 && allowances.length) allowances.reduce((a, b) => (b.income > a.income ? b : a)).allowance += rest
@@ -184,4 +186,22 @@ export function nextPayDay(ctx: 'empresa' | 'pf' | 'casal', today: string): stri
     if (d >= today) return d
   }
   return today
+}
+
+// Renda do mês de cada um: o que foi lançado como receita do Casal ("renda de quem") vale primeiro;
+// sem lançamento, usa o ajuste do mês; sem ajuste, a renda de referência.
+export interface MonthIncome { id: string; income: number; source: 'lancado' | 'ajuste' | 'referencia' }
+export function monthIncomes(
+  people: { id: string; ref: number }[], overrides: Record<string, number> | null | undefined,
+  casalReceipts: { amount_cents: number; income_of?: string | null }[],
+): { incomes: MonthIncome[]; extra: number } {
+  const ids = new Set(people.map((p) => p.id))
+  const incomes = people.map((p): MonthIncome => {
+    const mine = casalReceipts.filter((r) => r.income_of === p.id)
+    if (mine.length) return { id: p.id, income: mine.reduce((s, r) => s + r.amount_cents, 0), source: 'lancado' }
+    if (overrides && typeof overrides[p.id] === 'number') return { id: p.id, income: overrides[p.id], source: 'ajuste' }
+    return { id: p.id, income: p.ref, source: 'referencia' }
+  })
+  const extra = casalReceipts.filter((r) => !r.income_of || !ids.has(r.income_of)).reduce((s, r) => s + r.amount_cents, 0)
+  return { incomes, extra }
 }

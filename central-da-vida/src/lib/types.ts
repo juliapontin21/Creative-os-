@@ -51,7 +51,7 @@ export interface Transaction extends FinOwned {
   account_id: string | null; card_id: string | null; payee_id: string | null; client: string
   category_id: string | null; payment_method: PayMethod; payment_link: string; tags: string[]; notes: string
   installment_group: string | null; installment_no: number | null; installment_total: number | null
-  transfer_group: string | null; recurrence_id: string | null; amount_pending?: boolean
+  transfer_group: string | null; recurrence_id: string | null; amount_pending?: boolean; income_of?: string | null
 }
 export interface Recurrence extends FinOwned {
   kind: 'receita' | 'despesa'; description: string; amount_cents: number; frequency: 'semanal' | 'mensal' | 'anual'
