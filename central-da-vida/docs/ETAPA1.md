@@ -23,3 +23,8 @@ Decisões aplicadas:
 
 ## Pendências (não inventadas)
 Valor de Munique, Claude e ChatGPT; valor confirmado do curso Profissão do Futuro; saldo inicial e meta total das caixinhas; pró-labore exato; pagador/rateio dos lançamentos do casal (próxima parte, junto com a planilha anual 1C).
+
+## Saldo em conta corrente (antes "mesada")
+- Regra: juntar as rendas, pagar as contas, separar as caixinhas e dividir o que sobra na proporção da renda = **saldo em conta corrente** de cada um.
+- Em mês fora do normal, ajuste em Finanças → Casal → Mês do casal → Ajustar este mês: renda e saldo de cada um só naquele mês.
+- `supabase/etapa1-saldos-novembro.sql`: novembro/2026 com Júlia sem renda (saldo R$ 0), Michelangelo R$ 8.000 (saldo R$ 300), caixinhas R$ 4.373,85 (Viagem 1.000 · Carro 1.984,62 · Emergência 992,31 · Imprevistos 396,92) e limites só de novembro: Lazer R$ 174, Uber trabalho R$ 200.

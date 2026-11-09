@@ -102,7 +102,8 @@ export interface NotificationPrefs extends Private {
   events: boolean; partner_events: boolean; partner_reminders: boolean; habits: boolean; water: boolean; water_every_min: number
   finance: boolean; finance_hour: number; quiet_start: number; quiet_end: number
 }
-export interface MonthPlan extends FinOwned { month: string; savings_cents: number; income_overrides: Record<string, number>; notes: string }
+export interface MonthPlan extends FinOwned { month: string; savings_cents: number; income_overrides: Record<string, number>; notes: string
+  allowance_overrides?: Record<string, number>; budget_overrides?: Record<string, number> }
 
 export interface Tables {
   profiles: Profile[]; categories: Category[]; notes: Note[]; saved_views: SavedView[]

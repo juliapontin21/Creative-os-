@@ -3,7 +3,7 @@ import { takeSimPrefill } from './FaleComigo'
 import { Icon } from '../components/Icon'
 import { Segmented, useModuleCategories } from '../components/ui'
 import { useData } from '../lib/data'
-import { addMonths, cashDate, coupleMonth, fmtMoney, forecast, monthOf, monthSummary, parseMoney, splitInstallments } from '../lib/finance'
+import { addMonths, cashDate, coupleMonth, fmtMoney, forecast, monthOf, monthSummary, parseMoney, splitInstallments, withAllowanceOverrides } from '../lib/finance'
 import { inCtx, useCtxOptions, type CtxOpt } from '../lib/finctx'
 import { goalPlan } from '../lib/planning'
 import { simulate, type SimMonth } from '../lib/simulate'
@@ -38,7 +38,7 @@ export function useMonthModel() {
     const live = d.transactions.filter((t) => t.status !== 'cancelado' && monthOf(cashDate(t)) === month)
     const fixed = live.filter((t) => t.context === 'casal' && t.kind === 'despesa').reduce((s, t) => s + t.amount_cents, 0)
     const savings = premise.savings ?? plan?.savings_cents ?? coupleSuggestion
-    const cm = coupleMonth(people.map((p) => ({ id: p.id, income: incomeOf(p.id) })), fixed, savings)
+    const cm = withAllowanceOverrides(coupleMonth(people.map((p) => ({ id: p.id, income: incomeOf(p.id) })), fixed, savings), plan?.allowance_overrides)
     const accs = d.accounts.filter((a) => !a.archived_at && inCtx(a, cur))
     const inst = (pred: (t: Transaction) => boolean) => live.filter((t) => t.installment_total && t.kind === 'despesa' && pred(t)).reduce((s, t) => s + t.amount_cents, 0)
     if (cur.ctx === 'pf') {
@@ -284,7 +284,7 @@ export function Simulador({ cur }: { cur: CtxOpt }) {
         <strong>Premissas usadas</strong>
         <ul className="small">
           {m0.balance !== null && <li>Saldo projetado das contas em {shortMonth(m0.month)}: {fmtMoney(m0.balance)}</li>}
-          {target.ctx === 'pf' && m0.room !== null && <li>Mesada restante em {shortMonth(m0.month)}: {fmtMoney(m0.room)}</li>}
+          {target.ctx === 'pf' && m0.room !== null && <li>Saldo em conta corrente restante em {shortMonth(m0.month)}: {fmtMoney(m0.room)}</li>}
           {target.ctx === 'casal' && m0.room !== null && <li>Sobra do casal em {shortMonth(m0.month)} (depois das contas e caixinhas): {fmtMoney(m0.room)}</li>}
           {m0.r2Limit !== null && <li>Parcelas já correndo: {fmtMoney(m0.installments)} · referência {fmtMoney(m0.r2Limit)}</li>}
         </ul>

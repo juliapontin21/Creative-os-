@@ -52,7 +52,10 @@ export function usePlanning(cur: CtxOpt, month: string) {
   const budgets = d.budgets.filter((b) => !b.archived_at && inCtx(b, cur)).map((b) => {
     const cats = expandCategories([b.category_id], d.categories)
     const spent = ctxTx.filter((t) => t.kind === 'despesa' && t.category_id && cats.has(t.category_id)).reduce((s, t) => s + t.amount_cents, 0)
-    return { budget: b, category: d.categories.find((c) => c.id === b.category_id), spent, ...budgetStatus(spent, b.limit_cents) }
+    // Limite só deste mês (Mês do casal), sem mudar o limite normal.
+    const monthLimit = b.context === 'casal' ? d.month_plans.find((p) => p.month.slice(0, 7) === month)?.budget_overrides?.[b.category_id] : undefined
+    const limit = typeof monthLimit === 'number' ? monthLimit : b.limit_cents
+    return { budget: b, category: d.categories.find((c) => c.id === b.category_id), spent, limit, monthOnly: typeof monthLimit === 'number', ...budgetStatus(spent, limit) }
   })
 
   // Indicadores.
@@ -105,7 +108,7 @@ export function usePlanning(cur: CtxOpt, month: string) {
       if (off.length) alerts.push({
         id: `r3-${cur.key}`, level: 'warn',
         title: cur.ctx === 'casal' ? `${off.length} ${off.length === 1 ? 'despesa do casal fora' : 'despesas do casal fora'} do ${couple.name}` : `${off.length} ${off.length === 1 ? 'gasto pessoal' : 'gastos pessoais'} no ${couple.name}`,
-        detail: `${fmtMoney(off.reduce((s, t) => s + t.amount_cents, 0))} · regra R3: casal no cartão do casal; mesada no Pix/débito`,
+        detail: `${fmtMoney(off.reduce((s, t) => s + t.amount_cents, 0))} · regra R3: casal no cartão do casal; saldo em conta corrente no Pix/débito`,
       })
     }
   }
@@ -114,7 +117,7 @@ export function usePlanning(cur: CtxOpt, month: string) {
     alerts.push({ id: `ind-${cur.key}-${i.id}`, level: i.kind === 'max' ? 'over' : 'warn', title: `${i.label}: ${fmtMoney(i.actual)}`, detail: `Referência ${fmtMoney(i.target)} (${i.rule})` })
   }
   for (const b of budgets.filter((x) => x.level !== 'ok')) {
-    alerts.push({ id: `bud-${b.budget.id}`, level: b.level as 'warn' | 'over', title: `${b.category?.name ?? 'Categoria'}: ${b.pct}% do limite`, detail: `${fmtMoney(b.spent)} de ${fmtMoney(b.budget.limit_cents)}` })
+    alerts.push({ id: `bud-${b.budget.id}`, level: b.level as 'warn' | 'over', title: `${b.category?.name ?? 'Categoria'}: ${b.pct}% do limite`, detail: `${fmtMoney(b.spent)} de ${fmtMoney(b.limit)}` })
   }
 
   const coupleSuggestion = d.goals.filter((g) => !g.archived_at && g.context === 'casal')

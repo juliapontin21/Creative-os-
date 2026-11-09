@@ -16,7 +16,7 @@ import { TxEditor, type TxInitial } from './FinEditors'
 
 const EXAMPLES = [
   'gastei 85 no mercado no cartão do casal', 'dentista sexta 15h', 'bebi 500 ml', 'mercado: leite, pão e 2 kg tomate',
-  'lembra o Mi de pagar o condomínio amanhã às 9', 'quanto ainda tenho de mesada?', 'o que tenho amanhã?', 'fiz 40 min de dança',
+  'lembra o Mi de pagar o condomínio amanhã às 9', 'quanto tenho de saldo em conta corrente?', 'o que tenho amanhã?', 'fiz 40 min de dança',
   'comi salada com frango no almoço', 'posso comprar uma vara de pesca de 3000 em 10x?',
 ]
 const MEAL: Record<string, string> = { cafe: 'Café da manhã', almoco: 'Almoço', lanche: 'Café da tarde', jantar: 'Jantar' }
@@ -62,7 +62,7 @@ export function FaleComigo({ onClose }: { onClose: () => void }) {
   const consult = (q: Extract<Proposal, { kind: 'consulta' }>): string[] => {
     if (q.topic === 'mesada') {
       const m = model(myCtx('pf'), today.slice(0, 7))
-      return m.allowance == null ? ['Não consegui calcular a mesada.'] : [`Sua mesada deste mês: ${fmtMoney(m.allowance)}.`, `Usado até agora: ${fmtMoney(m.allowance - (m.room ?? 0))}.`, `Resta: ${fmtMoney(m.room ?? 0)}.`]
+      return m.allowance == null ? ['Não consegui calcular o saldo em conta corrente.'] : [`Seu saldo em conta corrente deste mês: ${fmtMoney(m.allowance)}.`, `Usado até agora: ${fmtMoney(m.allowance - (m.room ?? 0))}.`, `Resta: ${fmtMoney(m.room ?? 0)}.`]
     }
     if (q.topic === 'saldo') {
       const accs = d.accounts.filter((a) => !a.archived_at && a.context === 'pf' && a.owner_id === me.id)
