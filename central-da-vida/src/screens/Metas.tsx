@@ -80,10 +80,10 @@ export function Metas({ cur, month }: { cur: CtxOpt; month: string }) {
       <section>
         <div className="section-head"><h2>{pf ? 'Metas' : 'Caixinhas'}</h2>{cur.writable && <button className="link" onClick={() => setGoalEdit('new')}>{pf ? '+ Criar meta' : '+ Caixinha'}</button>}</div>
         {P.hasAccounts && (!pf || P.goals.length > 0) && <div className="grid2">
-          <div className="card stat"><span className="muted small">Guardado nas caixinhas</span><strong className="stat-value">{fmtMoney(P.reserved)}</strong></div>
-          <div className="card stat"><span className="muted small">Disponível fora delas</span><strong className={'stat-value ' + (P.available < 0 ? 'neg' : '')}>{fmtMoney(P.available)}</strong></div>
+          <button type="button" className="card stat tap" onClick={() => document.getElementById('lista-caixinhas')?.scrollIntoView({ behavior: 'smooth' })}><span className="muted small">Guardado nas caixinhas <span className="stat-go">›</span></span><strong className="stat-value">{fmtMoney(P.reserved)}</strong></button>
+          <div className="card stat tap" role="button" tabIndex={0} onClick={() => go('financas', 'contas')}><span className="muted small">Disponível fora delas <span className="stat-go">›</span></span><strong className={'stat-value ' + (P.available < 0 ? 'neg' : '')}>{fmtMoney(P.available)}</strong></div>
         </div>}
-        {P.goals.length ? <div className="list">{P.goals.map(({ goal: g, saved, pct, monthly, monthsLeft }) => (
+        {P.goals.length ? <div className="list" id="lista-caixinhas">{P.goals.map(({ goal: g, saved, pct, monthly, monthsLeft }) => (
           <div key={g.id} className="card goal">
             <button className="goal-main" onClick={() => setGoalEdit(g)}>
               <span className="goal-head"><Dot color={g.color} /><strong className="grow">{g.name}</strong><span className="badge">{KIND_LABEL[g.kind]}</span></span>

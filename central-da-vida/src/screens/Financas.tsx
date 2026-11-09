@@ -91,6 +91,10 @@ export function Financas({ sub: subArg }: { sub: string }) {
   )
 }
 
+// Abre Lançamentos já filtrado (ex.: tocar no cartão "Receitas" mostra só as receitas).
+let pendingKind: 'todos' | Transaction['kind'] | null = null
+export function openLancamentos(kind: 'todos' | Transaction['kind']) { pendingKind = kind; go('financas', 'lancamentos') }
+
 // ───────────────────────── Resumo ─────────────────────────
 
 function Resumo({ cur, month, onOpen }: { cur: CtxOpt; month: string; onOpen: (t: Transaction) => void }) {
@@ -115,12 +119,12 @@ function Resumo({ cur, month, onOpen }: { cur: CtxOpt; month: string; onOpen: (t
           <button className="btn" onClick={() => go('financas', 'contas')}>Cadastrar</button></div>
       )}
       <div className="grid2">
-        <Stat label="Saldo nas contas hoje" value={accs.length ? fmtMoney(balance) : '—'} />
-        <Stat label="Previsão de fechamento" value={accs.length ? fmtMoney(fc) : '—'} tone={fc < 0 ? 'neg' : undefined} hint="saldo + previstos até o fim do mês" />
-        <Stat label="Receitas" value={fmtMoney(s.incomeDone)} hint={`+ ${fmtMoney(s.incomePlanned)} a receber`} tone="pos" />
-        <Stat label="Despesas" value={fmtMoney(s.expenseDone)} hint={`+ ${fmtMoney(s.expensePlanned)} a pagar`} />
-        {P.reserved > 0 && <Stat label="Nas caixinhas" value={fmtMoney(P.reserved)} />}
-        {P.reserved > 0 && <Stat label="Disponível fora delas" value={fmtMoney(P.available)} tone={P.available < 0 ? 'neg' : undefined} />}
+        <Stat label="Saldo nas contas hoje" value={accs.length ? fmtMoney(balance) : '—'} onClick={() => go('financas', 'contas')} />
+        <Stat label="Previsão de fechamento" value={accs.length ? fmtMoney(fc) : '—'} tone={fc < 0 ? 'neg' : undefined} hint="saldo + previstos até o fim do mês" onClick={() => go('financas', 'calendario')} />
+        <Stat label="Receitas" value={fmtMoney(s.incomeDone)} hint={`+ ${fmtMoney(s.incomePlanned)} a receber`} tone="pos" onClick={() => openLancamentos('receita')} />
+        <Stat label="Despesas" value={fmtMoney(s.expenseDone)} hint={`+ ${fmtMoney(s.expensePlanned)} a pagar`} onClick={() => openLancamentos('despesa')} />
+        {P.reserved > 0 && <Stat label="Nas caixinhas" value={fmtMoney(P.reserved)} onClick={() => go('financas', 'metas')} />}
+        {P.reserved > 0 && <Stat label="Disponível fora delas" value={fmtMoney(P.available)} tone={P.available < 0 ? 'neg' : undefined} onClick={() => go('financas', 'contas')} />}
       </div>
       {s.overdueCount > 0 && (
         <button className="card alert" onClick={() => go('financas', 'lancamentos')}>
@@ -148,14 +152,13 @@ function Resumo({ cur, month, onOpen }: { cur: CtxOpt; month: string; onOpen: (t
   )
 }
 
-function Stat({ label, value, hint, tone }: { label: string; value: string; hint?: string; tone?: 'pos' | 'neg' }) {
-  return (
-    <div className="card stat">
-      <span className="muted small">{label}</span>
-      <strong className={'stat-value ' + (tone ?? '')}>{value}</strong>
-      {hint && <span className="muted small">{hint}</span>}
-    </div>
-  )
+export function Stat({ label, value, hint, tone, onClick }: { label: string; value: string; hint?: string; tone?: 'pos' | 'neg'; onClick?: () => void }) {
+  const body = <>
+    <span className="muted small">{label}{onClick && <span className="stat-go" aria-hidden="true"> ›</span>}</span>
+    <strong className={'stat-value ' + (tone ?? '')}>{value}</strong>
+    {hint && <span className="muted small">{hint}</span>}
+  </>
+  return onClick ? <button type="button" className="card stat tap" onClick={onClick}>{body}</button> : <div className="card stat">{body}</div>
 }
 
 // ───────────────────────── Lista de lançamentos ─────────────────────────
@@ -218,7 +221,7 @@ export function TxList({ txs, onOpen }: { txs: Transaction[]; onOpen: (t: Transa
 function Lancamentos({ cur, month, onOpen }: { cur: CtxOpt; month: string; onOpen: (t: Transaction) => void }) {
   const { transactions, categories, accounts, cards } = useData()
   const [f, setF] = useState<Filters>(EMPTY_FILTERS)
-  const [kind, setKind] = useState<'todos' | Transaction['kind']>('todos')
+  const [kind, setKind] = useState<'todos' | Transaction['kind']>(() => { const k = pendingKind ?? 'todos'; pendingKind = null; return k })
   const [where, setWhere] = useState('')
   const today = todayISO()
   const ctxAcc = accounts.filter((a) => inCtx(a, cur))

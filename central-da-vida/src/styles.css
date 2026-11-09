@@ -522,3 +522,8 @@ textarea.autotext { resize: none; overflow: hidden; min-height: 0; line-height: 
 .check-item.done .ev-check.big { background: var(--c); }
 .check-item.done input { text-decoration: line-through; color: var(--muted); }
 .check-item.add .plus { width: 24px; height: 24px; display: grid; place-items: center; color: var(--muted); flex: none; }
+
+/* Cartões de número que abrem a lista respectiva */
+.card.stat.tap { cursor: pointer; text-align: left; width: 100%; font: inherit; color: inherit; transition: transform .1s, box-shadow .15s; }
+.card.stat.tap:active { transform: scale(.98); }
+.card.stat.tap .stat-go { color: var(--accent); font-weight: 700; }
