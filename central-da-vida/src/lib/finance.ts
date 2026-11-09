@@ -145,7 +145,7 @@ export function occurrenceDates(start: string, freq: Frequency, after: string | 
 }
 
 // ───────────────────────── Mês do casal ─────────────────────────
-// Renda do casal − contas fixas do casal − caixinhas/reserva = sobra; a sobra vira mesada proporcional à renda.
+// Renda do casal − contas fixas do casal − caixinhas/reserva = sobra; a sobra vira o saldo em conta corrente de cada um, proporcional à renda.
 export interface CoupleMonth {
   total: number; fixed: number; savings: number; leftover: number
   allowances: { id: string; income: number; share: number; allowance: number }[]
@@ -159,6 +159,12 @@ export function coupleMonth(incomes: { id: string; income: number }[], fixed: nu
   const rest = pool - allowances.reduce((s, a) => s + a.allowance, 0)
   if (rest > 0 && allowances.length) allowances.reduce((a, b) => (b.income > a.income ? b : a)).allowance += rest
   return { total, fixed, savings, leftover, allowances }
+}
+
+// Ajuste manual do saldo em conta corrente de um mês (ex.: mês em que um dos dois ficou sem renda).
+export function withAllowanceOverrides(cm: CoupleMonth, overrides: Record<string, number> | null | undefined): CoupleMonth {
+  if (!overrides || !Object.keys(overrides).length) return cm
+  return { ...cm, allowances: cm.allowances.map((a) => (typeof overrides[a.id] === 'number' ? { ...a, allowance: overrides[a.id] } : a)) }
 }
 
 // Valor de lançamento/conta fixa que ainda não foi informado ("a confirmar").

@@ -6,7 +6,7 @@ const fmtMoney = (c: number) => BRL.format(c / 100)
 export interface SimMonth {
   month: string            // AAAA-MM
   balance: number | null   // saldo projetado das contas da aba no fim do mês (sem a compra)
-  room: number | null      // folga do mês: mesada restante (pessoal), sobra do casal (casal) ou null
+  room: number | null      // folga do mês: saldo em conta corrente restante (pessoal), sobra do casal (casal) ou null
   installments: number     // parcelas que já correm no mês
   r2Limit: number | null   // referência de parcelas (null = regra desligada)
 }
@@ -40,10 +40,10 @@ export function simulate(inp: SimInput): { verdict: Verdict; checks: Check[]; al
       const after = m.room - part
       if (inp.ctx === 'casal') {
         if (after < 0) { bad = true; checks.push({ level: 'bad', text: `${label}, a compra passa da sobra do casal em ${fmtMoney(-after)}: compromete as contas obrigatórias ou as caixinhas.` }) }
-        else if (part > 0) { warn = true; checks.push({ level: 'warn', text: `${label}, a sobra do casal cai para ${fmtMoney(after)}, e as mesadas diminuem na proporção da renda.` }) }
+        else if (part > 0) { warn = true; checks.push({ level: 'warn', text: `${label}, a sobra do casal cai para ${fmtMoney(after)}, e o saldo em conta corrente de cada um diminui na proporção da renda.` }) }
       } else if (inp.ctx === 'pf') {
-        if (after < 0) { warn = true; checks.push({ level: 'warn', text: `${label}, a parcela passa da mesada restante em ${fmtMoney(-after)}.` }) }
-        else checks.push({ level: 'ok', text: `${label}, cabe na mesada: sobram ${fmtMoney(after)}.` })
+        if (after < 0) { warn = true; checks.push({ level: 'warn', text: `${label}, a parcela passa do saldo em conta corrente restante em ${fmtMoney(-after)}.` }) }
+        else checks.push({ level: 'ok', text: `${label}, cabe no saldo em conta corrente: sobram ${fmtMoney(after)}.` })
       }
     }
     if (parcelado && m.r2Limit !== null && m.installments + part > m.r2Limit) {

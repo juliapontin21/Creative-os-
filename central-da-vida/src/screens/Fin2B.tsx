@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Icon } from '../components/Icon'
 import { CategoryPicker, Confirm, Dot, Empty, Segmented, Sheet } from '../components/ui'
 import { useData } from '../lib/data'
-import { addMonths, cashDate, fmtAmount, nextPayDay, coupleMonth, fmtMoney, isOverdue, monthEnd, monthOf, occurrenceDates, parseMoney, signed, accountOf } from '../lib/finance'
+import { addMonths, cashDate, fmtAmount, nextPayDay, withAllowanceOverrides, coupleMonth, fmtMoney, isOverdue, monthEnd, monthOf, occurrenceDates, parseMoney, signed, accountOf } from '../lib/finance'
 import { canWrite, inCtx, linkOk, METHODS, type CtxOpt } from '../lib/finctx'
 import { go } from '../lib/route'
 import { sb, friendly } from '../lib/supabase'
@@ -72,27 +72,28 @@ export function MesCasal({ month }: { month: string }) {
   const incomeOf = (id: string, ref: number) => plan?.income_overrides?.[id] ?? ref
   const live = transactions.filter((t) => t.status !== 'cancelado' && t.kind === 'despesa' && monthOf(cashDate(t)) === month)
   const fixed = live.filter((t) => t.context === 'casal').reduce((s, t) => s + t.amount_cents, 0)
-  const cm = coupleMonth(people.map((p) => ({ id: p.id, income: incomeOf(p.id, p.income_ref_cents) })), fixed, plan?.savings_cents ?? 0)
+  const cm = withAllowanceOverrides(coupleMonth(people.map((p) => ({ id: p.id, income: incomeOf(p.id, p.income_ref_cents) })), fixed, plan?.savings_cents ?? 0), plan?.allowance_overrides)
   const usedBy = (id: string) => live.filter((t) => t.context === 'pf' && t.owner_id === id).reduce((s, t) => s + t.amount_cents, 0)
-  const missing = people.filter((p) => !incomeOf(p.id, p.income_ref_cents))
+  const missing = people.filter((p) => plan?.income_overrides?.[p.id] === undefined && !p.income_ref_cents)
 
   return (
     <>
       {missing.map((p) => (
         <div key={p.id} className="card tip"><div className="grow">
           <strong>{p.id === me!.id ? 'Informe sua renda de referência' : `${p.display_name} ainda não informou a renda`}</strong>
-          <p>{p.id === me!.id ? 'Ela é a base da mesada. Ajustes → Minha renda.' : `Ele informa no app dele em Ajustes → Minha renda, ou ajuste só este mês aqui.`}</p></div>
+          <p>{p.id === me!.id ? 'Ela é a base do saldo em conta corrente. Ajustes → Minha renda.' : `Ele informa no app dele em Ajustes → Minha renda, ou ajuste só este mês aqui.`}</p></div>
           {p.id === me!.id && <button className="btn" onClick={() => go('ajustes')}>Informar</button>}</div>
       ))}
       <div className="card flow">
         <FlowRow label="Renda do casal" value={cm.total} detail={people.map((p) => `${p.display_name} ${fmtMoney(incomeOf(p.id, p.income_ref_cents))}`).join(' + ')} />
         <FlowRow label="− Contas do casal" value={-cm.fixed} detail="despesas da aba Casal neste mês (pagas e a pagar)" onClick={() => go('financas', 'lancamentos')} />
         <FlowRow label="− Caixinhas e reserva" value={-cm.savings} detail={cm.savings ? 'definido para este mês' : 'ainda não definido'} />
-        <div className="flow-total"><span>= Sobra para as mesadas</span><strong className={cm.leftover < 0 ? 'neg' : 'pos'}>{fmtMoney(cm.leftover)}</strong></div>
+        <div className="flow-total"><span>= Sobra para o saldo em conta corrente</span><strong className={cm.leftover < 0 ? 'neg' : 'pos'}>{fmtMoney(cm.leftover)}</strong></div>
       </div>
+      {plan?.notes && <p className="card info small">📝 {plan.notes}</p>}
       {cm.leftover < 0 && <p className="card alert-text">As contas do casal e as caixinhas passaram da renda em {fmtMoney(-cm.leftover)} neste mês.</p>}
       <section>
-        <div className="section-head"><h2>Mesadas</h2><span className="muted small">proporcionais à renda</span></div>
+        <div className="section-head"><h2>Saldo em conta corrente</h2><span className="muted small">{Object.keys(plan?.allowance_overrides ?? {}).length ? 'ajustado neste mês' : 'proporcional à renda'}</span></div>
         <div className="grid2">{cm.allowances.map((a) => {
           const p = people.find((x) => x.id === a.id)!
           const used = usedBy(a.id)
@@ -106,7 +107,7 @@ export function MesCasal({ month }: { month: string }) {
             </div>
           )
         })}</div>
-        <p className="hint">“Usado” soma as despesas pessoais de cada um no mês. A mesada é gasta sem precisar de acordo.</p>
+        <p className="hint">“Usado” soma as despesas pessoais de cada um no mês. O saldo em conta corrente é gasto sem precisar de acordo.</p>
       </section>
       <button className="btn wide" onClick={() => setEdit(true)}><Icon name="settings" />Ajustar este mês</button>
       {edit && <PlanEditor month={month} plan={plan} people={people} onClose={() => setEdit(false)}
@@ -134,10 +135,12 @@ function PlanEditor({ month, plan, people, onClose, onSave }: {
   const [savings, setSavings] = useState(centsToInput(plan?.savings_cents) || '0')
   const [incomes, setIncomes] = useState<Record<string, string>>(Object.fromEntries(people.map((p) => [p.id, plan?.income_overrides?.[p.id] !== undefined ? centsToInput(plan.income_overrides[p.id]) : ''])))
   const [notes, setNotes] = useState(plan?.notes ?? '')
+  const [saldos, setSaldos] = useState<Record<string, string>>(Object.fromEntries(people.map((p) => [p.id, plan?.allowance_overrides?.[p.id] !== undefined ? (plan.allowance_overrides[p.id] === 0 ? '0' : centsToInput(plan.allowance_overrides[p.id])) : ''])))
   const suggestion = useCoupleSuggestion(month)
   const sv = savings.trim() === '0' || !savings.trim() ? 0 : parseMoney(savings)
   const parsed = Object.entries(incomes).map(([id, v]) => [id, v.trim() ? parseMoney(v) : undefined] as const)
-  const valid = sv !== null && parsed.every(([, v]) => v !== null)
+  const parsedSaldo = Object.entries(saldos).map(([id, v]) => [id, !v.trim() ? undefined : v.trim() === '0' ? 0 : parseMoney(v)] as const)
+  const valid = sv !== null && parsed.every(([, v]) => v !== null) && parsedSaldo.every(([, v]) => v !== null)
   const [y, m] = month.split('-').map(Number)
   return (
     <Sheet title={`Ajustar ${new Date(y, m - 1, 1).toLocaleDateString('pt-BR', { month: 'long' })}`} onClose={onClose} footer={<>
@@ -145,12 +148,17 @@ function PlanEditor({ month, plan, people, onClose, onSave }: {
       <button className="btn primary" disabled={!valid} onClick={() => onSave({
         savings_cents: sv ?? 0, notes,
         income_overrides: Object.fromEntries(parsed.filter(([, v]) => typeof v === 'number').map(([id, v]) => [id, v as number])),
+        allowance_overrides: Object.fromEntries(parsedSaldo.filter(([, v]) => typeof v === 'number').map(([id, v]) => [id, v as number])),
       })}>Salvar</button></>}>
       <MoneyInput label="Caixinhas e reserva de emergência" value={savings} onChange={setSavings} hint="Quanto vai para as caixinhas e a reserva neste mês." />
       {suggestion > 0 && <p className="hint">Pelas metas e prazos das caixinhas do casal: {fmtMoney(suggestion)} por mês. <button className="link inline" onClick={() => setSavings(centsToInput(suggestion))}>Usar</button></p>}
       {people.map((p) => (
         <MoneyInput key={p.id} label={`Renda de ${p.display_name} neste mês`} value={incomes[p.id]} onChange={(v) => setIncomes({ ...incomes, [p.id]: v })}
           hint={`Deixe vazio para usar a referência (${fmtMoney(p.income_ref_cents)}). Preencha quando entrar dinheiro extra.`} />
+      ))}
+      {people.map((p) => (
+        <MoneyInput key={'s' + p.id} label={`Saldo em conta corrente de ${p.display_name} neste mês (opcional)`} value={saldos[p.id]} onChange={(v) => setSaldos({ ...saldos, [p.id]: v })}
+          hint="Deixe vazio para dividir a sobra na proporção da renda. Preencha só em mês fora do normal (0 vale)." />
       ))}
       <label className="field"><span className="label">Anotações do mês</span><textarea rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} /></label>
     </Sheet>

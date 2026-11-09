@@ -105,9 +105,9 @@ export function Metas({ cur, month }: { cur: CtxOpt; month: string }) {
         {P.budgets.length ? <div className="card ind-card">{P.budgets.map((b) => (
           <button key={b.budget.id} className="ind-row as-btn" onClick={() => cur.writable && setBudgetEdit(b.budget)}>
             <div className="ind-head"><strong><Dot color={b.category?.color ?? '#999'} /> {b.category?.name ?? 'Categoria'}</strong>
-              <span className="small"><b className={b.level === 'over' ? 'neg' : ''}>{fmtMoney(b.spent)}</b> / {fmtMoney(b.budget.limit_cents)}</span></div>
+              <span className="small"><b className={b.level === 'over' ? 'neg' : ''}>{fmtMoney(b.spent)}</b> / {fmtMoney(b.limit)}</span></div>
             <div className="bar"><span style={{ width: `${Math.min(100, b.pct)}%`, background: b.level === 'over' ? 'var(--neg)' : b.level === 'warn' ? '#d97706' : 'var(--pos)' }} /></div>
-            <span className="muted small">{b.level === 'over' ? `passou ${fmtMoney(b.spent - b.budget.limit_cents)}` : `disponível ${fmtMoney(b.budget.limit_cents - b.spent)}`} · {b.pct}%</span>
+            <span className="muted small">{b.level === 'over' ? `passou ${fmtMoney(b.spent - b.limit)}` : `disponível ${fmtMoney(b.limit - b.spent)}`} · {b.pct}%{b.monthOnly ? ` · limite só deste mês (normal ${fmtMoney(b.budget.limit_cents)})` : ''}</span>
           </button>
         ))}</div> : <p className="muted pad">Nenhum limite. Ex.: Mercado até R$ 1.200 por mês.</p>}
       </section>
@@ -234,7 +234,7 @@ const FIELDS: Record<RuleCtx, Field[]> = {
   casal: [
     { on: 'r1_on', label: 'R1 · Limite do cartão até a renda do casal', unit: '%', help: 'Avisa quando o limite de um cartão passa da renda do casal.' },
     { on: 'r2_couple_on', num: 'r2_couple_pct', label: 'R2 · Parcelas do casal no mês', unit: '%', help: 'da renda do casal (soma das parcelas correndo no mês)' },
-    { on: 'r3_on', label: 'R3 · Casal no cartão do casal; mesada no Pix/débito', unit: '%', help: 'Avisa despesas do casal fora do cartão do casal e gastos pessoais nele.' },
+    { on: 'r3_on', label: 'R3 · Casal no cartão do casal; saldo em conta corrente no Pix/débito', unit: '%', help: 'Avisa despesas do casal fora do cartão do casal e gastos pessoais nele.' },
   ],
   pf: [
     { on: 'fixed_on', num: 'fixed_pct', label: 'Gastos fixos', unit: '%', help: 'da renda, no máximo' },

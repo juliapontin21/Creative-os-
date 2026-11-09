@@ -100,7 +100,7 @@ export function TxEditor({ tx, preset, initial, onClose }: { tx: Transaction | n
 
   const r3hint = kind === 'despesa' && couple ? (
     ctx.ctx === 'casal' && !(payWith === 'cartao' && cardId === couple.id) ? `Regra da casa: despesas do casal vão no ${couple.name}.`
-      : ctx.ctx !== 'casal' && payWith === 'cartao' && cardId === couple.id ? `Regra da casa: o ${couple.name} é só para despesas do casal; gastos da mesada vão no Pix ou débito.` : ''
+      : ctx.ctx !== 'casal' && payWith === 'cartao' && cardId === couple.id ? `Regra da casa: o ${couple.name} é só para despesas do casal; gastos do saldo em conta corrente vão no Pix ou débito.` : ''
   ) : ''
 
   const valid = cents !== null && description.trim() !== '' && (

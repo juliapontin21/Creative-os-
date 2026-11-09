@@ -105,7 +105,7 @@ export function parseCommand(input: string, c: Ctx): Proposal {
   const today = ymdOf(c.now)
 
   // ── Consultas e simulação
-  if (has(t, /\bposso comprar\b|\bcabe (no|na) (meu|minha)? ?(orcamento|mesada)\b/)) {
+  if (has(t, /\bposso comprar\b|\bcabe (no|na) (meu|minha)? ?(orcamento|mesada|saldo)\b/)) {
     const money = parseMoneyIn(raw)
     if (money) {
       const inst = t.match(/\b(\d{1,2})\s*(?:x|vezes)\b/)
@@ -114,10 +114,10 @@ export function parseCommand(input: string, c: Ctx): Proposal {
     }
   }
   const question = /\?\s*$/.test(raw) || has(t, /^ ?(quanto|qual|quais|o que|tenho|como esta|como ta)\b/)
-  if (question || has(t, /\b(minha mesada|meu saldo|minha agenda)\b/)) {
+  if (question || has(t, /\b(minha mesada|meu saldo|saldo em conta corrente|minha agenda)\b/)) {
     const w = parseWhen(raw, c.now, 'future')
     const range = has(t, /\b(semana)\b/) ? 'semana' : has(t, /\b(mes)\b/) ? 'mes' : 'dia'
-    if (has(t, /\bmesada\b/)) return { kind: 'consulta', topic: 'mesada', date: today, categoryId: null, range: 'mes' }
+    if (has(t, /\bmesada\b|\bconta corrente\b/)) return { kind: 'consulta', topic: 'mesada', date: today, categoryId: null, range: 'mes' }
     if (has(t, /\bsaldo\b|\bquanto tenho (na|no) (conta|banco)\b/)) return { kind: 'consulta', topic: 'saldo', date: today, categoryId: null, range: 'dia' }
     if (has(t, /\b(venc\w*|pagar|contas)\b/)) return { kind: 'consulta', topic: 'vencimentos', date: w.date ?? today, categoryId: null, range: range === 'mes' ? 'semana' : range }
     if (has(t, /\b(gastei|gasto|gastamos)\b/)) {

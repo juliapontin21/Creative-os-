@@ -359,3 +359,12 @@ test('etapa 1: valor a confirmar e dia-padrão de acerto', () => {
   assert.equal(occurrenceDates('2026-11-30', 'mensal', null, '2027-03-31', null).join(','), '2026-11-30,2026-12-30,2027-01-30,2027-02-28,2027-03-30')
   assert.deepEqual(occurrenceDates('2026-11-30', 'mensal', null, '2027-03-31', '2026-11-30'), ['2026-11-30'])
 })
+
+import { withAllowanceOverrides } from '../src/lib/finance.ts'
+test('saldo em conta corrente: ajuste manual do mês', () => {
+  const cm = coupleMonth([{ id: 'j', income: 0 }, { id: 'm', income: 800000 }], 284233, 437385)
+  assert.equal(cm.leftover, 78382)
+  const adj = withAllowanceOverrides(cm, { j: 0, m: 30000 })
+  assert.deepEqual(adj.allowances.map((a) => a.allowance), [0, 30000])
+  assert.equal(withAllowanceOverrides(cm, {}), cm)
+})

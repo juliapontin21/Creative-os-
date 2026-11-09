@@ -201,7 +201,7 @@ export function Ajustes() {
       </div>
       <button className="card list-link" onClick={() => setIncomeOpen(true)}>
         <span className="list-icon"><Icon name="wallet" /></span>
-        <span className="grow"><strong>Minha renda de referência</strong><span className="muted">{me?.income_ref_cents ? fmtMoney(me.income_ref_cents) : 'Ainda não informada'} · base da mesada no Mês do casal</span></span>
+        <span className="grow"><strong>Minha renda de referência</strong><span className="muted">{me?.income_ref_cents ? fmtMoney(me.income_ref_cents) : 'Ainda não informada'} · base do saldo em conta corrente no Mês do casal</span></span>
         <Icon name="right" size={18} />
       </button>
       <button className="card list-link" onClick={() => go('notificacoes')}>
