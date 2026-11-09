@@ -11,6 +11,7 @@ import { useGoalBalance, usePlanning, useRules } from '../lib/usePlanning'
 import type { Transaction } from '../lib/types'
 import { todayISO } from '../lib/util'
 import { MoneyInput, TxEditor, type TxInitial } from './FinEditors'
+import { openLancamentos } from './Financas'
 
 const shortMonth = (m: string) => new Date(Number(m.slice(0, 4)), Number(m.slice(5)) - 1, 1).toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '')
 const longMonth = (m: string) => new Date(Number(m.slice(0, 4)), Number(m.slice(5)) - 1, 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
@@ -159,8 +160,8 @@ export function Graficos({ cur, month }: { cur: CtxOpt; month: string }) {
   return (
     <>
       <div className="grid2">
-        <div className="card stat"><span className="muted small">Receitas em {shortMonth(month)}</span><strong className="stat-value">{fmtMoney(a.inc)}</strong><Delta now={a.inc} before={b.inc} good="up" /></div>
-        <div className="card stat"><span className="muted small">Despesas em {shortMonth(month)}</span><strong className="stat-value">{fmtMoney(a.exp)}</strong><Delta now={a.exp} before={b.exp} good="down" /></div>
+        <button type="button" className="card stat tap" onClick={() => openLancamentos('receita')}><span className="muted small">Receitas em {shortMonth(month)} <span className="stat-go">›</span></span><strong className="stat-value">{fmtMoney(a.inc)}</strong><Delta now={a.inc} before={b.inc} good="up" /></button>
+        <button type="button" className="card stat tap" onClick={() => openLancamentos('despesa')}><span className="muted small">Despesas em {shortMonth(month)} <span className="stat-go">›</span></span><strong className="stat-value">{fmtMoney(a.exp)}</strong><Delta now={a.exp} before={b.exp} good="down" /></button>
       </div>
 
       <section className="card chart-card">

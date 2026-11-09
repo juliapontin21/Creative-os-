@@ -9,7 +9,7 @@ import { sb, friendly } from '../lib/supabase'
 import type { FinContext, MonthPlan, PayMethod, Recurrence, Transaction } from '../lib/types'
 import { fmtDate, todayISO } from '../lib/util'
 import { MoneyInput } from './FinEditors'
-import { TxList } from './Financas'
+import { openLancamentos, TxList } from './Financas'
 import { useCoupleMonth, usePlanning } from '../lib/usePlanning'
 import { useCtxOptions } from '../lib/finctx'
 
@@ -83,8 +83,8 @@ export function MesCasal({ month }: { month: string }) {
           {p.id === me!.id && <button className="btn" onClick={() => go('ajustes')}>Informar</button>}</div>
       ))}
       <div className="card flow">
-        <FlowRow label="Renda do casal" value={cm.total} detail={people.map((p) => `${p.display_name} ${fmtMoney(incomeOf(p.id))} (${srcLabel(p.id)})`).join(' + ') + (C.extra ? ` + outras receitas do casal ${fmtMoney(C.extra)}` : '')} onClick={() => go('financas', 'lancamentos')} />
-        <FlowRow label="− Contas do casal" value={-cm.fixed} detail="despesas da aba Casal neste mês (pagas e a pagar)" onClick={() => go('financas', 'lancamentos')} />
+        <FlowRow label="Renda do casal" value={cm.total} detail={people.map((p) => `${p.display_name} ${fmtMoney(incomeOf(p.id))} (${srcLabel(p.id)})`).join(' + ') + (C.extra ? ` + outras receitas do casal ${fmtMoney(C.extra)}` : '')} onClick={() => openLancamentos('receita')} />
+        <FlowRow label="− Contas do casal" value={-cm.fixed} detail="despesas da aba Casal neste mês (pagas e a pagar)" onClick={() => openLancamentos('despesa')} />
         <FlowRow label="− Guardado nas caixinhas" value={-cm.savings} detail={(C.savingsSource === 'real' ? 'aportes feitos neste mês' : C.savingsSource === 'plano' ? 'planejado para este mês (sem aportes ainda)' : 'nenhum aporte neste mês') + (C.metaMonthly ? ` · meta: ${fmtMoney(C.metaMonthly)} (não obrigatória)` : '')} onClick={() => go('financas', 'metas')} />
         <div className="flow-total"><span>= Sobra para o saldo em conta corrente</span><strong className={cm.leftover < 0 ? 'neg' : 'pos'}>{fmtMoney(cm.leftover)}</strong></div>
       </div>
