@@ -348,3 +348,14 @@ test('agenda: progresso do checklist', () => {
   assert.equal(checklistProgress(undefined), '')
   assert.equal(checklistProgress([{ done: true }, { done: false }, { done: true }]), ' · ☑ 2/3')
 })
+
+import { fmtAmount, nextPayDay } from '../src/lib/finance.ts'
+test('etapa 1: valor a confirmar e dia-padrão de acerto', () => {
+  assert.equal(fmtAmount({ amount_cents: 0, amount_pending: true }), 'a confirmar')
+  assert.equal(nextPayDay('empresa', '2026-11-09'), '2026-11-30')
+  assert.equal(nextPayDay('pf', '2026-11-09'), '2026-12-05')
+  assert.equal(nextPayDay('casal', '2026-11-05'), '2026-11-05')
+  assert.equal(nextPayDay('empresa', '2027-02-10'), '2027-02-28')
+  assert.equal(occurrenceDates('2026-11-30', 'mensal', null, '2027-03-31', null).join(','), '2026-11-30,2026-12-30,2027-01-30,2027-02-28,2027-03-30')
+  assert.deepEqual(occurrenceDates('2026-11-30', 'mensal', null, '2027-03-31', '2026-11-30'), ['2026-11-30'])
+})

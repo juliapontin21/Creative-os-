@@ -64,6 +64,7 @@ export function TxEditor({ tx, preset, initial, onClose }: { tx: Transaction | n
   const [ctx, setCtx] = useState<{ ctx: FinContext; owner: string }>({ ctx: startCtx.ctx, owner: startCtx.ctx === 'casal' ? meId : startCtx.owner })
   const [amount, setAmount] = useState(centsToInput(tx?.amount_cents ?? initial?.amount))
   const [description, setDescription] = useState(tx?.description ?? initial?.description ?? '')
+  const [pending, setPending] = useState(tx?.amount_pending ?? false)
   const [date, setDate] = useState(tx?.competence_date ?? initial?.date ?? todayISO())
   const [due, setDue] = useState(tx?.due_date ?? '')
   const [done, setDone] = useState(tx ? tx.status === 'realizado' : false)
@@ -93,7 +94,8 @@ export function TxEditor({ tx, preset, initial, onClose }: { tx: Transaction | n
   const cardOpts = usable(cards)
   const payeeOpts = usable(payees)
   const myAccounts = accounts.filter((a) => !a.archived_at && (a.context === 'casal' || a.owner_id === meId))
-  const cents = parseMoney(amount)
+  const pend = pending && !isTransfer && installments <= 1
+  const cents = pend ? 0 : parseMoney(amount)
   const owner = profiles.find((p) => p.id === tx?.owner_id)
 
   const r3hint = kind === 'despesa' && couple ? (
@@ -131,7 +133,7 @@ export function TxEditor({ tx, preset, initial, onClose }: { tx: Transaction | n
     } else {
       const useCard = kind === 'despesa' && payWith === 'cartao'
       const row: Partial<Transaction> = {
-        ...common, kind, context: ctx.ctx, amount_cents: cents, competence_date: date,
+        ...common, kind, context: ctx.ctx, amount_cents: cents, amount_pending: pend, competence_date: date,
         // No cartão, o banco calcula o vencimento da fatura; ao editar sem mudar a data, mantém o atual.
         due_date: useCard ? (tx?.card_id === cardId && tx.competence_date === date ? tx.due_date : date) : due || date, status,
         paid_date: status === 'realizado' ? (tx?.paid_date ?? paidDate(useCard ? tx?.due_date ?? date : due || date)) : null,
@@ -174,8 +176,9 @@ export function TxEditor({ tx, preset, initial, onClose }: { tx: Transaction | n
         {!tx && <Segmented value={kind} onChange={setKind} options={[{ id: 'despesa', label: 'Despesa' }, { id: 'receita', label: 'Receita' }, { id: 'transferencia', label: 'Transferência' }]} />}
         {!isTransfer && <CtxSelect value={keyOf(ctx.ctx, ctx.owner)} disabled={!!tx && tx.owner_id !== meId}
           onChange={(o) => { setCtx({ ctx: o.ctx, owner: o.ctx === 'casal' ? meId : o.owner }); setAccountId(''); setPayeeId(''); setCategory(null); setCardId(o.ctx === 'casal' ? couple?.id ?? '' : ''); if (o.ctx === 'casal' && couple) setPayWith('cartao') }} />}
-        <MoneyInput label={!tx && payWith === 'cartao' && kind === 'despesa' && installments > 1 ? 'Valor total da compra' : 'Valor'} value={amount} onChange={setAmount}
-          hint={!tx && installments > 1 && cents ? `${installments}x de ${fmtMoney(splitInstallments(cents, installments)[1])}` : undefined} />
+        {!pend && <MoneyInput label={!tx && payWith === 'cartao' && kind === 'despesa' && installments > 1 ? 'Valor total da compra' : 'Valor'} value={amount} onChange={setAmount}
+          hint={!tx && installments > 1 && cents ? `${installments}x de ${fmtMoney(splitInstallments(cents, installments)[1])}` : undefined} />}
+        {!isTransfer && installments <= 1 && <label className="toggle"><input type="checkbox" checked={pending} onChange={(e) => setPending(e.target.checked)} />Valor a confirmar</label>}
         <label className="field"><span className="label">Descrição</span>
           <input maxLength={120} value={description} onChange={(e) => setDescription(e.target.value)} placeholder={kind === 'receita' ? 'Ex.: Campanha UGC marca X' : 'Ex.: Mercado'} /></label>
 

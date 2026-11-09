@@ -160,3 +160,22 @@ export function coupleMonth(incomes: { id: string; income: number }[], fixed: nu
   if (rest > 0 && allowances.length) allowances.reduce((a, b) => (b.income > a.income ? b : a)).allowance += rest
   return { total, fixed, savings, leftover, allowances }
 }
+
+// Valor de lançamento/conta fixa que ainda não foi informado ("a confirmar").
+export function fmtAmount(x: { amount_cents: number; amount_pending?: boolean | null }): string {
+  return x.amount_pending ? 'a confirmar' : fmtMoney(x.amount_cents)
+}
+
+// Dia-padrão de acerto para novos lançamentos sem vencimento informado: Empresa dia 30, PF e Casal dia 5.
+// Fevereiro (ou mês sem o dia) usa o último dia do mês. Próxima data a partir de hoje.
+export function nextPayDay(ctx: 'empresa' | 'pf' | 'casal', today: string): string {
+  const day = ctx === 'empresa' ? 30 : 5
+  const [y, m] = today.split('-').map(Number)
+  for (let i = 0; i < 3; i++) {
+    const first = new Date(y, m - 1 + i, 1)
+    const last = new Date(first.getFullYear(), first.getMonth() + 1, 0).getDate()
+    const d = `${first.getFullYear()}-${String(first.getMonth() + 1).padStart(2, '0')}-${String(Math.min(day, last)).padStart(2, '0')}`
+    if (d >= today) return d
+  }
+  return today
+}

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Icon } from '../components/Icon'
 import { CategoryPicker, Confirm, Dot, Empty, Segmented, Sheet } from '../components/ui'
 import { useData } from '../lib/data'
-import { addMonths, cashDate, coupleMonth, fmtMoney, isOverdue, monthEnd, monthOf, occurrenceDates, parseMoney, signed, accountOf } from '../lib/finance'
+import { addMonths, cashDate, fmtAmount, nextPayDay, coupleMonth, fmtMoney, isOverdue, monthEnd, monthOf, occurrenceDates, parseMoney, signed, accountOf } from '../lib/finance'
 import { canWrite, inCtx, linkOk, METHODS, type CtxOpt } from '../lib/finctx'
 import { go } from '../lib/route'
 import { sb, friendly } from '../lib/supabase'
@@ -28,7 +28,7 @@ const monthlyEquivalent = (r: Recurrence) => (r.frequency === 'mensal' ? r.amoun
 type Gen = ReturnType<typeof useData>
 function occurrenceRow(r: Recurrence, d: string): Partial<Transaction> {
   return {
-    context: r.context, kind: r.kind, status: 'previsto', amount_cents: r.amount_cents, description: r.description,
+    context: r.context, kind: r.kind, status: 'previsto', amount_cents: r.amount_cents, ...(r.amount_pending ? { amount_pending: true } : {}), description: r.description,
     competence_date: d, due_date: d, account_id: r.card_id ? null : r.account_id, card_id: r.card_id, payee_id: r.payee_id,
     category_id: r.category_id, payment_method: r.payment_method, client: r.client, payment_link: r.payment_link, recurrence_id: r.id,
   }
@@ -186,7 +186,7 @@ export function Fixas({ cur }: { cur: CtxOpt }) {
                 <strong>{r.description} {r.is_subscription && <span className="badge">Assinatura</span>}</strong>
                 <span className="muted small">{ended ? `encerrada em ${fmtDate(r.end_date)}` : next ? `próxima ${fmtDate(next)}` : 'sem próximas'} · {r.frequency}</span>
               </span>
-              <span className="tx-amount"><strong className={r.kind === 'receita' ? 'pos' : ''}>{fmtMoney(r.amount_cents)}</strong><span className="muted small">{FREQ_LABEL[r.frequency]}</span></span>
+              <span className="tx-amount"><strong className={r.amount_pending ? 'muted' : r.kind === 'receita' ? 'pos' : ''}>{fmtAmount(r)}</strong><span className="muted small">{FREQ_LABEL[r.frequency]}</span></span>
             </button>
             {r.is_subscription && r.service_url && <a className="icon-btn" href={r.service_url} target="_blank" rel="noreferrer" aria-label="Abrir serviço"><Icon name="right" size={18} /></a>}
           </div>
@@ -210,7 +210,8 @@ function RecEditor({ rec, cur, subscription, onClose }: { rec: Recurrence | null
   const [amount, setAmount] = useState(centsToInput(rec?.amount_cents))
   const [description, setDescription] = useState(rec?.description ?? '')
   const [frequency, setFrequency] = useState<Recurrence['frequency']>(rec?.frequency ?? 'mensal')
-  const [start, setStart] = useState(rec?.start_date ?? todayISO())
+  const [start, setStart] = useState(rec?.start_date ?? nextPayDay(startCtx, todayISO()))
+  const [pending, setPending] = useState(rec?.amount_pending ?? false)
   const [end, setEnd] = useState(rec?.end_date ?? '')
   const [payWith, setPayWith] = useState<'conta' | 'cartao'>(rec ? (rec.card_id ? 'cartao' : 'conta') : startCtx === 'casal' && couple ? 'cartao' : 'conta')
   const [method, setMethod] = useState<PayMethod>(rec && rec.payment_method !== 'cartao' ? rec.payment_method : 'pix')
@@ -228,7 +229,7 @@ function RecEditor({ rec, cur, subscription, onClose }: { rec: Recurrence | null
   const owner = ctx === 'casal' ? meId : rec?.owner_id ?? meId
   const usable = <T extends { context: FinContext; owner_id: string; archived_at: string | null }>(l: T[]) =>
     l.filter((x) => !x.archived_at && linkOk(ctx, owner, x) && (x.context !== 'pf' || x.owner_id === meId))
-  const cents = parseMoney(amount)
+  const cents = pending ? 0 : parseMoney(amount)
   const useCard = kind === 'despesa' && payWith === 'cartao'
   const valid = cents !== null && description.trim() !== '' && (!useCard || cardId !== '') && (!end || end >= start)
   const ctxOpts = [...(me!.has_company ? [{ id: 'empresa' as FinContext, label: 'Empresa' }] : []), { id: 'pf' as FinContext, label: me!.display_name }, { id: 'casal' as FinContext, label: 'Casal' }]
@@ -238,7 +239,7 @@ function RecEditor({ rec, cur, subscription, onClose }: { rec: Recurrence | null
     if (!valid || cents === null) return
     setBusy(true)
     const row: Partial<Recurrence> = {
-      context: ctx, kind, amount_cents: cents, description: description.trim(), frequency, start_date: start, end_date: end || null,
+      context: ctx, kind, amount_cents: cents, amount_pending: pending, description: description.trim(), frequency, start_date: start, end_date: end || null,
       account_id: useCard ? null : accountId || null, card_id: useCard ? cardId : null, payment_method: useCard ? 'cartao' : method,
       payee_id: kind === 'despesa' ? payeeId || null : null, client: kind === 'receita' ? client.trim() : '', category_id: category,
       is_subscription: isSub, service_url: isSub ? serviceUrl.trim() : '', vault_url: isSub ? vaultUrl.trim() : '', payment_link: link.trim(),
@@ -286,8 +287,9 @@ function RecEditor({ rec, cur, subscription, onClose }: { rec: Recurrence | null
         <Segmented value={kind} onChange={setKind} options={[{ id: 'despesa', label: 'Despesa fixa' }, { id: 'receita', label: 'Receita fixa' }]} />
         <div className="field"><span className="label">Aba</span>
           <Segmented value={ctx} disabled={!!rec && rec.owner_id !== meId} options={ctxOpts}
-            onChange={(c) => { setCtx(c); setAccountId(''); setPayeeId(''); setCategory(null); setCardId(c === 'casal' ? couple?.id ?? '' : ''); if (c === 'casal' && couple) setPayWith('cartao') }} /></div>
-        <MoneyInput label="Valor" value={amount} onChange={setAmount} />
+            onChange={(c) => { setCtx(c); if (!rec) setStart(nextPayDay(c, todayISO())); setAccountId(''); setPayeeId(''); setCategory(null); setCardId(c === 'casal' ? couple?.id ?? '' : ''); if (c === 'casal' && couple) setPayWith('cartao') }} /></div>
+        {!pending && <MoneyInput label="Valor" value={amount} onChange={setAmount} />}
+        <label className="toggle"><input type="checkbox" checked={pending} onChange={(e) => setPending(e.target.checked)} />Valor a confirmar (fica fora dos totais até você informar)</label>
         <label className="field"><span className="label">Descrição</span><input maxLength={120} value={description} onChange={(e) => setDescription(e.target.value)} placeholder={isSub ? 'Ex.: Netflix' : 'Ex.: Aluguel'} /></label>
         <div className="row2">
           <label className="field"><span className="label">Repete</span>

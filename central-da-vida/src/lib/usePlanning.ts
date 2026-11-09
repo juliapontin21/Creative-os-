@@ -118,7 +118,7 @@ export function usePlanning(cur: CtxOpt, month: string) {
   }
 
   const coupleSuggestion = d.goals.filter((g) => !g.archived_at && g.context === 'casal')
-    .reduce((s, g) => s + (goalPlan(g.target_cents, goalBalance(g), g.deadline, today).monthly ?? 0), 0)
+    .reduce((s, g) => s + (g.monthly_cents || goalPlan(g.target_cents, goalBalance(g), g.deadline, today).monthly || 0), 0)
 
   return { goals, budgets, indicators, alerts, balance, reserved, available: balance - reserved, hasAccounts: accs.length > 0, income, coupleIncome, coupleSuggestion }
 }
