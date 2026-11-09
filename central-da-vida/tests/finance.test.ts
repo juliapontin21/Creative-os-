@@ -368,3 +368,20 @@ test('saldo em conta corrente: ajuste manual do mês', () => {
   assert.deepEqual(adj.allowances.map((a) => a.allowance), [0, 30000])
   assert.equal(withAllowanceOverrides(cm, {}), cm)
 })
+
+import { monthIncomes } from '../src/lib/finance.ts'
+test('renda do mês: lançado vale primeiro, depois ajuste, depois referência', () => {
+  const people = [{ id: 'j', ref: 600000 }, { id: 'm', ref: 0 }]
+  const r = monthIncomes(people, { m: 500000 }, [{ amount_cents: 67400, income_of: 'j' }, { amount_cents: 800000, income_of: 'm' }])
+  assert.deepEqual(r.incomes.map((x) => [x.income, x.source]), [[67400, 'lancado'], [800000, 'lancado']])
+  const r2 = monthIncomes(people, { m: 500000 }, [])
+  assert.deepEqual(r2.incomes.map((x) => [x.income, x.source]), [[600000, 'referencia'], [500000, 'ajuste']])
+  const r3 = monthIncomes(people, {}, [{ amount_cents: 800000, income_of: null }])
+  assert.equal(r3.extra, 800000)
+  // Novembro/2026: 674 + 8.000 − contas da casa 2.842,33 − caixinhas 4.172 = 1.659,67 de sobra.
+  const cm = coupleMonth([{ id: 'j', income: 67400 }, { id: 'm', income: 800000 }], 284233, 417200)
+  assert.equal(cm.leftover, 165967)
+  const cm2 = coupleMonth([{ id: 'j', income: 67400 }], 0, 0, 800000)
+  assert.equal(cm2.total, 867400)
+  assert.equal(cm2.allowances[0].allowance, 867400)
+})

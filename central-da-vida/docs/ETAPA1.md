@@ -28,3 +28,10 @@ Valor de Munique, Claude e ChatGPT; valor confirmado do curso Profissão do Futu
 - Regra: juntar as rendas, pagar as contas, separar as caixinhas e dividir o que sobra na proporção da renda = **saldo em conta corrente** de cada um.
 - Em mês fora do normal, ajuste em Finanças → Casal → Mês do casal → Ajustar este mês: renda e saldo de cada um só naquele mês.
 - `supabase/etapa1-saldos-novembro.sql`: novembro/2026 com Júlia sem renda (saldo R$ 0), Michelangelo R$ 8.000 (saldo R$ 300), caixinhas R$ 4.373,85 (Viagem 1.000 · Carro 1.984,62 · Emergência 992,31 · Imprevistos 396,92) e limites só de novembro: Lazer R$ 174, Uber trabalho R$ 200.
+
+## Renda e caixinhas reais do mês (ajuste de 09/11)
+- **Renda do casal = o que foi lançado.** Lance a renda de cada um como receita na aba Casal e escolha "Renda de quem". Sem lançamento, vale o ajuste do mês; sem ajuste, a renda de referência (Júlia R$ 6.000; Michelangelo variável, lançar todo mês).
+- **Guardado nas caixinhas = aportes feitos no mês** (não a meta). A meta mensal aparece só como referência, não obrigatória.
+- **Ocultar no mês:** qualquer indicador (ex.: Parcelas do casal) tem um X para ocultar só naquele mês.
+- **Metas da Júlia (PF):** página limpa com o botão "Criar meta". **Empresa:** só a meta de impostos.
+- `supabase/etapa1-ajuste-novembro.sql`: Renda Júlia R$ 674 + Michelangelo R$ 8.000; caixinhas Carro 3.000, Viagem 1.000, Emergência 172, Imprevistos 0; limites de novembro Uber 200 e Lazer 374; saldo Júlia 0 e Michelangelo 300. Substitui a divisão do `etapa1-saldos-novembro.sql`.

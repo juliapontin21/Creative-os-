@@ -6,7 +6,7 @@ import { fmtMoney, parseMoney } from '../lib/finance'
 import { canWrite, type CtxOpt } from '../lib/finctx'
 import { DEFAULTS, withDefaults, type Indicator, type Params, type RuleCtx } from '../lib/planning'
 import { go } from '../lib/route'
-import { dismiss, dismissed, useGoalBalance, usePlanning, useRules, type Alert } from '../lib/usePlanning'
+import { dismiss, dismissed, undismiss, useGoalBalance, usePlanning, useRules, type Alert } from '../lib/usePlanning'
 import type { Budget, FinContext, Goal } from '../lib/types'
 import { fmtDate, PALETTE, todayISO } from '../lib/util'
 import { MoneyInput } from './FinEditors'
@@ -33,12 +33,13 @@ export function AlertList({ alerts, month, compact }: { alerts: Alert[]; month: 
   )
 }
 
-function IndicatorRow({ i }: { i: Indicator }) {
+function IndicatorRow({ i, onHide }: { i: Indicator; onHide?: () => void }) {
   const pct = i.target ? Math.min(100, Math.round((Math.max(0, i.actual) / i.target) * 100)) : 0
   const color = i.kind === 'ref' ? 'var(--plan)' : i.ok ? 'var(--pos)' : i.kind === 'max' ? 'var(--neg)' : '#d97706'
   return (
     <div className="ind-row">
-      <div className="ind-head"><strong>{i.label}</strong><span className="small"><b style={{ color }}>{fmtMoney(i.actual)}</b> / {fmtMoney(i.target)}</span></div>
+      <div className="ind-head"><strong className="grow">{i.label}</strong><span className="small"><b style={{ color }}>{fmtMoney(i.actual)}</b> / {fmtMoney(i.target)}</span>
+        {onHide && <button className="icon-btn" aria-label="Ocultar neste mês" title="Ocultar neste mês" onClick={onHide}><Icon name="x" size={14} /></button>}</div>
       <div className="bar"><span style={{ width: `${pct}%`, background: color }} /></div>
       <span className="muted small">Referência: {i.rule}{i.kind === 'max' && !i.ok ? ` · passou ${fmtMoney(i.actual - i.target)}` : i.kind === 'min' && !i.ok ? ` · faltam ${fmtMoney(i.target - i.actual)}` : ''}</span>
     </div>
@@ -48,30 +49,37 @@ function IndicatorRow({ i }: { i: Indicator }) {
 export function Metas({ cur, month }: { cur: CtxOpt; month: string }) {
   const { me, goal_moves } = useData()
   const P = usePlanning(cur, month)
+  const [, force] = useState(0)
+  const hidden = dismissed(month)
+  const indicators = P.indicators.filter((i) => !hidden.has('ind-' + i.id))
+  const hiddenInd = P.indicators.filter((i) => hidden.has('ind-' + i.id))
+  const pf = cur.ctx === 'pf'
+  const shownAlerts = P.alerts.filter((a) => !hidden.has(a.id))
   const [goalEdit, setGoalEdit] = useState<Goal | 'new' | null>(null)
   const [move, setMove] = useState<{ goal: Goal; sign: 1 | -1 } | null>(null)
   const [budgetEdit, setBudgetEdit] = useState<Budget | 'new' | null>(null)
   return (
     <>
-      <section>
+      {(!pf || shownAlerts.length > 0) && <section>
         <div className="section-head"><h2>Alertas do mês</h2><button className="link" onClick={() => go('regras')}>Referências</button></div>
         <AlertList alerts={P.alerts} month={month} />
-      </section>
+      </section>}
 
-      {P.indicators.length > 0 && (
+      {(indicators.length > 0 || hiddenInd.length > 0) && (
         <section>
           <div className="section-head"><h2>{cur.ctx === 'empresa' ? 'Faturamento do mês' : cur.ctx === 'casal' ? 'Regras do casal' : 'Indicadores'}</h2>
             <span className="muted small">{cur.ctx === 'empresa' ? fmtMoney(P.income) : `renda ${fmtMoney(P.income)}`}</span></div>
           {!P.income && <p className="card info">{cur.ctx === 'empresa' ? 'Sem receitas da empresa neste mês.' : 'Informe a renda de referência em Ajustes para calcular os indicadores.'}</p>}
-          <div className="card ind-card">{P.indicators.map((i) => <IndicatorRow key={i.id} i={i} />)}</div>
+          {indicators.length > 0 && <div className="card ind-card">{indicators.map((i) => <IndicatorRow key={i.id} i={i} onHide={() => { dismiss(month, 'ind-' + i.id); force((x) => x + 1) }} />)}</div>}
+          {hiddenInd.length > 0 && <button className="link small" onClick={() => { undismiss(month, hiddenInd.map((i) => 'ind-' + i.id)); force((x) => x + 1) }}>Mostrar {hiddenInd.length === 1 ? `"${hiddenInd[0].label}"` : `${hiddenInd.length} ocultos`} neste mês</button>}
           <p className="hint">São referências: mude os números ou desligue qualquer uma em <button className="link inline" onClick={() => go('regras')}>Regras da casa</button>.
             {cur.ctx === 'pf' && ' Fixos = contas fixas + categorias do tipo "fixo"; lazer = categorias do tipo "lazer"; investido = aportes em caixinhas de reserva e investimento.'}</p>
         </section>
       )}
 
       <section>
-        <div className="section-head"><h2>Caixinhas</h2>{cur.writable && <button className="link" onClick={() => setGoalEdit('new')}>+ Caixinha</button>}</div>
-        {P.hasAccounts && <div className="grid2">
+        <div className="section-head"><h2>{pf ? 'Metas' : 'Caixinhas'}</h2>{cur.writable && <button className="link" onClick={() => setGoalEdit('new')}>{pf ? '+ Criar meta' : '+ Caixinha'}</button>}</div>
+        {P.hasAccounts && (!pf || P.goals.length > 0) && <div className="grid2">
           <div className="card stat"><span className="muted small">Guardado nas caixinhas</span><strong className="stat-value">{fmtMoney(P.reserved)}</strong></div>
           <div className="card stat"><span className="muted small">Disponível fora delas</span><strong className={'stat-value ' + (P.available < 0 ? 'neg' : '')}>{fmtMoney(P.available)}</strong></div>
         </div>}
@@ -96,11 +104,12 @@ export function Metas({ cur, month }: { cur: CtxOpt; month: string }) {
               <button className="btn small" onClick={() => setMove({ goal: g, sign: -1 })}>− Resgatar</button>
             </div>}
           </div>
-        ))}</div> : <p className="muted pad">Nenhuma caixinha nesta aba. Crie uma para desejos, reserva de emergência ou investimentos.</p>}
+        ))}</div> : pf && cur.writable ? <button className="btn primary wide" onClick={() => setGoalEdit('new')}><Icon name="plus" size={18} /> Criar minha primeira meta</button>
+          : <p className="muted pad">Nenhuma caixinha nesta aba. Crie uma para desejos, reserva de emergência ou investimentos.</p>}
         <p className="hint">Caixinha separa uma parte do saldo das contas: não é dinheiro novo e não entra duas vezes nos totais.</p>
       </section>
 
-      <section>
+      {(!pf || P.budgets.length > 0) && <section>
         <div className="section-head"><h2>Limites por categoria</h2>{cur.writable && <button className="link" onClick={() => setBudgetEdit('new')}>+ Limite</button>}</div>
         {P.budgets.length ? <div className="card ind-card">{P.budgets.map((b) => (
           <button key={b.budget.id} className="ind-row as-btn" onClick={() => cur.writable && setBudgetEdit(b.budget)}>
@@ -110,7 +119,7 @@ export function Metas({ cur, month }: { cur: CtxOpt; month: string }) {
             <span className="muted small">{b.level === 'over' ? `passou ${fmtMoney(b.spent - b.limit)}` : `disponível ${fmtMoney(b.limit - b.spent)}`} · {b.pct}%{b.monthOnly ? ` · limite só deste mês (normal ${fmtMoney(b.budget.limit_cents)})` : ''}</span>
           </button>
         ))}</div> : <p className="muted pad">Nenhum limite. Ex.: Mercado até R$ 1.200 por mês.</p>}
-      </section>
+      </section>}
 
       {goalEdit && <GoalEditor goal={goalEdit === 'new' ? null : goalEdit} cur={cur} onClose={() => setGoalEdit(null)} />}
       {move && <MoveEditor goal={move.goal} sign={move.sign} onClose={() => setMove(null)} />}
