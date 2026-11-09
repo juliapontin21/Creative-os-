@@ -238,17 +238,18 @@ begin
   select id, household_id into J, H from public.profiles where lower(email) = 'juliapontin21@gmail.com';
   if J is null then raise exception 'Perfil da Júlia não encontrado.'; end if;
   select id into M from public.profiles where household_id = H and id <> J limit 1;
-  if M is null then raise exception 'O Michelangelo ainda não entrou no app. Peça para ele entrar uma vez e rode de novo.'; end if;
+  if M is null then raise notice 'O Michelangelo ainda não entrou no app: a parte dele fica para depois (rode de novo quando ele entrar; nada duplica).'; end if;
 
   -- Categorias (reaproveita as que já existem com o mesmo nome)"""]
 for k, o, p, n, col, b in CATS:
   sc = 'casal' if o == 'casal' else 'pessoal'
-  L.append(f"  c_{k} := pg_temp.cdv_cat(H, {who(o)}, {q(sc)}, {'c_' + p if p else 'null'}, {q(n)}, {q(col)}, {q(b) if b else 'null'});")
+  line = f"c_{k} := pg_temp.cdv_cat(H, {who(o)}, {q(sc)}, {'c_' + p if p else 'null'}, {q(n)}, {q(col)}, {q(b) if b else 'null'});"
+  L.append(f"  if M is not null then {line} end if;" if o == 'M' else f"  {line}")
 L.append('\n  -- Contas fixas, recebimentos recorrentes e assinaturas (o app gera os meses ao abrir)')
 for r in REC:
   k, o, ctx, kind, desc, v, st, en, cat, client, sub, _ = r
-  L.append(f"  insert into public.recurrences (household_id, owner_id, context, kind, description, amount_cents, amount_pending, frequency, start_date, end_date, category_id, client, payment_method, is_subscription, import_key)\n"
-           f"    values (H, {who(o)}, {q(ctx)}, {q(kind)}, {q(desc)}, {0 if v is None else cents(v)}, {'true' if v is None else 'false'}, 'mensal', {q(st)}, {q(en) if en else 'null'}, c_{cat}, {q(client)}, 'outro', {'true' if sub else 'false'}, {q(k)}) on conflict do nothing;")
+  L.append(("  if M is not null then\n" if o == 'M' else '') + f"  insert into public.recurrences (household_id, owner_id, context, kind, description, amount_cents, amount_pending, frequency, start_date, end_date, category_id, client, payment_method, is_subscription, import_key)\n"
+           f"    values (H, {who(o)}, {q(ctx)}, {q(kind)}, {q(desc)}, {0 if v is None else cents(v)}, {'true' if v is None else 'false'}, 'mensal', {q(st)}, {q(en) if en else 'null'}, c_{cat}, {q(client)}, 'outro', {'true' if sub else 'false'}, {q(k)}) on conflict do nothing;" + ("\n  end if;" if o == 'M' else ''))
 L.append('\n  -- Grazi: acerto de dívida em 2 parcelas (não é faturamento de serviço)')
 for t in TX:
   k, o, ctx, kind, desc, v, d, cat, client, n, tot, _ = t
@@ -268,6 +269,7 @@ for k, n, sv, ings, steps in RECIPES:
 L.append('\n  -- Cardápio 10–23/11/2026 (Júlia e Michelangelo)')
 for k, o, d, meal, rc, txt in MEALS:
   rv = 'r_' + rc.replace('-', '_') if rc else 'null'
-  L.append(f"  insert into public.meal_plans (household_id, owner_id, context, date, meal, recipe_id, text, import_key) values (H, {o}, 'pf', {q(d)}, {q(meal)}, {rv}, {q(txt)}, {q(k)}) on conflict do nothing;")
-L.append("end $$;\n\nselect 'Pronto! Abra o app: as contas fixas aparecem em Finanças e o cardápio em Alimentação.' as resultado;\n")
+  st = f"insert into public.meal_plans (household_id, owner_id, context, date, meal, recipe_id, text, import_key) values (H, {o}, 'pf', {q(d)}, {q(meal)}, {rv}, {q(txt)}, {q(k)}) on conflict do nothing;"
+  L.append(f"  if M is not null then {st} end if;" if o == 'M' else f"  {st}")
+L.append("end $$;\n\nselect case when exists (select 1 from public.profiles p, public.profiles j where lower(j.email) = 'juliapontin21@gmail.com' and p.household_id = j.household_id and p.id <> j.id)\n  then 'Pronto! Tudo gravado. Abra o app: contas fixas em Finanças e cardápio em Alimentação.'\n  else 'Pronto! Sua parte, Casal e Empresa gravados. Quando o Michelangelo entrar no app, rode este mesmo arquivo de novo para completar a parte dele (nada duplica).' end as resultado;\n")
 open(f'{OUT}/etapa1-dados.sql', 'w').write('\n'.join(L))
