@@ -154,31 +154,31 @@ begin
   insert into public.recurrences (household_id, owner_id, context, kind, description, amount_cents, amount_pending, frequency, start_date, end_date, category_id, client, payment_method, is_subscription, import_key)
     values (H, J, 'empresa', 'despesa', 'Google Drive — armazenamento adicional', 4990, false, 'mensal', '2026-11-30', null, c_ferramentas, '', 'outro', true, 'emp-sub-drive') on conflict do nothing;
   insert into public.recurrences (household_id, owner_id, context, kind, description, amount_cents, amount_pending, frequency, start_date, end_date, category_id, client, payment_method, is_subscription, import_key)
-    values (H, J, 'pf', 'receita', 'Michelangelo — parcela do celular', 30000, false, 'mensal', '2026-12-05', null, c_ressarc, 'Michelangelo', 'outro', false, 'jpf-rec-ressarc') on conflict do nothing;
+    values (H, J, 'pf', 'receita', 'Michelangelo — parcela do celular', 30000, false, 'mensal', '2026-11-05', null, c_ressarc, 'Michelangelo', 'outro', false, 'jpf-rec-ressarc') on conflict do nothing;
   insert into public.recurrences (household_id, owner_id, context, kind, description, amount_cents, amount_pending, frequency, start_date, end_date, category_id, client, payment_method, is_subscription, import_key)
-    values (H, J, 'pf', 'receita', 'Aluguel da vaga', 15000, false, 'mensal', '2026-12-05', null, c_aluguel_vaga, '', 'outro', false, 'jpf-rec-vaga') on conflict do nothing;
+    values (H, J, 'pf', 'receita', 'Aluguel da vaga', 15000, false, 'mensal', '2026-11-05', null, c_aluguel_vaga, '', 'outro', false, 'jpf-rec-vaga') on conflict do nothing;
   insert into public.recurrences (household_id, owner_id, context, kind, description, amount_cents, amount_pending, frequency, start_date, end_date, category_id, client, payment_method, is_subscription, import_key)
-    values (H, J, 'pf', 'despesa', 'Consórcio', 138000, false, 'mensal', '2026-12-05', null, c_consorcio, '', 'outro', false, 'jpf-desp-consorcio') on conflict do nothing;
+    values (H, J, 'pf', 'despesa', 'Consórcio', 138000, false, 'mensal', '2026-11-05', null, c_consorcio, '', 'outro', false, 'jpf-desp-consorcio') on conflict do nothing;
   if M is not null then
   insert into public.recurrences (household_id, owner_id, context, kind, description, amount_cents, amount_pending, frequency, start_date, end_date, category_id, client, payment_method, is_subscription, import_key)
-    values (H, M, 'pf', 'despesa', 'Plano de internet celular', 6000, false, 'mensal', '2026-12-05', null, c_m_internet, '', 'outro', false, 'mpf-desp-internet') on conflict do nothing;
+    values (H, M, 'pf', 'despesa', 'Plano de internet celular', 6000, false, 'mensal', '2026-11-05', null, c_m_internet, '', 'outro', false, 'mpf-desp-internet') on conflict do nothing;
   end if;
   if M is not null then
   insert into public.recurrences (household_id, owner_id, context, kind, description, amount_cents, amount_pending, frequency, start_date, end_date, category_id, client, payment_method, is_subscription, import_key)
-    values (H, M, 'pf', 'despesa', 'Parcela do celular (paga à Júlia)', 30000, false, 'mensal', '2026-12-05', null, c_m_celular, 'Júlia', 'outro', false, 'mpf-desp-celular') on conflict do nothing;
+    values (H, M, 'pf', 'despesa', 'Parcela do celular (paga à Júlia)', 30000, false, 'mensal', '2026-11-05', null, c_m_celular, 'Júlia', 'outro', false, 'mpf-desp-celular') on conflict do nothing;
   end if;
   insert into public.recurrences (household_id, owner_id, context, kind, description, amount_cents, amount_pending, frequency, start_date, end_date, category_id, client, payment_method, is_subscription, import_key)
-    values (H, J, 'casal', 'despesa', 'Aluguel', 220233, false, 'mensal', '2026-12-05', null, c_aluguel, '', 'outro', false, 'casal-aluguel') on conflict do nothing;
+    values (H, J, 'casal', 'despesa', 'Aluguel', 220233, false, 'mensal', '2026-11-05', null, c_aluguel, '', 'outro', false, 'casal-aluguel') on conflict do nothing;
   insert into public.recurrences (household_id, owner_id, context, kind, description, amount_cents, amount_pending, frequency, start_date, end_date, category_id, client, payment_method, is_subscription, import_key)
-    values (H, J, 'casal', 'despesa', 'Água', 3000, false, 'mensal', '2026-12-05', null, c_agua, '', 'outro', false, 'casal-agua') on conflict do nothing;
+    values (H, J, 'casal', 'despesa', 'Água', 3000, false, 'mensal', '2026-11-05', null, c_agua, '', 'outro', false, 'casal-agua') on conflict do nothing;
   insert into public.recurrences (household_id, owner_id, context, kind, description, amount_cents, amount_pending, frequency, start_date, end_date, category_id, client, payment_method, is_subscription, import_key)
-    values (H, J, 'casal', 'despesa', 'Luz', 17000, false, 'mensal', '2026-12-05', null, c_luz, '', 'outro', false, 'casal-luz') on conflict do nothing;
+    values (H, J, 'casal', 'despesa', 'Luz', 17000, false, 'mensal', '2026-11-05', null, c_luz, '', 'outro', false, 'casal-luz') on conflict do nothing;
   insert into public.recurrences (household_id, owner_id, context, kind, description, amount_cents, amount_pending, frequency, start_date, end_date, category_id, client, payment_method, is_subscription, import_key)
-    values (H, J, 'casal', 'despesa', 'Gás', 3000, false, 'mensal', '2026-12-05', null, c_gas, '', 'outro', false, 'casal-gas') on conflict do nothing;
+    values (H, J, 'casal', 'despesa', 'Gás', 3000, false, 'mensal', '2026-11-05', null, c_gas, '', 'outro', false, 'casal-gas') on conflict do nothing;
   insert into public.recurrences (household_id, owner_id, context, kind, description, amount_cents, amount_pending, frequency, start_date, end_date, category_id, client, payment_method, is_subscription, import_key)
-    values (H, J, 'casal', 'despesa', 'Internet e TV', 27000, false, 'mensal', '2026-12-05', null, c_internet_tv, '', 'outro', false, 'casal-internet') on conflict do nothing;
+    values (H, J, 'casal', 'despesa', 'Internet e TV', 27000, false, 'mensal', '2026-11-05', null, c_internet_tv, '', 'outro', false, 'casal-internet') on conflict do nothing;
   insert into public.recurrences (household_id, owner_id, context, kind, description, amount_cents, amount_pending, frequency, start_date, end_date, category_id, client, payment_method, is_subscription, import_key)
-    values (H, J, 'casal', 'despesa', 'Curso de inglês', 14000, false, 'mensal', '2026-12-05', null, c_ingles, '', 'outro', true, 'casal-ingles') on conflict do nothing;
+    values (H, J, 'casal', 'despesa', 'Curso de inglês', 14000, false, 'mensal', '2026-11-05', null, c_ingles, '', 'outro', true, 'casal-ingles') on conflict do nothing;
 
   -- Grazi: acerto de dívida em 2 parcelas (não é faturamento de serviço)
   insert into public.transactions (household_id, owner_id, context, kind, status, amount_cents, description, competence_date, due_date, category_id, client, payment_method, installment_group, installment_no, installment_total, import_key)

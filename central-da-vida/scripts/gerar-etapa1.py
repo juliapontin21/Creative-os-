@@ -48,7 +48,7 @@ CATS = [
 CATNAME = {c[0]: c[3] for c in CATS}
 
 # ── Contas fixas / recebimentos recorrentes (chave, dono, aba, tipo, descrição, valor|None, início, fim, categoria, cliente, assinatura, palavra p/ achar parecido) ──
-E, J1, C1 = '2026-11-30', '2026-12-05', '2026-12-05'
+E, J1, C1 = '2026-11-30', '2026-11-05', '2026-11-05'  # PF e Casal: ciclo começa em novembro (pedido em 09/11)
 REC = [
  ('emp-rec-qls', 'J', 'empresa', 'receita', 'Academia dos Resíduos (QLS)', 1750, '2026-11-05', None, 'marketing', 'Academia dos Resíduos (QLS)', False, 'resíduos'),
  ('emp-rec-vacaro', 'J', 'empresa', 'receita', 'Vacaro Odontologia', 2300, E, None, 'redes', 'Vacaro Odontologia', False, 'vacaro'),

@@ -18,7 +18,7 @@ Decisões aplicadas:
 - Pró-labore não é lançado automaticamente (valor variável).
 - Fatura do cartão vem das compras no cartão (não é lançada à parte).
 - Unhas/cílios, terapia, mercado, lazer e Uber trabalho são **limites** (orçamento), não lançamentos.
-- PF e Casal começam em 05/12/2026; novembro já passou do dia 5.
+- PF e Casal começam em 05/11/2026 (ciclo do mês começa em 30/10). As contas de novembro já pagas em 09/11 entram pelo `etapa1-novembro.sql`.
 - Receitas sem calorias: preencher depois com rótulo/TACO (nada inventado).
 
 ## Pendências (não inventadas)
