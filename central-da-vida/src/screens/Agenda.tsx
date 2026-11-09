@@ -85,7 +85,7 @@ export function Agenda() {
         if (t.status !== 'previsto' || t.due_date !== day || t.card_id || t.kind === 'transferencia') continue
         if (t.context === 'pf' && t.owner_id !== meId) continue
         if ((t.kind === 'receita' && !f.receber) || (t.kind === 'despesa' && !f.pagar)) continue
-        out.push({ key: `t${t.id}`, day, label: `${t.kind === 'receita' ? '↓' : '↑'} ${t.description} ${fmtMoney(t.amount_cents)}`, color: t.kind === 'receita' ? '#15803d' : '#b91c1c', onOpen: () => go('financas', 'lancamentos') })
+        out.push({ key: `t${t.id}`, day, label: `${t.kind === 'receita' ? '↓' : '↑'} ${t.description} ${t.amount_pending ? '(valor a confirmar)' : fmtMoney(t.amount_cents)}`, color: t.kind === 'receita' ? '#15803d' : '#b91c1c', onOpen: () => go('financas', 'lancamentos') })
       }
       if (f.pagar) for (const c of d.cards.filter((c) => !c.archived_at && (c.context === 'casal' || c.owner_id === meId))) {
         const inv = invoices(c.id, d.transactions, today).find((i) => i.due === day && i.status !== 'paga')

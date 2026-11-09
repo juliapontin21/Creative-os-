@@ -5,7 +5,7 @@ import { addDays, ymd } from '../lib/agenda'
 import { parseCommand, type Proposal } from '../lib/command'
 import { useData } from '../lib/data'
 import { parseItem } from '../lib/food'
-import { accountBalance, addMonths, fmtMoney, isOverdue, splitInstallments } from '../lib/finance'
+import { accountBalance, addMonths, fmtAmount, fmtMoney, isOverdue, splitInstallments } from '../lib/finance'
 import { methodLabel, useCtxOptions } from '../lib/finctx'
 import { go } from '../lib/route'
 import type { Transaction } from '../lib/types'
@@ -83,7 +83,7 @@ export function FaleComigo({ onClose }: { onClose: () => void }) {
       const mine = d.transactions.filter((t) => t.status === 'previsto' && t.kind === 'despesa' && !t.card_id && (t.context === 'casal' || t.owner_id === me.id))
       const soon = mine.filter((t) => t.due_date >= q.date && t.due_date < end).sort((a, b) => a.due_date.localeCompare(b.due_date))
       const late = mine.filter((t) => isOverdue(t, today))
-      const lines = soon.map((t) => `${dateLabel(t.due_date)} · ${t.description} · ${fmtMoney(t.amount_cents)}`)
+      const lines = soon.map((t) => `${dateLabel(t.due_date)} · ${t.description} · ${fmtAmount(t)}`)
       if (late.length) lines.push(`Atrasadas: ${late.length} (${fmtMoney(late.reduce((s, t) => s + t.amount_cents, 0))})`)
       return lines.length ? lines : ['Nada vencendo nesse período. 🎉']
     }

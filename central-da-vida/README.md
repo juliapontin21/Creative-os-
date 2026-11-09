@@ -18,5 +18,7 @@ PWA (React + TypeScript + Vite) com Supabase (Postgres, login Google, RLS, tempo
 | `supabase/fase4b.sql` | Notificações: aparelhos, preferências, segredo do servidor e rotina de cada minuto |
 | `supabase/fase5.sql` | Receitas, cardápio, diário alimentar, lista de mercado e fotos |
 | `supabase/fase6.sql` | Fichas de treino, exercícios, histórico e biblioteca |
+| `supabase/etapa1.sql` | Etapa 1A: valor a confirmar, chave de importação, aporte mensal das caixinhas |
+| `supabase/etapa1-previa.sql` · `etapa1-dados.sql` | Etapa 1B: prévia (só leitura) e carga dos dados do Plano de Atualização (gerados por `scripts/gerar-etapa1.py`) |
 | `api/` | Servidor (Vercel): envio das notificações |
 | `src/` | O app |

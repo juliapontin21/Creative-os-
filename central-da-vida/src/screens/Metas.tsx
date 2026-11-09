@@ -46,7 +46,7 @@ function IndicatorRow({ i }: { i: Indicator }) {
 }
 
 export function Metas({ cur, month }: { cur: CtxOpt; month: string }) {
-  const { me } = useData()
+  const { me, goal_moves } = useData()
   const P = usePlanning(cur, month)
   const [goalEdit, setGoalEdit] = useState<Goal | 'new' | null>(null)
   const [move, setMove] = useState<{ goal: Goal; sign: 1 | -1 } | null>(null)
@@ -79,9 +79,17 @@ export function Metas({ cur, month }: { cur: CtxOpt; month: string }) {
           <div key={g.id} className="card goal">
             <button className="goal-main" onClick={() => setGoalEdit(g)}>
               <span className="goal-head"><Dot color={g.color} /><strong className="grow">{g.name}</strong><span className="badge">{KIND_LABEL[g.kind]}</span></span>
+              {g.target_cents > 0 ? <>
               <span className="small"><b>{fmtMoney(saved)}</b> de {fmtMoney(g.target_cents)} · {pct}%</span>
-              <div className="bar"><span style={{ width: `${pct}%`, background: g.color }} /></div>
-              <span className="muted small">{monthly ? `Guardar ${fmtMoney(monthly)} por mês até ${fmtDate(g.deadline, { month: 'short', year: 'numeric' })} (${monthsLeft} ${monthsLeft === 1 ? 'mês' : 'meses'})` : saved >= g.target_cents ? 'Meta atingida 🎉' : 'Sem prazo definido'}</span>
+              <div className="bar"><span style={{ width: `${pct}%`, background: g.color }} /></div></>
+                : <span className="small"><b>{fmtMoney(saved)}</b> guardado · meta total a definir</span>}
+              {(g.monthly_cents ?? 0) > 0 && (() => {
+                const inMonth = goal_moves.filter((m) => m.goal_id === g.id && m.date.slice(0, 7) === month).reduce((s, m) => s + m.amount_cents, 0)
+                const mp = Math.max(0, Math.min(100, Math.round((inMonth / g.monthly_cents!) * 100)))
+                return <><span className="small">Aporte do mês: <b>{fmtMoney(Math.max(0, inMonth))}</b> de {fmtMoney(g.monthly_cents!)} · {mp}%</span>
+                  <div className="bar"><span style={{ width: `${mp}%`, background: g.color, opacity: .7 }} /></div></>
+              })()}
+              {g.target_cents > 0 && <span className="muted small">{monthly ? `Guardar ${fmtMoney(monthly)} por mês até ${fmtDate(g.deadline, { month: 'short', year: 'numeric' })} (${monthsLeft} ${monthsLeft === 1 ? 'mês' : 'meses'})` : saved >= g.target_cents ? 'Meta atingida 🎉' : 'Sem prazo definido'}</span>}
             </button>
             {canWrite(g, me!.id) && <div className="goal-actions">
               <button className="btn small" onClick={() => setMove({ goal: g, sign: 1 })}>+ Guardar</button>
@@ -125,16 +133,18 @@ function GoalEditor({ goal, cur, onClose }: { goal: Goal | null; cur: CtxOpt; on
   const [ctx, setCtx] = useState<FinContext>(goal?.context ?? (cur.writable ? cur.ctx : 'casal'))
   const [name, setName] = useState(goal?.name ?? '')
   const [kind, setKind] = useState<Goal['kind']>(goal?.kind ?? 'desejo')
-  const [target, setTarget] = useState(centsToInput(goal?.target_cents))
+  const [target, setTarget] = useState(goal?.target_cents ? centsToInput(goal.target_cents) : '')
+  const [monthlyIn, setMonthlyIn] = useState(goal?.monthly_cents ? centsToInput(goal.monthly_cents) : '')
   const [deadline, setDeadline] = useState(goal?.deadline ?? '')
   const [color, setColor] = useState(goal?.color ?? PALETTE[5])
   const [confirmDel, setConfirmDel] = useState(false)
-  const t = parseMoney(target)
+  const t = target.trim() ? parseMoney(target) : 0
+  const mo = monthlyIn.trim() ? parseMoney(monthlyIn) : 0
   const reserveRef = ctx === 'pf' ? me!.income_ref_cents * Number(rulesOf('pf', me!.id).params.reserve_mult) : 0
   const moves = goal ? goal_moves.filter((m) => m.goal_id === goal.id).sort((a, b) => b.date.localeCompare(a.date)) : []
   const save = async () => {
-    if (t === null) return
-    const row = { name: name.trim(), kind, target_cents: t, deadline: deadline || null, color, context: ctx }
+    if (t === null || mo === null) return
+    const row = { name: name.trim(), kind, target_cents: t, monthly_cents: mo, deadline: deadline || null, color, context: ctx }
     const r = goal ? await update('goals', goal.id, row) : await insert('goals', row)
     if (r) { toast('Caixinha salva.'); onClose() }
   }
@@ -143,13 +153,14 @@ function GoalEditor({ goal, cur, onClose }: { goal: Goal | null; cur: CtxOpt; on
       {goal && editable && <button className="icon-btn danger" aria-label="Excluir" onClick={() => setConfirmDel(true)}><Icon name="trash" /></button>}
       <span className="grow" />
       <button className="btn" onClick={onClose}>{editable ? 'Cancelar' : 'Fechar'}</button>
-      {editable && <button className="btn primary" disabled={!name.trim() || t === null} onClick={save}>Salvar</button>}
+      {editable && <button className="btn primary" disabled={!name.trim() || t === null || mo === null} onClick={save}>Salvar</button>}
     </>}>
       <fieldset disabled={!editable} className="plain">
         {!goal && <div className="field"><span className="label">Aba</span><Segmented value={ctx} onChange={setCtx} options={ctxChoices(me!)} /></div>}
         <label className="field"><span className="label">Nome</span><input maxLength={60} value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex.: Viagem de fim de ano" /></label>
         <div className="field"><span className="label">Tipo</span><Segmented value={kind} onChange={setKind} options={[{ id: 'desejo', label: 'Desejo' }, { id: 'reserva', label: 'Reserva' }, { id: 'investimento', label: 'Investimento' }]} /></div>
-        <MoneyInput label="Meta" value={target} onChange={setTarget} />
+        <MoneyInput label="Meta total (opcional)" value={target} onChange={setTarget} hint="Deixe vazio se ainda não definiu." />
+        <MoneyInput label="Aporte por mês (opcional)" value={monthlyIn} onChange={setMonthlyIn} hint="Quanto vocês pretendem guardar todo mês." />
         {kind === 'reserva' && reserveRef > 0 && (
           <p className="hint">Referência da casa: {Number(rulesOf('pf', me!.id).params.reserve_mult)}× sua renda = {fmtMoney(reserveRef)}. <button className="link inline" onClick={() => setTarget(centsToInput(reserveRef))}>Usar</button> (você pode escolher outro valor)</p>
         )}

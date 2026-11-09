@@ -197,7 +197,7 @@ export function TxList({ txs, onOpen }: { txs: Transaction[]; onOpen: (t: Transa
                     </span>
                   </span>
                   <span className="tx-amount">
-                    <strong className={t.kind === 'receita' || t.direction === 'entrada' ? 'pos' : ''}>{sign} {fmtMoney(t.amount_cents)}</strong>
+                    <strong className={t.amount_pending ? 'muted' : t.kind === 'receita' || t.direction === 'entrada' ? 'pos' : ''}>{t.amount_pending ? 'a confirmar' : `${sign} ${fmtMoney(t.amount_cents)}`}</strong>
                     <span className={'pill ' + (t.status === 'realizado' ? 'ok' : late ? 'late' : t.status === 'cancelado' ? '' : 'plan')}>
                       {t.status === 'realizado' ? (t.kind === 'receita' ? 'Recebido' : 'Pago') : t.status === 'cancelado' ? 'Cancelado' : late ? 'Vencido' : 'Previsto'}
                     </span>
