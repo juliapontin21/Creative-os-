@@ -872,12 +872,13 @@ document.addEventListener('contextmenu',e=>{if(e.target.closest('[data-drag-take
 function vProjetos(){
   const tab=UI.projTab;
   let out=topBar('Projetos','Experiências, produtos e números',`<button class="icon-btn" data-act="new" data-t="${tab==='produtos'?'product':'project'}" aria-label="Adicionar">＋</button>`);
-  out+=`<div class="tabs">${[['projetos','Projetos'],['produtos','TikTok Shop'],['numeros','Números'],...(MODE==='web'?[['conta','Conta']]:[])].map(([k,l])=>`<button class="${tab===k?'on':''}" data-act="jtab" data-k="${k}">${l}</button>`).join('')}</div>`;
+  out+=`<div class="tabs">${[['projetos','Projetos'],['produtos','TikTok Shop'],['numeros','Números'],...(MODE==='web'?[['tiktok','TikTok'],['conta','Conta']]:[])].map(([k,l])=>`<button class="${tab===k?'on':''}" data-act="jtab" data-k="${k}">${l}</button>`).join('')}</div>`;
   if(tab==='projetos')out+=`<div class="sec"><div class="list">${S.projects.map(projMini).join('')||'<div class="empty">Nenhum projeto. Crie um para viagens, eventos ou campanhas.</div>'}</div></div>`;
   else if(tab==='produtos'){
     out+=`<div class="sec"><div class="list">${S.products.map(p=>{const tk=S.takes.filter(t=>arr(t.productIds).includes(p.id));const pend=tk.filter(t=>t.status!=='gravado').length;const cs=S.contents.filter(c=>arr(c.productIds).includes(p.id));
       return`<button class="card tap" data-act="open" data-t="product" data-id="${p.id}"><div class="row between"><h3 class="grow">${h(p.name)}</h3>${p.available===false?'<span class="chip">sem amostra</span>':'<span class="chip ok">em mãos</span>'}</div><div class="small muted">${h(p.brand||'')} · ${h(p.category||'')}</div><div class="chips">${arr(p.contexts).map(c=>`<span class="chip l-${c.level}">${ctxL(c.ctx)}</span>`).join('')}</div><div class="serves">${cs.length} conteúdos · ${pend} takes pendentes · ${arr(p.refIds).length} referências</div></button>`}).join('')||'<div class="empty">Nenhum produto cadastrado.</div>'}</div></div>`;
   }else if(tab==='conta')out+=vConta();
+  else if(tab==='tiktok')out+=vTikTok();
   else out+=vNumeros();
   return out;
 }
@@ -1586,7 +1587,17 @@ const ACT={
   'f-chip':d=>{const v=arr(getP(DRAFT.data,d.k));setP(DRAFT.data,d.k,v.includes(d.v)?v.filter(x=>x!==d.v):[...v,d.v]);drawForm()},
   'f-lvl':d=>{const v=arr(getP(DRAFT.data,d.k));const c=v.find(x=>x.ctx===d.v);const order=['principal','recomendado','alternativo'];let nv;if(!c)nv=[...v,{ctx:d.v,level:'principal'}];else{const i=order.indexOf(c.level);nv=i===2?v.filter(x=>x.ctx!==d.v):v.map(x=>x.ctx===d.v?{...x,level:order[i+1]}:x)}setP(DRAFT.data,d.k,nv);drawForm()},
   'f-del':()=>deleteEntity(),
-  itab:d=>{UI.ideaTab=d.k;render()},ptab:d=>{UI.prodTab=d.k;render()},jtab:d=>{UI.projTab=d.k;render()},
+  'tt-connect':async()=>{try{const j=await api('/api/tiktok',{method:'POST',body:JSON.stringify({action:'connect'})});location.href=j.url}catch(e){toast(e.message)}},
+  'tt-sync':()=>ttDo({action:'sync'},'Procurando vídeos novos…'),
+  'tt-retry':d=>ttDo({action:'retry',id:d.id},'Volta para a fila'),
+  'tt-ignore':d=>{if(confirm('Não enviar este vídeo ao TikTok?'))ttDo({action:'ignore',id:d.id},'Fora da fila')},
+  'tt-pub':d=>ttDo({action:'published',id:d.id},'Marcado como publicado'),
+  'tt-copy':async d=>{const r=arr(UI.tt?.drafts).find(x=>String(x.id)===d.id);try{await navigator.clipboard.writeText(r?.caption||'');toast('Legenda copiada. Cole no TikTok.')}catch(e){sheet('Copie a legenda',`<textarea readonly style="min-height:160px">${h(r?.caption||'')}</textarea><div class="small muted">Toque e segure no texto para copiar.</div>`)}},
+  'tt-edit':d=>{const r=arr(UI.tt?.drafts).find(x=>String(x.id)===d.id);sheet('Legenda do TikTok',`<textarea id="tt-cap" maxlength="2200" style="min-height:180px">${h(r?.caption||'')}</textarea><button class="btn pri wide" data-act="tt-save-cap" data-id="${h(d.id)}">Salvar legenda</button>`)},
+  'tt-save-cap':d=>{const v=document.getElementById('tt-cap')?.value||'';closeForm();ttDo({action:'caption',id:d.id,caption:v},'Legenda salva')},
+  'tt-backfill':()=>{const n=prompt('Incluir vídeos que já estão nas pastas Editado dos últimos quantos dias?','7');if(n)ttDo({action:'backfill',days:+n},'Vou incluir os vídeos desses dias na próxima verificação').then(()=>ttDo({action:'sync'},'Procurando…'))},
+  'tt-disconnect':()=>{if(confirm('Desconectar o TikTok? A fila continua salva, mas nada mais é enviado.'))ttDo({action:'disconnect'},'TikTok desconectado')},
+  itab:d=>{UI.ideaTab=d.k;render()},ptab:d=>{UI.prodTab=d.k;render()},jtab:d=>{UI.projTab=d.k;render();if(d.k==='tiktok'&&UI.tt)ttLoad()},
   cf:d=>{UI.contentF=d.k;render()},
   tf:d=>{UI.takeF[d.k]=d.v;render()},
   'lib-unused':()=>{UI.libUnused=!UI.libUnused;render()},
@@ -1673,7 +1684,7 @@ document.addEventListener('change',e=>{const el=e.target;
 
 /* ============ MODO WEB (Fase 2): Supabase + Google Drive ============ */
 let SB=null,SESSION=null,WEBCFG=null,GTOK=null;const DRIVE={folders:{},checked:{}};
-const GSCOPES='https://www.googleapis.com/auth/drive.file';
+const GSCOPES='https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/drive.readonly';
 async function api(path,opt={}){const r=await fetch(path,{...opt,headers:{'Content-Type':'application/json',Authorization:'Bearer '+(SESSION?.access_token||''),...(opt.headers||{})}});let j={};try{j=await r.json()}catch(_){}if(!r.ok)throw Object.assign(new Error(j.error||('Erro '+r.status)),{code:j.code||r.status});return j}
 async function webInit(){
   try{WEBCFG=await fetch('/api/config').then(r=>r.json())}catch(e){MODE='error';UI._err='Não consegui falar com o servidor do app. Confira sua internet e recarregue.';return false}
@@ -1681,7 +1692,7 @@ async function webInit(){
   SB=window.supabase.createClient(WEBCFG.supabaseUrl,WEBCFG.supabaseAnonKey,{auth:{persistSession:true,detectSessionInUrl:false,flowType:'pkce'}});
   const qp=new URLSearchParams(location.search),hp=new URLSearchParams(location.hash.replace(/^#/,''));
   const urlErr=qp.get('error_description')||hp.get('error_description')||qp.get('error')||hp.get('error');
-  const code=qp.get('code');
+  const code=qp.get('code');const ttBack=qp.get('tiktok');if(ttBack){try{history.replaceState(null,'',location.pathname)}catch(_){}UI.view='projetos';UI.projTab='tiktok';setTimeout(()=>toast(ttBack==='conectado'?'TikTok conectado!':'TikTok: '+(qp.get('msg')||'não conectou')),600)}
   if(code||urlErr){try{history.replaceState(null,'',location.pathname)}catch(_){}}
   if(urlErr)UI._err='O Google/Supabase recusou o login: '+urlErr.replace(/\+/g,' ');
   if(code){const {data:ex,error:exErr}=await SB.auth.exchangeCodeForSession(code);if(exErr)UI._err='Não consegui concluir o login: '+exErr.message+(/verifier/i.test(exErr.message)?' Abra o app direto no Safari ou Chrome (não pelo link do WhatsApp) e tente de novo.':'');else if(ex?.session)UI._exchanged=ex.session}
@@ -1772,12 +1783,43 @@ function importData(file){
     KEYS.forEach(k=>{const v=src[k];const items=Array.isArray(v)?v:arr(v?.items);if(items.length||Array.isArray(v)){S[k]=items;save(k);n+=items.length}});
     toast(n?`${n} registros importados`:'Arquivo sem dados reconhecidos.');render()}catch(e){toast('Arquivo inválido: use o backup .json do Creative OS.')}};fr.readAsText(file)}
 function exportData(){const snap={app:'creative-os',exportedAt:new Date().toISOString(),collections:{}};KEYS.forEach(k=>snap.collections[k]=S[k]);const b=new Blob([JSON.stringify(snap)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=`creative-os-backup-${TODAY}.json`;document.body.appendChild(a);a.click();a.remove()}
+/* ---------- TIKTOK (rascunhos automáticos) ---------- */
+const TT_ST={fila:['Na fila',''],enviando:['Enviando…','warn'],no_tiktok:['No TikTok','acc'],publicado:['Publicado','ok'],erro:['Erro','bad'],ignorado:['Não enviar','']};
+const TT_SRC={roteiro:'do roteiro',ia:'feita pela IA, revise',simples:'só o produto, escreva a sua',manual:'editada por você'};
+async function ttLoad(){if(UI._ttBusy)return;UI._ttBusy=true;try{UI.tt=await api('/api/tiktok');UI._ttErr=''}catch(e){UI._ttErr=e.message}UI._ttBusy=false;if(UI.projTab==='tiktok')render()}
+async function ttDo(body,msg){if(msg)toast(msg);UI._ttBusy=true;if(body.action==='sync'){UI._ttSync=true;render()}try{UI.tt=await api('/api/tiktok',{method:'POST',body:JSON.stringify(body)});const r=UI.tt.result;if(r)toast(r.error?r.error:r.sent?`${r.sent} rascunho(s) enviado(s) ao TikTok`:'Nada novo para enviar agora')}catch(e){toast(e.message)}UI._ttBusy=false;UI._ttSync=false;render()}
+function ttDraft(r){const [lab,cls]=TT_ST[r.status]||[r.status,''];
+  const title=[r.video_code,r.product].filter(Boolean).join(' · ')||r.file_name;
+  return`<div class="card" style="gap:6px"><div class="row between"><h3 class="grow">${h(title)}</h3><span class="chip ${cls}">${lab}</span></div>
+  <div class="small muted">${h(r.file_name)}${r.drive_file_id?` · <a href="https://drive.google.com/file/d/${h(r.drive_file_id)}/view" target="_blank" rel="noopener" style="color:var(--accent)">ver no Drive</a>`:''}</div>
+  ${r.status==='no_tiktok'?'<div class="notice info">Abra o TikTok → caixa de entrada (notificação de rascunho), cole a legenda, vincule o produto e publique.</div>':''}
+  ${r.error&&r.status!=='publicado'?`<div class="small" style="color:var(--bad)">${h(r.error)}</div>`:''}
+  ${r.caption?`<div class="small" style="white-space:pre-line;background:var(--bg);border-radius:10px;padding:8px 10px">${h(r.caption)}</div><div class="small muted">Legenda ${TT_SRC[r.caption_source]||''}</div>`:r.status==='fila'?'<div class="small muted">Esperando o arquivo de legenda na pasta Editado (até 20 min; depois a IA escreve uma).</div>':''}
+  <div class="row" style="flex-wrap:wrap;gap:6px">${r.caption?`<button class="btn sm pri" data-act="tt-copy" data-id="${r.id}">Copiar legenda</button><button class="btn sm" data-act="tt-edit" data-id="${r.id}">Editar</button>`:''}
+  ${r.status==='no_tiktok'?`<button class="btn sm ok" data-act="tt-pub" data-id="${r.id}">Já publiquei</button>`:''}
+  ${r.status==='erro'||r.status==='ignorado'?`<button class="btn sm" data-act="tt-retry" data-id="${r.id}">Enviar de novo</button>`:''}
+  ${r.status==='fila'||r.status==='erro'?`<button class="btn sm ghost" data-act="tt-ignore" data-id="${r.id}">Não enviar</button>`:''}</div></div>`}
+function vTikTok(){
+  if(MODE!=='web')return`<div class="sec"><div class="notice info">O envio automático para o TikTok funciona no app web (Fase 2).</div></div>`;
+  if(!UI.tt){if(!UI._ttBusy)ttLoad();return`<div class="sec">${UI._ttErr?`<div class="notice bad">${h(UI._ttErr)}</div>`:'<div class="empty">Carregando…</div>'}</div>`}
+  const T=UI.tt,A=T.account;
+  if(!T.configured)return`<div class="sec"><div class="notice info">Falta configurar o app do TikTok na Vercel (TIKTOK_CLIENT_KEY e TIKTOK_CLIENT_SECRET). Siga docs/TIKTOK-SETUP.md.</div></div>`;
+  if(!A||A.needs_reconnect)return`<div class="sec"><div class="card"><h3>Rascunhos automáticos no TikTok</h3><div class="small muted">Quando um vídeo aprovado cair numa pasta Editado do seu Drive, o Creative OS manda ele como rascunho para o seu TikTok e deixa a legenda pronta aqui para copiar.</div>${A?.needs_reconnect?'<div class="notice bad">O acesso ao TikTok expirou. Conecte de novo.</div>':''}<button class="btn pri" data-act="tt-connect" style="align-self:flex-start">Conectar TikTok</button></div></div>`;
+  const ds=arr(T.drafts),act=ds.filter(r=>['fila','enviando','no_tiktok','erro'].includes(r.status)),old=ds.filter(r=>!act.includes(r));
+  const pend=ds.filter(r=>r.status==='no_tiktok'||r.status==='enviando').length;
+  return`<div class="sec"><div class="card" style="gap:6px"><div class="row between"><h3 class="grow">TikTok${A.display_name?' · '+h(A.display_name):''}</h3><span class="chip ok">conectado</span></div>
+  <div class="small muted">Verifica a pasta Editado a cada 10 min. ${A.last_sync?'Última verificação: '+new Date(A.last_sync).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})+'.':''} O TikTok aceita até ${T.maxPending} rascunhos pendentes por dia; os outros esperam na fila.</div>
+  ${A.last_error?`<div class="notice bad">${h(A.last_error)}</div>`:''}
+  <div class="row" style="flex-wrap:wrap;gap:6px"><button class="btn sm pri" data-act="tt-sync" ${UI._ttSync?'disabled':''}>${UI._ttSync?'Verificando…':'Verificar agora'}</button><button class="btn sm" data-act="tt-backfill">Incluir vídeos antigos</button><button class="btn sm ghost" data-act="tt-disconnect">Desconectar</button></div></div>
+  <span class="eyebrow">Em andamento · ${pend} no TikTok</span><div class="list">${act.map(ttDraft).join('')||'<div class="empty">Nenhum vídeo novo nas pastas Editado.</div>'}</div>
+  ${old.length?`<span class="eyebrow">Concluídos</span><div class="list">${old.slice(0,30).map(ttDraft).join('')}</div>`:''}</div>`;
+}
 function vConta(){
   if(MODE!=='web')return`<div class="sec"><div class="notice info">Conta, backup e importação ficam disponíveis no app web (Fase 2).</div></div>`;
   return`<div class="sec"><div class="card"><h3>Conta</h3><div class="small">${h(SESSION?.user?.email||'')}</div><div class="small muted">Drive: pastas em "Creative OS" no seu Google Drive.</div><button class="btn sm" data-act="logout" style="align-self:flex-start">Sair</button></div>
   <div class="card"><h3>Dados</h3><div class="small muted">Backup automático diário no banco. Você também pode baixar uma cópia.</div><div class="row"><button class="btn sm" data-act="export">Baixar backup</button><button class="btn sm" data-act="import-file">Importar backup</button><input type="file" id="import-input" data-import="1" accept="application/json,.json" hidden></div></div></div>`;
 }
-function vLogin(){return`<div class="boot" style="min-height:80vh"><div style="display:flex;flex-direction:column;gap:14px;align-items:center;max-width:320px"><span class="rec-dot" style="width:16px;height:16px"></span><h1 style="font-family:var(--f-display);font-size:2rem;margin:0">Creative OS</h1><div class="muted">Entre com sua conta Google. O app vai pedir acesso ao seu Google Drive, só aos arquivos e pastas que ele mesmo criar.</div>${UI._err?`<div class="notice bad">${h(UI._err)}</div>`:''}<button class="btn pri wide" data-act="login">Entrar com Google</button></div></div>`}
+function vLogin(){return`<div class="boot" style="min-height:80vh"><div style="display:flex;flex-direction:column;gap:14px;align-items:center;max-width:320px"><span class="rec-dot" style="width:16px;height:16px"></span><h1 style="font-family:var(--f-display);font-size:2rem;margin:0">Creative OS</h1><div class="muted">Entre com sua conta Google. O app vai pedir acesso ao seu Google Drive: criar as pastas e arquivos dele e ler os vídeos prontos da pasta Editado para mandar ao TikTok.</div>${UI._err?`<div class="notice bad">${h(UI._err)}</div>`:''}<button class="btn pri wide" data-act="login">Entrar com Google</button></div></div>`}
 
 /* ============ BOOT ============ */
 (async function boot(){
