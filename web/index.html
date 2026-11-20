@@ -1704,7 +1704,7 @@ const numSort=(a,b)=>String(a.id).localeCompare(String(b.id),undefined,{numeric:
 const MST={
   roteiro:{a_revisar:['A revisar','warn'],em_ajuste:['Em ajuste','acc'],aprovado:['Aprovado','ok']},
   captacao:{pendente:['Captação pendente',''],parcial:['Captação parcial','warn'],completa:['Captação completa','ok']},
-  edicao:{aguardando:['Aguardando materiais',''],pronto:['Pronto para editar','acc'],em_edicao:['Em edição','acc'],em_revisao:['Edição para você revisar','warn'],editado:['Editado','ok']},
+  edicao:{aguardando:['Aguardando materiais',''],pronto:['Pronto para editar','acc'],fila:['Na fila de edição','acc'],em_edicao:['Em edição','acc'],em_revisao:['Edição para você revisar','warn'],editado:['Editado','ok']},
   publicacao:{nao:['Sem publicação',''],aprovado:['Aprovado para publicar','acc'],programar:['Para programar','warn'],rascunho:['Rascunho no TikTok','acc'],agendado:['Agendado','acc'],postado:['Postado','ok']}
 };
 const mst=(v,k)=>(v.status&&v.status[k])||({roteiro:'a_revisar',captacao:'pendente',edicao:'aguardando',publicacao:'nao'})[k];
@@ -1960,19 +1960,39 @@ function mcInsercoes(){
   return`<div class="sec"><div class="small muted">${xs.filter(x=>x.status!=='recebido').length} de ${xs.length} a conseguir</div><div class="list">${xs.map(x=>`<div class="card"><div class="row"><span class="mc-id">${h(x.id)}</span><span class="chip">${h(mProd(x.produto))}</span><span class="chip ${x.status==='recebido'?'ok':'warn'}">${x.status==='recebido'?'Recebido':'A conseguir'}</span></div><div>${h(x.descricao||'')}</div><div class="row between"><span class="small muted">${arr(x.videos).length?'usado em '+x.videos.map(h).join(', '):''}</span><button class="btn sm ${x.status==='recebido'?'':'pri'}" data-act="mc-up" data-k="insercao" data-id="${h(x.id)}">${x.status==='recebido'?'Subir outro':'Subir'}</button></div></div>`).join('')}</div></div>`;
 }
 function mcEdicao(){
-  const groups=[['em_revisao','Para você revisar'],['pronto','Prontos para editar'],['em_edicao','Em edição'],['aguardando','Aguardando materiais'],['editado','Editados']];
+  const groups=[['em_revisao','Para você revisar'],['pronto','Gravados: escolha quais mandar'],['fila','Na fila de edição'],['em_edicao','O Claude está editando'],['aguardando','Ainda falta gravar'],['editado','Editados']];
   const ap=MC.S.videos.filter(v=>mst(v,'roteiro')==='aprovado');
   if(!ap.length)return`<div class="empty" style="margin-top:12px">A edição começa depois que os roteiros forem aprovados e gravados.</div>`;
   const fila=ap.filter(v=>mst(v,'publicacao')==='programar').sort((a,b)=>mcSlotKey(a).localeCompare(mcSlotKey(b)));
   const filaHtml=fila.length?`<div class="sec"><div class="sec-h"><h2>Para programar</h2><span class="small muted">${fila.length}</span></div><div class="small muted">No PC: abra o Claude no Chrome e chame a skill "Agendamento de Post". Ela programa estes vídeos no TikTok Studio.</div><div class="card" style="gap:0">${fila.map(v=>mcItem(v,'mc-ed',mcSlotLabel(v),mpill('publicacao','programar'))).join('')}</div></div>`:'';
-  return filaHtml+groups.map(([k,l])=>{const vs=ap.filter(v=>mst(v,'edicao')===k);if(!vs.length)return'';return`<div class="sec"><div class="sec-h"><h2>${l}</h2><span class="small muted">${vs.length}</span></div><div class="card" style="gap:0">${vs.sort(numSort).map(v=>mcItem(v,'mc-ed',v.prontidaoEdicao||'',mpill('edicao',k)+(mst(v,'publicacao')!=='nao'?mpill('publicacao',mst(v,'publicacao')):''))).join('')}</div></div>`}).join('');
+  return mcEdPainel(ap)+filaHtml+groups.map(([k,l])=>{const vs=ap.filter(v=>mst(v,'edicao')===k);if(!vs.length)return'';return`<div class="sec"><div class="sec-h"><h2>${l}</h2><span class="small muted">${vs.length}</span></div>${k==='pronto'?`<div class="row" style="gap:6px;flex-wrap:wrap"><span class="small muted grow">Abra um vídeo e toque em “Mandar pra edição”, ou mande todos de uma vez.</span><button class="btn sm pri" data-act="mc-edsendall">${vs.length===1?'Mandar pra edição':'Mandar os '+vs.length+' pra edição'}</button></div>`:''}${k==='fila'?'<div class="small muted">Numa conversa com o Claude, peça: “edita a fila”. Ele edita na ordem e manda cada um para você revisar.</div>':''}<div class="card" style="gap:0">${vs.sort(numSort).map(v=>mcItem(v,'mc-ed',v.prontidaoEdicao||'',mpill('edicao',k)+(mst(v,'publicacao')!=='nao'?mpill('publicacao',mst(v,'publicacao')):''))).join('')}</div></div>`}).join('');
 }
 function mcEdDetail(v){
   return`<div class="sec"><button class="btn ghost sm" data-act="mc-edback" style="align-self:flex-start">← Voltar</button><div><span class="mc-id">${h(v.id)}</span><h2>${h(vTitle(v))}</h2></div><div class="chips">${mpill('edicao',mst(v,'edicao'))}${mst(v,'publicacao')!=='nao'?mpill('publicacao',mst(v,'publicacao')):''}</div>
   ${v.linkEditado?`<a class="btn pri" style="text-decoration:none;align-self:flex-start" href="${h(v.linkEditado)}" target="_blank" rel="noopener">Assistir o vídeo editado</a>`:'<div class="small muted">O link do vídeo editado aparece aqui.</div>'}
   ${mst(v,'edicao')==='em_revisao'?`<label class="f" for="mc-reved">O que mudar <span class="muted" style="font-weight:400">(pode citar a minutagem: “aos 0:12, troca o take”)</span></label><textarea id="mc-reved"></textarea><div class="row"><button class="btn sm" data-act="mc-mic" data-ta="mc-reved">🎙 Ditar</button><button class="btn sm" data-act="mc-edrev" data-id="${h(v.id)}">Pedir revisão</button><button class="btn sm pri" data-act="mc-edok" data-id="${h(v.id)}">Aprovar edição</button></div>`:''}
+  ${['pronto','aguardando'].includes(mst(v,'edicao'))?`<div class="card" style="gap:8px"><h3>Edição</h3><div class="small muted">${mst(v,'edicao')==='pronto'?'Gravação completa. Quando quiser, mande para o Claude editar.':'Ainda faltam arquivos deste vídeo. Se mandar mesmo assim, o Claude edita com o que tiver e avisa o que adaptou.'}</div><button class="btn sm pri" style="align-self:flex-start" data-act="mc-edsend" data-id="${h(v.id)}">Mandar pra edição</button></div>`:''}
+  ${mst(v,'edicao')==='fila'?`<div class="card" style="gap:8px"><h3>Edição</h3><div class="small">Na fila de edição. Peça ao Claude: “edita a fila”.</div><button class="btn sm ghost" style="align-self:flex-start" data-act="mc-edunsend" data-id="${h(v.id)}">Tirar da fila</button></div>`:''}
   ${mst(v,'edicao')==='editado'?mcPubCard(v):''}
   ${arr(v.edicaoVersoes).length?`<details class="card"><summary><b>Versões</b> (${v.edicaoVersoes.length})</summary>${v.edicaoVersoes.map(x=>`<div class="small" style="padding:6px 0;border-top:1px solid var(--line)">v${h(x.v)} · ${h(x.data||'')} ${x.pedido?'· '+h(x.pedido):''} ${x.link?`<a href="${h(x.link)}" target="_blank" rel="noopener" style="color:var(--accent)">abrir</a>`:''}</div>`).join('')}</details>`:''}</div>`;
+}
+
+/* ---------- PAINEL DA EDIÇÃO: quanto já foi editado e quanto falta ---------- */
+function mcEdPainel(ap){
+  const n=k=>ap.filter(v=>mst(v,'edicao')===k).length,tot=ap.length,ed=n('editado');
+  const pct=tot?Math.round(ed/tot*100):0;
+  const kp=[['Falta gravar',n('aguardando')],['Gravados',n('pronto')],['Na fila',n('fila')],['Editando',n('em_edicao')],['Para revisar',n('em_revisao')],['Editados',ed]];
+  const prods=[...new Set(ap.map(v=>v.produto))].sort();
+  return`<div class="sec"><div class="card" style="gap:10px"><div class="row between"><h3 class="grow">Edição da semana</h3><b>${ed} de ${tot}</b></div>
+  <div class="bar acc" style="height:10px"><i style="width:${pct}%"></i></div><div class="small muted">${pct}% editado · faltam ${tot-ed}</div>
+  <div class="kpis">${kp.map(([l,x])=>`<div class="kpi"><b>${x}</b><span class="small">${l}</span></div>`).join('')}</div>
+  ${prods.length>1?`<div style="display:flex;flex-direction:column;gap:6px">${prods.map(p=>{const vs=ap.filter(v=>v.produto===p),e=vs.filter(v=>mst(v,'edicao')==='editado').length;return`<div class="hbar"><span class="small" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${h(mProd(p))}</span><div class="bar acc"><i style="width:${vs.length?Math.round(e/vs.length*100):0}%"></i></div><span class="v">${e}/${vs.length}</span></div>`}).join('')}</div>`:''}
+  </div></div>`;
+}
+async function mcEdSend(ids){
+  let ok=0;for(const id of ids){const v=mById('videos',id);if(!v)continue;if(await mcSave('videos',id,{status:{...(v.status||{}),edicao:'fila'},filaEdicaoEm:new Date().toISOString()}))ok++}
+  if(ok)await mcPedido('editar_video',ids.length===1?ids[0]:'lote',`Editar ${ids.length===1?'o vídeo '+ids[0]:ids.length+' vídeos: '+ids.join(', ')} (estão na fila de edição do app).`);
+  toast(ok?`${ok} vídeo${ok>1?'s':''} na fila de edição`:'Não consegui mandar agora.');render();
 }
 
 /* ---------- PUBLICAÇÃO: programar no PC (skill "Agendamento de Post") ou mandar pro rascunho ---------- */
@@ -2137,6 +2157,9 @@ Object.assign(ACT,{
   'mc-takeok':async d=>{if(await mcSave('takes',d.id,{status:'recebido',marcadoManual:true})){toast(d.id+' marcado. Suba o arquivo quando puder.');render()}},
   'mc-up':d=>mcUpPick(d.k,d.id),
   'mc-sync':()=>mcConferir(),
+  'mc-edsend':d=>{const v=mById('videos',d.id);if(mst(v,'edicao')!=='pronto'&&!confirm('Ainda faltam arquivos deste vídeo. Mandar pra edição mesmo assim?'))return;mcEdSend([d.id])},
+  'mc-edsendall':()=>{const ids=MC.S.videos.filter(v=>mst(v,'roteiro')==='aprovado'&&mst(v,'edicao')==='pronto').map(v=>v.id).sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}));if(ids.length&&confirm(`Mandar ${ids.length} vídeo${ids.length>1?'s':''} pra edição?`))mcEdSend(ids)},
+  'mc-edunsend':async d=>{const v=mById('videos',d.id),c=mst(v,'captacao');if(await mcSave('videos',d.id,{status:{...(v.status||{}),edicao:c==='completa'?'pronto':'aguardando'}})){toast('Fora da fila de edição');render()}},
   'mc-pubedit':d=>{UI.mc.pubEdit=d.id;render()},
   'mc-pubcancel':()=>{UI.mc.pubEdit=null;render()},
   'mc-pubsave':async d=>{const v=mById('videos',d.id),data=document.getElementById('mc-pubdata')?.value||'',hora=document.getElementById('mc-pubhora')?.value||'';if(!data||!hora)return toast('Escolha o dia e o horário.');
