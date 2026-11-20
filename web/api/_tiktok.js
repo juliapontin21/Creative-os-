@@ -296,11 +296,24 @@ async function uploadDraft(ttTok, gtok, row, onPublishId) {
   return init.publish_id;
 }
 
+// Mantém o roteiro (Meu Criativo) em dia: rascunho enviado → "Rascunho no TikTok"; publicado → "Postado".
+export async function markVideo(userId, code, publicacao, extra = {}) {
+  if (!code) return;
+  try {
+    const rows = await db(`mc_docs?user_id=eq.${userId}&col=eq.videos&id=eq.${encodeURIComponent(code)}&select=data`);
+    if (!rows?.length) return;
+    const status = { ...(rows[0].data?.status || {}), publicacao };
+    await db("rpc/mc_merge", { method: "POST", body: JSON.stringify({ p_col: "videos", p_id: code, p_patch: { status, ...extra } }) });
+  } catch {
+    /* o roteiro é um extra: nunca atrapalha o envio */
+  }
+}
+
 const patchDraft = (id, patch) =>
   db(`tiktok_drafts?id=eq.${id}`, { method: "PATCH", body: JSON.stringify({ ...patch, updated_at: new Date().toISOString() }) });
 
 async function refreshStatuses(ttTok, userId) {
-  const rows = await db(`tiktok_drafts?user_id=eq.${userId}&status=in.(enviando,no_tiktok)&select=id,publish_id,status,sent_at,attempts`);
+  const rows = await db(`tiktok_drafts?user_id=eq.${userId}&status=in.(enviando,no_tiktok)&select=id,publish_id,status,sent_at,attempts,video_code`);
   for (const r of rows || []) {
     if (!r.publish_id) {
       if (Date.now() - new Date(r.sent_at || 0).getTime() > 30 * 60e3) await patchDraft(r.id, { status: "fila" });
@@ -308,7 +321,10 @@ async function refreshStatuses(ttTok, userId) {
     }
     try {
       const d = await tiktokApi(ttTok, "/v2/post/publish/status/fetch/", { publish_id: r.publish_id });
-      if (d.status === "PUBLISH_COMPLETE") await patchDraft(r.id, { status: "publicado", error: null });
+      if (d.status === "PUBLISH_COMPLETE") {
+        await patchDraft(r.id, { status: "publicado", error: null });
+        await markVideo(userId, r.video_code, "postado");
+      }
       else if (d.status === "FAILED") await patchDraft(r.id, { status: "erro", error: `O TikTok não processou o vídeo (${d.fail_reason || "sem motivo"}).` });
       else if (d.status === "SEND_TO_USER_INBOX" && r.status !== "no_tiktok") await patchDraft(r.id, { status: "no_tiktok", error: null });
       else if (r.status === "enviando" && Date.now() - new Date(r.sent_at || 0).getTime() > 30 * 60e3) {
@@ -349,6 +365,7 @@ export async function syncAccount(acc, deadline) {
       try {
         const publishId = await uploadDraft(ttTok, gtok, row, (pid) => patchDraft(row.id, { publish_id: pid }));
         await patchDraft(row.id, { status: "no_tiktok", publish_id: publishId });
+        await markVideo(acc.user_id, row.video_code, "rascunho", { rascunhoEm: new Date().toISOString() });
         out.sent++;
       } catch (e) {
         if (/spam_risk|too_many_pending|rate_limit/i.test(e.code || "")) {

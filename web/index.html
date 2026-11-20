@@ -99,7 +99,7 @@ label.f{display:flex;flex-direction:column;gap:6px;font-size:.84rem;font-weight:
 .empty{border:1.5px dashed var(--line);border-radius:var(--r);padding:18px;text-align:center;color:var(--muted);font-size:.9rem}
 /* nav */
 nav.bottom{position:fixed;left:0;right:0;bottom:0;z-index:25;background:var(--surface);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom,0px);padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inset-right,0px)}
-nav.bottom .in{max-width:720px;margin:0 auto;display:grid;grid-template-columns:repeat(6,1fr);height:var(--nav-h);align-items:center}
+nav.bottom .in{max-width:720px;margin:0 auto;display:grid;grid-template-columns:repeat(5,1fr);height:var(--nav-h);align-items:center}
 nav.bottom button{border:0;background:transparent;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:.66rem;font-weight:600;color:var(--muted);padding:4px 0;min-width:0}
 nav.bottom button svg{width:22px;height:22px}
 nav.bottom button.on{color:var(--ink)}
@@ -194,6 +194,21 @@ body.is-dragging{overflow:hidden;touch-action:none}
 .boot{display:grid;place-items:center;min-height:60vh;color:var(--muted);text-align:center;gap:10px}
 .sim{font-size:.7rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--warn);background:var(--warn-soft);border-radius:6px;padding:2px 6px}
 .folder{font-family:var(--f-mono);font-size:.74rem;background:var(--sunk);border-radius:8px;padding:8px 10px;overflow-x:auto;white-space:nowrap}
+/* Meu Criativo */
+.mc-id{font-family:var(--f-mono);font-size:.76rem;font-weight:500;color:var(--muted);white-space:nowrap}
+.mc-item{display:flex;gap:10px;align-items:center;padding:11px 2px;border:0;border-top:1px solid var(--line);background:none;text-align:left;width:100%;min-width:0}
+.mc-item:first-child{border-top:0}
+.mc-item b{font-weight:600}
+.mc-tag{display:inline-block;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;padding:3px 8px;border-radius:6px;background:var(--sunk);color:var(--muted)}
+.mc-tag.GANCHO{background:var(--accent);color:var(--on-accent)} .mc-tag.CORPO{background:var(--ink);color:var(--bg)} .mc-tag.CTA{background:#F2C14E;color:#2b1d19} .mc-tag.PONTE{border:1px dashed var(--muted);color:var(--ink)}
+.mc-block{display:flex;flex-direction:column;gap:6px;padding:12px 0;border-top:1px solid var(--line)}
+.mc-block:first-child{border-top:0;padding-top:0}
+.mc-fala{font-size:1.05rem;line-height:1.5}
+.mc-box{background:var(--sunk);border-radius:10px;padding:8px 10px}
+.mc-kv{display:grid;grid-template-columns:minmax(100px,auto) 1fr;gap:4px 12px;font-size:.88rem;margin:0}
+.mc-kv dt{color:var(--muted)} .mc-kv dd{margin:0;min-width:0;overflow-wrap:anywhere}
+.kpis .kpi.tap{text-align:left}
+details summary{cursor:pointer}
 </style>
 
 <div id="app"></div>
@@ -320,12 +335,14 @@ function calItems(){
   const items=[];
   S.events.forEach(e=>{const end=e.endDate&&e.endDate>e.date?e.endDate:e.date;let d=e.date,g=0;while(d<=end&&g<60){items.push({kind:'event',type:e.type,date:d,time:e.time||'',e,multi:end!==e.date});d=addDays(d,1);g++}});
   S.pubs.forEach(p=>items.push({kind:'pub',type:'publicacao',date:p.date,time:p.time||'',p}));
+  items.push(...mcCalItems());
   return items.sort((a,b)=>(a.date+(a.time||'99')).localeCompare(b.date+(b.time||'99')));
 }
-function itemContents(it){return it.kind==='pub'?[byId('contents',it.p.contentId)].filter(Boolean):arr(it.e.contentIds).map(id=>byId('contents',id)).filter(Boolean)}
+function itemContents(it){if(it.kind==='mc')return[];return it.kind==='pub'?[byId('contents',it.p.contentId)].filter(Boolean):arr(it.e.contentIds).map(id=>byId('contents',id)).filter(Boolean)}
 function passFilter(it){
   const f=UI.calF;
   if(f.types.length&&!f.types.includes(it.type==='finalizacao'?'revisao':it.type))return false;
+  if(it.kind==='mc')return!f.proj&&(!f.plat.length||f.plat.some(p=>/TikTok/.test(p)));
   if(f.proj){const pid=it.kind==='event'?it.e.projectId:byId('contents',it.p.contentId)?.projectId;const cs=itemContents(it);if(pid!==f.proj&&!cs.some(c=>c.projectId===f.proj))return false}
   if(f.plat.length){if(it.kind==='pub'){if(!f.plat.includes(it.p.platform))return false}else{const cs=itemContents(it);if(!cs.some(c=>arr(c.platforms).some(p=>f.plat.includes(p))))return false}}
   return true;
@@ -356,22 +373,21 @@ const I={
   ideias:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 00-3.5 10.9c.6.5 1 1.2 1 2.1h5c0-.9.4-1.6 1-2.1A6 6 0 0012 3z"/></svg>',
   producao:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="13" height="11" rx="2"/><path d="M16 11l5-3v9l-5-3"/></svg>',
   calendario:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>',
+  roteiros:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3h8l4 4v14H7z"/><path d="M15 3v4h4M10 12h6M10 16h6"/></svg>',
   projetos:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg>'
 };
 
 /* ============ RENDER PRINCIPAL ============ */
-const VIEWS=[['inicio','Início'],['ideias','Notas'],['producao','Produção'],['captar','Captar'],['calendario','Agenda'],['projetos','Projetos']];
+const VIEWS=[['inicio','Início'],['roteiros','Roteiros'],['producao','Produção'],['ideias','Notas'],['calendario','Agenda']];
 function render(){
   applyCtxs();
   const app=document.getElementById('app');
   if(MODE==='loading'){app.innerHTML=`<div class="wrap"><div class="boot"><div><span class="rec-dot"></span></div><div>Abrindo seu Creative OS…</div></div></div>`;return}
   if(MODE==='login'){app.innerHTML=`<div class="wrap">${vLogin()}</div>`;return}
   if(MODE==='error'){app.innerHTML=`<div class="wrap"><div class="boot"><div class="notice bad">${h(UI._err||'Algo deu errado.')}</div><button class="btn" onclick="location.reload()">Tentar de novo</button></div></div>`;return}
-  const body={falar:vFalar,inicio:vInicio,ideias:vIdeias,producao:vProducao,captar:vCaptar,calendario:vCalendario,projetos:vProjetos}[UI.view]();
+  const body=({falar:vFalar,inicio:vInicio,roteiros:vRoteiros,ideias:vIdeias,producao:vProducaoMC,calendario:vCalendario,ajustes:vAjustes}[UI.view]||vInicio)();
   app.innerHTML=`<div class="wrap">${body}</div>
-  <nav class="bottom" aria-label="Navegação"><div class="in">${VIEWS.map(([k,l])=>k==='captar'
-    ?`<button class="cap" data-act="go" data-v="captar" aria-label="Captar agora"><span class="rec"><i></i></span>Captar</button>`
-    :`<button class="${UI.view===k?'on':''}" data-act="go" data-v="${k}">${I[k]}${l}</button>`).join('')}</div></nav>`;
+  <nav class="bottom" aria-label="Navegação"><div class="in">${VIEWS.map(([k,l])=>`<button class="${UI.view===k?'on':''}" data-act="go" data-v="${k}">${I[k]}${l}</button>`).join('')}</div></nav>`;
   if(UI.detail)renderDetail();
 }
 function reminders(){
@@ -398,11 +414,15 @@ function reminders(){
   S.pubs.filter(p=>p.status!=='Publicado'&&p.date>=TODAY&&diffDays(TODAY,p.date)<=1).forEach(p=>{const c=byId('contents',p.contentId);add(92,'acc',`Postar <b>${h(c?.title||'conteúdo')}</b> no ${h(p.platform)} ${rel(p.date)}${p.time?' às '+h(p.time):''}.`,c?open(c):'')});
   S.pubs.filter(p=>p.status!=='Publicado'&&p.date<TODAY).forEach(p=>{const c=byId('contents',p.contentId);add(93,'bad',`Postagem atrasada: <b>${h(c?.title||'conteúdo')}</b> (${fmtShort(p.date)}).`,c?open(c):'')});
   S.contents.forEach(c=>{if(contentConflicts(c).length)add(70,'bad',`Conflito de datas em <b>${h(c.title)}</b>.`,open(c))});
+  if(MC.on){const rv=MC.S.videos.filter(v=>mst(v,'roteiro')==='a_revisar').length,ed=MC.S.videos.filter(v=>mst(v,'edicao')==='em_revisao').length,tt=arr(UI.tt?.drafts).filter(r=>r.status==='no_tiktok').length;
+    if(ed)add(91,'warn',`<b>${ed} ediç${ed>1?'ões':'ão'} para você revisar.</b>`,`data-act="go" data-v="producao"`);
+    if(tt)add(89,'acc',`<b>${tt} rascunho${tt>1?'s':''} no TikTok</b> esperando legenda e publicação.`,`data-act="go-tt"`);
+    if(rv)add(72,'warn',`<b>${rv} roteiro${rv>1?'s':''} a revisar.</b>`,`data-act="mc-revfilt"`)}
   return R.sort((a,b)=>b.score-a.score);
 }
 function bell(){const n=reminders().filter(r=>r.lvl!=='info').length;return`<button class="icon-btn" data-act="reminders" aria-label="Lembretes" style="position:relative">🔔${n?`<span style="position:absolute;top:-4px;right:-4px;background:var(--accent);color:var(--on-accent);border-radius:99px;font-size:.66rem;font-weight:800;min-width:18px;height:18px;display:grid;place-items:center;padding:0 4px">${n}</span>`:''}</button>`}
 function remRow(r){return`<button class="notice ${r.lvl==='acc'?'':r.lvl} card tap" style="border:0;text-align:left;display:block;line-height:1.4" ${r.act}><span>${r.text}</span></button>`}
-function topBar(title,eyebrow,right=''){return`<header class="top"><div class="grow"><div class="eyebrow">${eyebrow||''}</div><h1>${title}</h1></div>${UI.view!=='falar'?`<button class="icon-btn" data-act="go" data-v="falar" aria-label="Falar um comando">🎙</button>`:''}${UI.view!=='inicio'?bell():''}${right}</header>`}
+function topBar(title,eyebrow,right=''){return`<header class="top"><div class="grow"><div class="eyebrow">${eyebrow||''}</div><h1>${title}</h1></div>${UI.view!=='falar'?`<button class="icon-btn" data-act="go" data-v="falar" aria-label="Falar um comando">🎙</button>`:''}${UI.view!=='inicio'?bell():''}${right}${UI.view!=='ajustes'?`<button class="icon-btn" data-act="go" data-v="ajustes" aria-label="Ajustes: TikTok e conta">⚙</button>`:''}</header>`}
 function modeNote(){
   if(MODE==='local')return`<div class="notice info">Modo local: os dados ficam só neste navegador. Abra pelo app do Claude, com sua conta, para salvar no seu banco.</div>`;
   return'';
@@ -411,29 +431,15 @@ function emptyAll(){return KEYS.every(k=>!S[k].length)}
 
 /* ---------- INÍCIO ---------- */
 function vInicio(){
-  const d=new Date();const R=reminders();const top3=R.filter(r=>r.lvl!=='info').slice(0,4);
+  const d=new Date();const R=reminders();const top=R.filter(r=>r.lvl!=='info').slice(0,3);
   const items=calItems().filter(i=>i.date===TODAY);
-  const next=S.events.filter(e=>e.type==='compromisso'&&(e.endDate||e.date)>=TODAY).sort((a,b)=>a.date.localeCompare(b.date)).slice(0,3);
-  const toRec=S.contents.filter(c=>c.status==='Planejamento'&&!isRecorded(c)).length;
-  const noTakes=S.contents.filter(needsTakes).length;
-  const inEdit=S.contents.filter(c=>c.status==='Edição').length;
-  return topBar(`${['Bom dia','Boa tarde','Boa noite'][d.getHours()<12?0:d.getHours()<18?1:2]}, Julia`,fmtD(TODAY))+modeNote()+
-  (emptyAll()?`<div class="empty" style="margin-top:12px">Seu Creative OS está vazio.${MODE==='web'?' Importe o backup que você baixou do Creative OS do Claude, ou comece do zero.':' Comece por um conteúdo.'}<div class="row" style="margin-top:10px;justify-content:center">${MODE==='web'?'<button class="btn sm pri" data-act="import-file">Importar backup</button><input type="file" id="import-input" data-import="1" accept="application/json,.json" hidden>':''}<button class="btn sm" data-act="new" data-t="content">Novo conteúdo</button></div></div>`:'')+
-  (top3.length?`<div class="sec" style="margin-top:4px"><div class="sec-h"><h2>Lembretes</h2>${R.length>top3.length?`<button class="btn ghost sm" data-act="reminders">Ver todos (${R.length})</button>`:''}</div><div class="list">${top3.map(remRow).join('')}</div></div>`:'')+
-  `<div class="cap-hero" style="margin-top:16px">
-    <div class="row"><span class="rec-dot"></span><span class="eyebrow" style="color:inherit">Captar agora</span></div>
-    <form class="cap-in" data-form="captar-home"><input type="text" id="cap-home" placeholder="Onde você está? Ex.: na praia" autocomplete="off"><button class="btn pri" type="submit">Ver</button></form>
-  </div>
-  <button class="card tap" data-act="go" data-v="falar" style="margin-top:10px;flex-direction:row;align-items:center;gap:12px"><span class="icon-btn" style="background:var(--accent-soft);border-color:transparent">🎙</span><span class="grow"><b>Falar um comando</b><br><span class="small muted">Cadastre vídeo, take, nota ou compromisso falando</span></span></button>
-  <div class="kpis" style="margin-top:12px">
-    <button class="kpi card tap" data-act="go-cf" data-k="planejamento"><b>${toRec}</b><span>para gravar</span></button>
-    <button class="kpi card tap" data-act="go-cf" data-k="semtakes"><b style="${noTakes?'color:var(--warn)':''}">${noTakes}</b><span>takes a definir</span></button>
-    <button class="kpi card tap" data-act="go" data-v="producao" data-tab="edicao"><b>${inEdit}</b><span>em edição</span></button>
-  </div>
-  ${items.length?`<div class="sec"><div class="sec-h"><h2>Hoje</h2></div><div class="card">${items.map(calRow).join('')}</div></div>`:''}
-  ${next.length?`<div class="sec"><div class="sec-h"><h2>Próximos compromissos</h2><button class="btn ghost sm" data-act="go" data-v="calendario">Agenda</button></div><div class="list">${next.map(e=>`<button class="card tap stripe t-compromisso" data-act="cal-day" data-d="${e.date}" style="gap:2px"><div class="row between"><h3 class="grow">${h(e.title)}</h3><span class="small muted">${rel(e.date)}</span></div><div class="small muted">${fmtShort(e.date)}${e.endDate?' – '+fmtShort(e.endDate):''}${arr(e.contentIds).length?` · ${arr(e.contentIds).length} conteúdos`:''}</div></button>`).join('')}</div></div>`:''}`;
+  return topBar(`${['Bom dia','Boa tarde','Boa noite'][d.getHours()<12?0:d.getHours()<18?1:2]}, Julia`,fmtD(TODAY),bell())+modeNote()+
+  (top.length?`<div class="sec" style="margin-top:4px"><div class="sec-h"><h2>Lembretes</h2>${R.length>top.length?`<button class="btn ghost sm" data-act="reminders">Ver todos (${R.length})</button>`:''}</div><div class="list">${top.map(remRow).join('')}</div></div>`:'')+
+  mcPainel()+
+  (items.length?`<div class="sec"><div class="sec-h"><h2>Hoje na agenda</h2><button class="btn ghost sm" data-act="go" data-v="calendario">Agenda</button></div><div class="card">${items.map(calRow).join('')}</div></div>`:'');
 }
 function calRow(it){
+  if(it.kind==='mc')return`<button class="cal-item card tap" style="border:0;padding:8px 0;background:transparent" ${it.act}><span class="time">${h(it.time)||'—'}</span><span class="stripe t-publicacao grow"><b>${h(it.label)}</b><br><span class="small muted">${h(it.sub||'')}</span></span></button>`;
   if(it.kind==='pub'){const c=byId('contents',it.p.contentId);return`<button class="cal-item card tap" style="border:0;padding:8px 0;background:transparent" data-act="open" data-t="content" data-id="${c?.id||''}"><span class="time">${h(it.time)||'—'}</span><span class="stripe t-publicacao grow"><b>${h(c?.title||'Publicação')}</b><br><span class="small muted">Publicação · ${h(it.p.platform)} · ${h(it.p.status||'Programada')}</span></span></button>`}
   const e=it.e;const nt=e.type==='compromisso'||e.type==='gravacao'?eventTakes(e).filter(t=>t.status!=='gravado').length:0;
   return`<button class="cal-item card tap" style="border:0;padding:8px 0;background:transparent" data-act="cal-day" data-d="${it.date}"><span class="time">${h(it.time)||(it.multi?'dia':'—')}</span><span class="stripe t-${e.type} grow"><b>${h(e.title)}</b><br><span class="small muted">${EVT[e.type]}${e.type==='gravacao'?(e.fixed?' fixa':' flexível'):''}${e.location?' · '+h(e.location):''}${nt?` · ${nt} takes pendentes`:''}</span></span></button>`;
@@ -631,9 +637,10 @@ function noteCard(x){
   return`<button class="card tap" data-act="open" data-t="ref" data-id="${r.id}" style="gap:4px;border-color:var(--accent-soft)"><div class="row between"><span class="eyebrow" style="color:var(--accent)">Vídeo de referência</span><span class="serves">${h(host)}</span></div><h3>${h(r.title||'Referência')}</h3>${r.adapt?`<div class="small muted" style="${clamp};-webkit-line-clamp:2"><b>Adaptar:</b> ${h(r.adapt)}</div>`:''}</button>`;
 }
 function vIdeias(){
-  let out=topBar('Bloco de notas','Ideias e referências');
-  out+=`<div class="tabs">${[['refs','Notas'],['plano','Plano do mês']].map(([k,l])=>`<button class="${UI.ideaTab===k?'on':''}" data-act="itab" data-k="${k}">${l}</button>`).join('')}</div>`;
+  let out=topBar('Notas','Ideias e referências');
+  out+=`<div class="tabs">${[['refs','Notas'],['mcideias','Ideias de produto'],['plano','Plano do mês']].map(([k,l])=>`<button class="${UI.ideaTab===k?'on':''}" data-act="itab" data-k="${k}">${l}</button>`).join('')}</div>`;
   if(UI.ideaTab==='plano')return out+vPlano();
+  if(UI.ideaTab==='mcideias')return out+mcIdeias();
   const isRef=UI.noteKind==='ref';
   out+=`<form class="card" data-form="note" style="margin-top:12px">
     <div class="tabs" style="padding:3px"><button type="button" class="${!isRef?'on':''}" data-act="note-kind" data-k="note">Ideia rápida</button><button type="button" class="${isRef?'on':''}" data-act="note-kind" data-k="ref">Vídeo de referência</button></div>
@@ -742,7 +749,7 @@ function takeRowCal(t,d){
 }
 function vCalendario(){
   const M=UI.calMode;const base=UI.calDate||TODAY;
-  let out=topBar('Calendário','Gravar, editar, postar',`<button class="icon-btn" data-act="new" data-t="event" data-preset='${h(JSON.stringify({date:UI.calSel||TODAY,type:"compromisso"}))}' aria-label="Novo compromisso">＋</button>`);
+  let out=topBar('Agenda','Postagens e compromissos',`<button class="icon-btn" data-act="new" data-t="event" data-preset='${h(JSON.stringify({date:UI.calSel||TODAY,type:"compromisso"}))}' aria-label="Novo compromisso">＋</button>`);
   out+=`<div class="tabs">${[['dia','Dia'],['semana','Semana'],['mes','Mês'],['lista','Lista']].map(([k,l])=>`<button class="${M===k?'on':''}" data-act="calmode" data-k="${k}">${l}</button>`).join('')}</div>`;
   const F=UI.calF;
   if(M!=='dia')out+=`<div class="scroll-x" style="margin-top:10px">${[['compromisso','Compromissos'],['gravacao','Gravações'],['edicao','Edições'],['revisao','Revisões'],['publicacao','Postagens']].map(([k,l])=>`<button class="chip btn ${F.types.includes(k)?'on':''}" data-act="calf" data-k="types" data-v="${k}"><span class="dot t-${k}"></span>${l}</button>`).join('')}${(F.types.length||F.plat.length||F.proj)?`<button class="chip btn" data-act="calf-clear">Limpar</button>`:''}</div>`;
@@ -770,7 +777,7 @@ function monthView(base,items){
     spans.forEach(sp=>{const c1=diffDays(ws,sp.s)+1,len=diffDays(sp.s,sp.t)+1;out+=`<span class="cal-bar t-${sp.e.type}" style="grid-column:${c1}/span ${len};grid-row:${2+sp.l}">${sp.cont?'… ':''}${h(sp.e.title)}</span>`});
     for(let i=0;i<7;i++){const d=addDays(ws,i);
       const singles=items.filter(x=>x.date===d&&!x.multi);const tk=takesOn(d,{pendingOnly:true,net:false}).length;
-      const labs=singles.map(x=>x.kind==='pub'?{t:'publicacao',l:'Postar: '+(byId('contents',x.p.contentId)?.title||'')}:{t:x.e.type,l:x.e.title.replace(/^(Gravação|Edição|Revisão): /,'')});
+      const labs=singles.map(x=>x.kind==='mc'?{t:'publicacao',l:x.label}:x.kind==='pub'?{t:'publicacao',l:'Postar: '+(byId('contents',x.p.contentId)?.title||'')}:{t:x.e.type,l:x.e.title.replace(/^(Gravação|Edição|Revisão): /,'')});
       const show=labs.slice(0,2),more=labs.length-show.length;
       out+=`<span class="cal-stack" style="grid-column:${i+1};grid-row:${rows}">${show.map(x=>`<span class="cal-lab t-${x.t}">${h(x.l)}</span>`).join('')}${more>0?`<span class="cal-more">+${more}</span>`:''}${tk?`<span class="cal-tk">🎬 ${tk}</span>`:''}</span>`}
     out+=`</div>`;
@@ -782,9 +789,9 @@ function netChips(){return`<div class="scroll-x"><button class="chip btn ${!UI.d
 function weekView(d,items){
   const ws=addDays(d,-((new Date(d+'T12:00:00').getDay()+6)%7));
   let out=`<div class="sec"><div class="row between"><button class="icon-btn" data-act="dayn" data-n="-7" aria-label="Semana anterior">‹</button><h2>${fmtShort(ws)} – ${fmtShort(addDays(ws,6))}</h2><button class="icon-btn" data-act="dayn" data-n="7" aria-label="Próxima semana">›</button></div>${netChips()}<div class="small muted">Segure um take e arraste para outro dia.</div><div class="list">`;
-  for(let i=0;i<7;i++){const dd=addDays(ws,i);const its=items.filter(x=>x.date===dd&&(x.kind!=='pub'||netOk(byId('contents',x.p.contentId)||{})));const tk=takesOn(dd);
+  for(let i=0;i<7;i++){const dd=addDays(ws,i);const its=items.filter(x=>x.date===dd&&(x.kind!=='pub'||x.kind==='mc'||netOk(byId('contents',x.p.contentId)||{})));const tk=takesOn(dd);
     out+=`<div class="card wk-day ${dd===TODAY?'is-today':''}" data-dropday="${dd}" style="gap:4px"><button class="row between" style="border:0;background:none;padding:0" data-act="cal-day" data-d="${dd}"><b style="${dd===TODAY?'color:var(--accent)':''}">${fmtD(dd)}</b><span class="small muted">${tk.filter(t=>t.status!=='gravado').length?`🎬 ${tk.filter(t=>t.status!=='gravado').length}`:''}</span></button>
-    ${its.map(it=>`<div class="small stripe t-${it.type}" style="padding-block:2px">${it.kind==='pub'?`Postar: ${h(byId('contents',it.p.contentId)?.title||'')} · ${h(it.p.platform)}`:h(it.e.title)}${it.multi?' <span class="muted">(vários dias)</span>':''}</div>`).join('')}
+    ${its.map(it=>`<div class="small stripe t-${it.type}" style="padding-block:2px">${it.kind==='mc'?h(it.label):it.kind==='pub'?`Postar: ${h(byId('contents',it.p.contentId)?.title||'')} · ${h(it.p.platform)}`:h(it.e.title)}${it.multi?' <span class="muted">(vários dias)</span>':''}</div>`).join('')}
     ${tk.map(t=>takeRowCal(t,dd)).join('')}
     ${!its.length&&!tk.length?'<span class="small muted">Livre · solte um take aqui</span>':''}</div>`}
   return out+`</div></div>`;
@@ -799,10 +806,11 @@ function dayView(d,items){
   else out+=`<div class="empty">Nenhum take agendado${UI.dayNet?' para essa rede':''} neste dia.</div>`;
   if(done.length)out+=`<div class="sec-h"><h3>Gravados neste dia</h3><span class="small muted">${done.length}</span></div><div class="list">${done.map(t=>takeRowCal(t,d)).join('')}</div>`;
   out+=`</div>`;
-  const agenda=its.filter(it=>it.kind!=='pub'||netOk(byId('contents',it.p.contentId)||{}));
+  const agenda=its.filter(it=>it.kind!=='pub'||it.kind==='mc'||netOk(byId('contents',it.p.contentId)||{}));
   out+=`<div class="sec"><div class="sec-h"><h2>Agenda do dia</h2></div>`;
   if(!agenda.length)out+=`<div class="empty">Nada na agenda.<div style="margin-top:8px"><button class="btn sm" data-act="new" data-t="event" data-preset='${h(JSON.stringify({date:d,type:"compromisso"}))}'>Adicionar compromisso</button></div></div>`;
   else out+=`<div class="list">${agenda.map(it=>{
+    if(it.kind==='mc')return`<button class="card tap stripe t-publicacao" ${it.act} style="gap:2px"><span class="eyebrow">${h(it.sub||'Publicação')}</span><b>${h(it.label)}</b></button>`;
     if(it.kind==='pub'){const c=byId('contents',it.p.contentId);return`<button class="card tap stripe t-publicacao" data-act="open" data-t="pub" data-id="${it.p.id}" style="gap:2px"><span class="eyebrow">Postagem · ${h(it.p.platform)} ${h(it.time||'')}</span><b>${h(c?.title||'—')}</b></button>`}
     const e=it.e;const opp=e.type==='compromisso'?flexOpps(e).filter(t=>!takeDay(t)&&arr(t.contentIds).some(id=>{const c=byId('contents',id);return c&&netOk(c)})):[];
     return`<div class="card stripe t-${e.type}" style="gap:4px"><div class="row between"><span class="eyebrow">${EVT[e.type]}${it.multi?' · vários dias':''}</span><span class="mono muted">${h(e.time||'')}</span></div><button style="border:0;background:none;padding:0;text-align:left" data-act="open" data-t="event" data-id="${e.id}"><h3>${h(e.title)}</h3></button>
@@ -1597,7 +1605,9 @@ const ACT={
   'tt-save-cap':d=>{const v=document.getElementById('tt-cap')?.value||'';closeForm();ttDo({action:'caption',id:d.id,caption:v},'Legenda salva')},
   'tt-backfill':()=>{const n=prompt('Incluir vídeos que já estão nas pastas Editado dos últimos quantos dias?','7');if(n)ttDo({action:'backfill',days:+n},'Vou incluir os vídeos desses dias na próxima verificação').then(()=>ttDo({action:'sync'},'Procurando…'))},
   'tt-disconnect':()=>{if(confirm('Desconectar o TikTok? A fila continua salva, mas nada mais é enviado.'))ttDo({action:'disconnect'},'TikTok desconectado')},
-  itab:d=>{UI.ideaTab=d.k;render()},ptab:d=>{UI.prodTab=d.k;render()},jtab:d=>{UI.projTab=d.k;render();if(d.k==='tiktok'&&UI.tt)ttLoad()},
+  itab:d=>{UI.ideaTab=d.k;render()},
+  ajtab:d=>{UI.ajTab=d.k;render();if(d.k==='tiktok'&&UI.tt)ttLoad()},
+  'go-tt':()=>{UI.ajTab='tiktok';go('ajustes')},ptab:d=>{UI.prodTab=d.k;render()},jtab:d=>{UI.projTab=d.k;render();if(d.k==='tiktok'&&UI.tt)ttLoad()},
   cf:d=>{UI.contentF=d.k;render()},
   tf:d=>{UI.takeF[d.k]=d.v;render()},
   'lib-unused':()=>{UI.libUnused=!UI.libUnused;render()},
@@ -1682,6 +1692,435 @@ document.addEventListener('change',e=>{const el=e.target;
   if(el.dataset.pd!==undefined&&UI._pd){UI._pd.rows[+el.dataset.pd][1]=el.value}
 });
 
+/* ============ MEU CRIATIVO (roteiros, gravação blocada, edição) ============ */
+/* Os dados vêm da tabela mc_docs (Supabase). O Claude grava lá pelo conector; o app mostra e age. */
+const MC={S:{produtos:[],videos:[],takes:[],ideias:[],pedidos:[],semanas:[],insercoes:[],linguagem:[]},estado:{},config:{},on:false,loaded:false};
+const MC_COLS=Object.keys(MC.S);
+UI.mc={rtab:'roteiros',lista:null,rev:null,ed:null,produto:null,f:{produto:'',status:'',semana:'',q:''},prod:{area:'gravacao',local:'casa',cenario:null,modo:'blocados',produto:null},ideias:{produto:'',status:''}};
+const mById=(c,id)=>MC.S[c].find(x=>x.id===id);
+const mProd=id=>{const p=mById('produtos',id);return p?(p.nome||id):(id||'—')};
+const numSort=(a,b)=>String(a.id).localeCompare(String(b.id),undefined,{numeric:true});
+const MST={
+  roteiro:{a_revisar:['A revisar','warn'],em_ajuste:['Em ajuste','acc'],aprovado:['Aprovado','ok']},
+  captacao:{pendente:['Captação pendente',''],parcial:['Captação parcial','warn'],completa:['Captação completa','ok']},
+  edicao:{aguardando:['Aguardando materiais',''],pronto:['Pronto para editar','acc'],em_edicao:['Em edição','acc'],em_revisao:['Edição para você revisar','warn'],editado:['Editado','ok']},
+  publicacao:{nao:['Sem publicação',''],aprovado:['Aprovado para publicar','acc'],rascunho:['Rascunho no TikTok','acc'],agendado:['Agendado','acc'],postado:['Postado','ok']}
+};
+const mst=(v,k)=>(v.status&&v.status[k])||({roteiro:'a_revisar',captacao:'pendente',edicao:'aguardando',publicacao:'nao'})[k];
+const mpill=(k,val)=>{const d=(MST[k]||{})[val];return d?`<span class="chip ${d[1]}">${h(d[0])}</span>`:''};
+const FUNIL={topo:'Topo',meio:'Meio',fundo:'Fundo'};
+const vTitle=v=>[mProd(v.produto),v.formato].filter(Boolean).join(' · ');
+const MC_TIPOS={ajuste_roteiro:'Ajustar roteiro',desenvolver_ideia:'Desenvolver ideia',variacoes_ideia:'Criar 5 variações',incluir_ideia:'Incluir no próximo planejamento',revisar_edicao:'Revisar edição',obs_take:'Observação de take'};
+function semanaAtual(){return [...MC.S.semanas].sort((a,b)=>String(b.inicio||b.id).localeCompare(String(a.inicio||a.id)))[0]||null}
+
+/* ---------- dados ---------- */
+function mcApply(r){
+  if(!r||!r.col)return;
+  const doc=Object.assign({id:r.id},r.data||{});
+  if(r.col==='estado'&&r.id==='continuar'){MC.estado=r.data||{};return}
+  if(r.col==='config'&&r.id==='geral'){MC.config=r.data||{};return}
+  if(!MC.S[r.col])return;
+  const L=MC.S[r.col],i=L.findIndex(x=>x.id===r.id);if(i>=0)L[i]=doc;else L.push(doc);
+}
+async function mcLoad(){
+  if(!SB)return;
+  const all=[];
+  for(let from=0;from<20000;from+=1000){
+    const {data,error}=await SB.from('mc_docs').select('col,id,data').range(from,from+999);
+    if(error){if(/mc_docs|relation|schema cache/i.test(error.message))MC.missing=true;console.warn('mc',error.message);break}
+    all.push(...arr(data));if(arr(data).length<1000)break;
+  }
+  MC_COLS.forEach(c=>MC.S[c]=[]);all.forEach(mcApply);MC.on=!MC.missing;MC.loaded=true;
+  if(MC.on){
+    try{SB.channel('mc_docs_live').on('postgres_changes',{event:'*',schema:'public',table:'mc_docs'},p=>{
+      if(p.eventType==='DELETE'){const o=p.old||{};if(MC.S[o.col])MC.S[o.col]=MC.S[o.col].filter(x=>x.id!==o.id)}else mcApply(p.new);
+      mcSoftRender()}).subscribe()}catch(e){console.warn('realtime',e)}
+  }
+}
+function mcSoftRender(){const a=document.activeElement;if(a&&(a.tagName==='TEXTAREA'||(a.tagName==='INPUT'&&a.type!=='search'))||document.querySelector('.sheet')){UI._mcDirty=true;return}render();if(UI.detail)renderDetail()}
+document.addEventListener('focusout',()=>{if(UI._mcDirty)setTimeout(()=>{const a=document.activeElement;if(!(a&&(a.tagName==='TEXTAREA'||a.tagName==='INPUT'))&&!document.querySelector('.sheet')){UI._mcDirty=false;render()}},250)});
+async function mcSave(col,id,patch){
+  if(!MC.on){toast('Os roteiros ainda não estão ligados ao app.');return false}
+  const it=mById(col,id);if(it)Object.assign(it,patch);
+  const {error}=await SB.rpc('mc_merge',{p_col:col,p_id:id,p_patch:patch});
+  if(error){toast('Não salvou: '+error.message);return false}
+  return true;
+}
+async function mcPedido(tipo,ref,texto){
+  const id='PD'+Date.now().toString(36).toUpperCase();
+  const data={tipo,ref:ref||'',texto:texto||'',status:'novo',criadoEm:new Date().toISOString()};
+  MC.S.pedidos.push({id,...data});
+  const ok=await mcSave('pedidos',id,data);if(ok)toast('Pedido enviado ao Claude');return ok;
+}
+let mcContT=null;
+function mcCont(key,val){const s=JSON.stringify(val);if(UI._mcCont===key+s)return;UI._mcCont=key+s;clearTimeout(mcContT);mcContT=setTimeout(()=>{MC.estado[key]={em:new Date().toISOString(),...val};if(MC.on)SB.rpc('mc_merge',{p_col:'estado',p_id:'continuar',p_patch:{[key]:MC.estado[key]}})},1500)}
+function mcOff(){
+  if(MODE!=='web')return`<div class="notice info" style="margin-top:12px">Os roteiros do Meu Criativo aparecem no app web.</div>`;
+  if(!MC.loaded)return`<div class="empty" style="margin-top:12px">Carregando roteiros…</div>`;
+  if(MC.missing)return`<div class="notice" style="margin-top:12px">Falta criar a tabela dos roteiros no Supabase (passo a passo em docs/MEU-CRIATIVO-NO-APP.md).</div>`;
+  return'';
+}
+
+/* ---------- INÍCIO ---------- */
+function mcNeed(){
+  const out=[];
+  MC.S.videos.forEach(v=>{const r=mst(v,'roteiro'),e=mst(v,'edicao');
+    if(r==='a_revisar')out.push({v,kind:'roteiro',why:v.motivoPrioridade||(v.ajustado?'O Claude ajustou como você pediu. Confira.':'Roteiro esperando sua aprovação.'),p:(v.prioridade||50)+(v.ajustado?-20:0)});
+    if(e==='em_revisao')out.push({v,kind:'edicao',why:v.motivoEdicao||'Edição pronta para você aprovar.',p:(v.prioridade||50)-10});});
+  out.sort((a,b)=>a.p-b.p||numSort(a.v,b.v));
+  return out;
+}
+const MC_KPIS=[
+  ['a_revisar','A revisar',v=>mst(v,'roteiro')==='a_revisar'],
+  ['em_ajuste','Em ajuste',v=>mst(v,'roteiro')==='em_ajuste'],
+  ['aprovado','Aprovados',v=>mst(v,'roteiro')==='aprovado'],
+  ['cap_pend','Captação pendente',v=>mst(v,'roteiro')==='aprovado'&&mst(v,'captacao')!=='completa'],
+  ['cap_ok','Captação completa',v=>mst(v,'captacao')==='completa'],
+  ['editados','Editados',v=>mst(v,'edicao')==='editado'],
+  ['rascunho','No TikTok',v=>['rascunho','agendado'].includes(mst(v,'publicacao'))],
+  ['postados','Postados',v=>mst(v,'publicacao')==='postado']
+];
+function mcPainel(){
+  const off=mcOff();if(off)return off;
+  const sem=semanaAtual(),need=mcNeed(),V=MC.S.videos;
+  if(!V.length&&!MC.S.produtos.length)return`<div class="empty" style="margin-top:12px"><b>Ainda não há roteiros.</b><br>Na conversa do Meu Criativo, conte sobre os seus produtos. O Claude organiza e eles aparecem aqui.</div>`;
+  const vids=sem?V.filter(v=>v.semana===sem.id):V,meta=(sem&&sem.meta)||210,n=vids.length,pct=Math.min(100,Math.round(100*n/Math.max(meta,1)));
+  let o=`<div class="sec"><div class="sec-h"><h2>${sem?h(sem.rotulo||sem.id):'Semana'}</h2>${sem&&sem.aprovada===false?'<span class="chip warn">Distribuição esperando você</span>':''}</div>
+  <div class="card"><div class="row between"><span><b>${n}</b> de ${meta} roteiros registrados</span><span class="small muted">${pct}%</span></div><div class="bar acc"><i style="width:${pct}%"></i></div>
+  ${sem&&arr(sem.distribuicao).length?`<div class="chips">${sem.distribuicao.map(d=>`<span class="chip">${h(mProd(d.produto))} ${vids.filter(v=>v.produto===d.produto).length}/${d.qtd}</span>`).join('')}</div>`:''}</div>
+  <div class="kpis">${MC_KPIS.map(([k,l,f])=>`<button class="kpi card tap" data-act="mc-kpi" data-k="${k}"><b>${V.filter(f).length}</b><span>${l}</span></button>`).join('')}</div></div>`;
+  o+=`<div class="sec"><div class="sec-h"><h2>Precisam de você</h2><span class="small muted">${need.length}</span></div>`;
+  o+=need.length?`<div class="card" style="gap:0">${need.slice(0,8).map(x=>mcItem(x.v,x.kind==='edicao'?'mc-ed':'mc-need',x.why,x.kind==='edicao'?mpill('edicao','em_revisao'):mpill('roteiro','a_revisar'))).join('')}</div>${need.length>8?`<button class="btn sm" data-act="mc-needall">Ver todos os ${need.length}</button>`:''}`:'<div class="empty">Nada esperando por você agora.</div>';
+  o+=`</div>`+mcContinue()+mcPedidosBox();
+  return o;
+}
+function mcItem(v,act,sub,right,i){return`<button class="mc-item" data-act="${act}" data-id="${h(v.id)}"${i!=null?` data-i="${i}"`:''}><span class="mc-id">${h(v.id)}</span><span class="grow" style="min-width:0"><b>${h(vTitle(v))}</b>${sub?`<br><span class="small muted">${h(sub)}</span>`:''}</span><span class="chips" style="justify-content:flex-end">${right||''}</span></button>`}
+function mcContinue(){
+  const c=MC.estado||{},p=[];
+  if(c.revisao&&c.revisao.video&&mById('videos',c.revisao.video)){const v=mById('videos',c.revisao.video);p.push(`<div class="card row between"><span class="grow"><b>Revisão de roteiros</b><br><span class="small muted">Parou no ${h(v.id)} · ${h(vTitle(v))}</span></span><button class="btn sm pri" data-act="mc-contrev">Continuar</button></div>`)}
+  if(c.gravacao&&c.gravacao.cenario)p.push(`<div class="card row between"><span class="grow"><b>Gravação</b><br><span class="small muted">${h(c.gravacao.cenario)}${c.gravacao.produto?' · '+h(mProd(c.gravacao.produto)):''}</span></span><button class="btn sm pri" data-act="mc-contgrav">Continuar</button></div>`);
+  return p.length?`<div class="sec"><div class="sec-h"><h2>Continue de onde parou</h2></div>${p.join('')}</div>`:'';
+}
+function mcPedidosBox(){
+  const ult=[...MC.S.pedidos].sort((a,b)=>String(b.criadoEm).localeCompare(String(a.criadoEm))).slice(0,5);if(!ult.length)return'';
+  const pend=MC.S.pedidos.filter(p=>p.status==='novo').length;
+  return`<div class="sec"><div class="sec-h"><h2>Pedidos para o Claude</h2>${pend?`<span class="chip warn">${pend} aguardando</span>`:'<span class="chip ok">Todos atendidos</span>'}</div>${pend?'<div class="small muted">Na conversa do Meu Criativo, diga "veja meus pedidos do app".</div>':''}<div class="card" style="gap:0">${ult.map(p=>`<div class="mc-item" style="cursor:default"><span class="mc-id">${h(p.ref||'geral')}</span><span class="grow small">${h(MC_TIPOS[p.tipo]||p.tipo)}${p.texto?': '+h(p.texto):''}${p.resposta?`<br><span class="muted">${h(p.resposta)}</span>`:''}</span><span class="chip ${p.status==='novo'?'warn':'ok'}">${p.status==='novo'?'Aguardando':'Feito'}</span></div>`).join('')}</div></div>`;
+}
+
+/* ---------- ROTEIROS ---------- */
+function vRoteiros(){
+  const M=UI.mc;let o=topBar('Roteiros','Meu Criativo');
+  const off=mcOff();if(off)return o+off;
+  if(M.rev)return o+mcRev();
+  if(M.lista)return o+mcLista();
+  o+=`<div class="tabs">${[['roteiros','Roteiros'],['produtos','Produtos']].map(([k,l])=>`<button class="${M.rtab===k?'on':''}" data-act="mc-rtab" data-k="${k}">${l}</button>`).join('')}</div>`;
+  return o+(M.rtab==='produtos'?mcProdutos():mcRoteirosList());
+}
+function mcFilt(){const f=UI.mc.f,q=norm(f.q.trim());
+  return MC.S.videos.filter(v=>(!f.produto||v.produto===f.produto)&&(!f.status||mst(v,'roteiro')===f.status)&&(!f.semana||v.semana===f.semana)&&(!q||norm(JSON.stringify([v.id,mProd(v.produto),v.formato,v.porque,v.gancho,v.corpo,v.cta,v.ponte,v.funil])).includes(q))).sort(numSort)}
+function mcRoteirosList(){
+  const f=UI.mc.f,vs=mcFilt();
+  let o=`<div class="sec"><input type="search" id="mc-q" placeholder="Buscar: “perfume que começa falando de decote”…" value="${h(f.q)}">
+  <div class="row" style="flex-wrap:nowrap"><select id="mc-fprod"><option value="">Todos os produtos</option>${[...MC.S.produtos].sort(numSort).map(p=>`<option value="${h(p.id)}" ${f.produto===p.id?'selected':''}>${h(p.nome||p.id)}</option>`).join('')}</select>
+  <select id="mc-fst"><option value="">Todas as situações</option>${Object.entries(MST.roteiro).map(([k,d])=>`<option value="${k}" ${f.status===k?'selected':''}>${d[0]}</option>`).join('')}</select></div>
+  ${MC.S.semanas.length>1?`<select id="mc-fsem"><option value="">Todas as semanas</option>${MC.S.semanas.map(s=>`<option value="${h(s.id)}" ${f.semana===s.id?'selected':''}>${h(s.rotulo||s.id)}</option>`).join('')}</select>`:''}</div>`;
+  if(!MC.S.videos.length)return o+`<div class="empty" style="margin-top:12px">Nenhum roteiro ainda. Na conversa, peça: “quero planejar os roteiros desta semana”.</div>`;
+  o+=`<div class="sec"><div class="row between"><span class="small muted">${vs.length} roteiro${vs.length===1?'':'s'}</span>${vs.length?'<button class="btn sm pri" data-act="mc-revfilt">Revisar em sequência</button>':''}</div>
+  <div class="card" style="gap:0">${vs.slice(0,300).map((v,i)=>mcItem(v,'mc-revfiltat',(v.gancho&&v.gancho.fala)||v.porque||'',mpill('roteiro',mst(v,'roteiro')),i)).join('')||'<div class="small muted">Nada com esses filtros.</div>'}</div></div>`;
+  return o;
+}
+function mcOpenLista(titulo,ids){UI.mc.lista={titulo,ids};UI.mc.rev=null;go('roteiros')}
+function mcLista(){
+  const L=UI.mc.lista,vs=L.ids.map(id=>mById('videos',id)).filter(Boolean),rv=vs.filter(v=>mst(v,'roteiro')==='a_revisar');
+  let o=`<div class="sec"><button class="btn ghost sm" data-act="mc-back" style="align-self:flex-start">← Voltar</button><div class="sec-h"><h2>${h(L.titulo)}</h2><span class="small muted">${vs.length}</span></div>`;
+  if(!vs.length)return o+`<div class="empty">Nenhum vídeo nesta situação.</div></div>`;
+  o+=`<div class="row"><button class="btn sm pri" data-act="mc-revstart">Abrir em sequência</button>${rv.length>1?`<button class="btn sm" data-act="mc-lote">Aprovar os ${rv.length} a revisar</button>`:''}</div><div id="mc-lotebox"></div>`;
+  o+=`<div class="card" style="gap:0">${vs.map((v,i)=>mcItem(v,'mc-revat',[FUNIL[v.funil],v.profundidade,v.duracao,v.gravacao==='continuo'?'Contínuo':'Blocado'].filter(Boolean).join(' · '),mpill('roteiro',mst(v,'roteiro'))+(mst(v,'edicao')!=='aguardando'?mpill('edicao',mst(v,'edicao')):'')+(mst(v,'publicacao')!=='nao'?mpill('publicacao',mst(v,'publicacao')):''),i)).join('')}</div></div>`;
+  return o;
+}
+function mcOpenRev(ids,i){UI.mc.rev={ids,i:Math.max(0,i)};go('roteiros')}
+function mcBlock(tag,label,obj){
+  if(!obj)return'';
+  const mec=[].concat(obj.mecanismo||obj.mecanismos||[]).filter(Boolean),falas=obj.falas||(obj.fala?[obj.fala]:[]);
+  return`<div class="mc-block"><div class="row"><span class="mc-tag ${tag}">${label}</span>${mec.map(m=>`<span class="mono muted">${h(m)}</span>`).join(' ')}${obj.tipo?`<span class="mono muted">${h(obj.tipo)}</span>`:''}${obj.gravar?'<span class="chip warn">Gravar esta ponte</span>':''}</div>
+  ${falas.map(f=>`<div class="mc-fala">“${h(f)}”</div>`).join('')}
+  ${obj.oQueFazer||obj.visual?`<div class="small muted">O que aparece: ${h(obj.oQueFazer||obj.visual)}</div>`:''}
+  ${obj.headline?`<div class="small muted">Headline na tela: <b>${h(obj.headline)}</b> · sai entre 5 e 10 s</div>`:''}</div>`;
+}
+function mcRev(){
+  const R=UI.mc.rev,v=mById('videos',R.ids[R.i]);
+  if(!v)return`<div class="sec"><button class="btn ghost sm" data-act="mc-back">← Voltar</button><div class="empty">Este roteiro não está mais aqui.</div></div>`;
+  mcCont('revisao',{video:v.id,ids:R.ids.slice(0,400)});
+  const r=mst(v,'roteiro');
+  let o=`<div class="sec"><div class="row between"><button class="btn ghost sm" data-act="mc-back">← Voltar</button><span class="small muted">Roteiro ${R.i+1} de ${R.ids.length}</span></div>
+  <div class="row between" style="align-items:flex-start"><div class="grow"><span class="mc-id">${h(v.id)}</span><h2>${h(vTitle(v))}</h2></div>${mpill('roteiro',r)}</div>
+  <div class="chips">${[FUNIL[v.funil]&&FUNIL[v.funil]+' de funil',v.profundidade,v.duracao,v.gravacao==='continuo'?'Gravado inteiro':'Blocado'].filter(Boolean).map(x=>`<span class="chip">${h(x)}</span>`).join('')}</div>
+  ${v.porque?`<div class="small muted">Por que este vídeo existe: ${h(v.porque)}</div>`:''}
+  <div class="card">${mcBlock('GANCHO','Gancho',v.gancho)}${mcBlock('PONTE','Ponte',v.ponte)}${mcBlock('CORPO','Corpo',v.corpo)}${mcBlock('CTA','CTA',v.cta)}
+  ${v.narracao&&v.narracao.precisa?`<div class="mc-block"><span class="chip acc" style="align-self:flex-start">Tem narração</span>${v.narracao.texto?`<div class="small">${h(v.narracao.texto)}</div>`:''}</div>`:''}
+  ${v.depende?`<div class="mc-block"><span class="chip warn" style="align-self:flex-start">Depende de</span><div class="small">${h(v.depende)}</div></div>`:''}</div>
+  <label class="f" for="mc-alt">Alterações <span class="muted" style="font-weight:400">(o Claude muda só o que você pedir)</span></label>
+  <textarea id="mc-alt" placeholder="Ex.: deixa o gancho mais provocativo e troca a última frase do CTA.">${h(v.rascunho||'')}</textarea>
+  <div class="row between"><span class="small muted" id="mc-savestate">${v.rascunho?'Rascunho salvo':''}</span><span class="row"><button class="btn sm" data-act="mc-mic" data-ta="mc-alt">🎙 Ditar</button><button class="btn sm" data-act="mc-ajuste">Pedir ajuste</button>${r!=='aprovado'?'<button class="btn sm pri" data-act="mc-aprovar">Aprovar</button>':''}</span></div>
+  <div class="row between"><button class="btn" data-act="mc-prev" ${R.i===0?'disabled':''}>← Anterior</button><button class="btn" data-act="mc-next" ${R.i>=R.ids.length-1?'disabled':''}>Próximo →</button></div>`;
+  if(arr(v.versoes).length)o+=`<details class="card"><summary><b>Histórico de versões</b> (${v.versoes.length})</summary>${[...v.versoes].reverse().map(x=>`<div class="small" style="padding:6px 0;border-top:1px solid var(--line)"><span class="mono">v${h(x.n)}</span> ${h(x.resumo||'')} <span class="muted">${h(x.data||'')}</span></div>`).join('')}</details>`;
+  if(r==='aprovado'&&arr(v.takes).length)o+=`<details class="card"><summary><b>Takes deste vídeo</b> (${v.takes.length})</summary><div class="chips" style="margin-top:8px">${v.takes.map(t=>`<span class="chip mono">${h(t)}</span>`).join('')}</div></details>`;
+  return o+`</div>`;
+}
+const PRONT={pronto:['Pronto','ok'],parcial:['Parcial','warn'],pendente:['Pendente','bad']};
+function mcKv(o){
+  if(!o||typeof o!=='object')return'<span class="small muted">Ainda vazio.</span>';
+  const e=Object.entries(o).filter(([k,v])=>v!==''&&v!=null&&!(Array.isArray(v)&&!v.length));
+  if(!e.length)return'<span class="small muted">Ainda vazio.</span>';
+  return`<dl class="mc-kv">${e.map(([k,v])=>`<dt>${h(k.replace(/_/g,' '))}</dt><dd>${Array.isArray(v)?v.map(x=>h(typeof x==='object'?JSON.stringify(x):x)).join('<br>'):h(typeof v==='object'?Object.entries(v).map(([a,b])=>a+': '+b).join(' · '):v)}</dd>`).join('')}</dl>`;
+}
+function mcProdutos(){
+  const M=UI.mc;
+  if(M.produto){const p=mById('produtos',M.produto);if(!p){M.produto=null;return mcProdutos()}
+    const pr=PRONT[p.prontidao]||['Sem diagnóstico',''],vids=MC.S.videos.filter(v=>v.produto===p.id),ids=MC.S.ideias.filter(i=>i.produto===p.id);
+    return`<div class="sec"><button class="btn ghost sm" data-act="mc-prodback" style="align-self:flex-start">← Produtos</button>
+    <div class="row between" style="align-items:flex-start"><div class="grow"><span class="mc-id">${h(p.id)}</span><h2>${h(p.nome||p.id)}</h2>${p.marca?`<span class="small muted">${h(p.marca)}</span>`:''}</div><span class="chip ${pr[1]}">${pr[0]}</span></div>
+    ${arr(p.faltando).length?`<div class="card"><b>O que falta</b><ul class="small" style="margin:0;padding-left:18px">${p.faltando.map(x=>`<li>${h(x)}</li>`).join('')}</ul></div>`:''}
+    <div class="card"><h3>Conhecimento do produto</h3>${mcKv(p.banco1)}</div><div class="card"><h3>Curadoria criativa</h3>${mcKv(p.banco2)}</div>
+    <div class="row"><button class="btn sm" data-act="mc-prodvids" data-id="${h(p.id)}">Ver ${vids.length} vídeo${vids.length===1?'':'s'}</button><button class="btn sm" data-act="mc-prodideias" data-id="${h(p.id)}">Ver ${ids.length} ideia${ids.length===1?'':'s'}</button></div></div>`}
+  if(!MC.S.produtos.length)return`<div class="empty" style="margin-top:12px">Nenhum produto cadastrado. Na conversa, conte tudo sobre o produto de uma vez.</div>`;
+  return`<div class="sec"><div class="list">${[...MC.S.produtos].sort(numSort).map(p=>{const pr=PRONT[p.prontidao]||['Sem diagnóstico',''],n=MC.S.videos.filter(v=>v.produto===p.id).length;return`<button class="card tap" data-act="mc-prodopen" data-id="${h(p.id)}"><div class="row between"><span class="mc-id">${h(p.id)}</span><span class="chip ${pr[1]}">${pr[0]}</span></div><h3>${h(p.nome||p.id)}</h3>${p.resumo||p.categoria?`<span class="small muted">${h(p.resumo||p.categoria)}</span>`:''}<span class="small">${n} vídeo${n===1?'':'s'} · ${MC.S.ideias.filter(i=>i.produto===p.id&&i.status!=='publicada').length} ideia(s) em aberto</span></button>`}).join('')}</div></div>`;
+}
+
+/* ---------- IDEIAS DE PRODUTO (dentro de Notas) ---------- */
+const IST={pendente:['Pendente','warn'],em_desenvolvimento:['Em desenvolvimento','acc'],roteirizada:['Roteirizada','acc'],gravada:['Gravada','ok'],publicada:['Publicada','ok']};
+const ITIPO={executar:'Para fazer',possibilidade:'Possibilidade',referencia:'Referência'};
+function mcIdeias(){
+  const off=mcOff();if(off)return off;
+  const f=UI.mc.ideias,is=MC.S.ideias.filter(i=>(!f.produto||i.produto===f.produto)&&(!f.status||(i.status||'pendente')===f.status)).sort(numSort);
+  let o=`<div class="sec"><div class="row" style="flex-wrap:nowrap"><select id="mc-iprod"><option value="">Todos os produtos</option>${[...MC.S.produtos].sort(numSort).map(p=>`<option value="${h(p.id)}" ${f.produto===p.id?'selected':''}>${h(p.nome||p.id)}</option>`).join('')}</select><select id="mc-ist"><option value="">Todas</option>${Object.entries(IST).map(([k,d])=>`<option value="${k}" ${f.status===k?'selected':''}>${d[0]}</option>`).join('')}</select></div><div class="small muted">Ideias que o Claude registrou nas conversas do Meu Criativo, por produto.</div></div>`;
+  if(!MC.S.ideias.length)return o+`<div class="empty" style="margin-top:12px">Nenhuma ideia registrada ainda.</div>`;
+  return o+`<div class="sec"><div class="list">${is.map(i=>{const d=IST[i.status]||IST.pendente;return`<div class="card"><div class="row between"><span class="mc-id">${h(i.id)}</span><span class="chips"><span class="chip">${h(ITIPO[i.tipo]||'Para fazer')}</span><span class="chip ${d[1]}">${d[0]}</span></span></div><span class="small muted">${h(mProd(i.produto))}</span><div>${h(i.texto||'')}</div>${arr(i.videos).length?`<div class="chips">${i.videos.map(x=>`<span class="chip mono">${h(x)}</span>`).join('')}</div>`:''}
+  <div class="row"><button class="btn sm" data-act="mc-idea" data-t="desenvolver_ideia" data-id="${h(i.id)}">Desenvolva essa</button><button class="btn sm" data-act="mc-idea" data-t="variacoes_ideia" data-id="${h(i.id)}">5 variações</button><button class="btn sm ghost" data-act="mc-idea" data-t="incluir_ideia" data-id="${h(i.id)}">Próximo planejamento</button></div></div>`}).join('')||'<div class="empty">Nada com esses filtros.</div>'}</div></div>`;
+}
+
+/* ---------- PRODUÇÃO (gravação blocada por cenário) ---------- */
+const TST={pendente:['Pendente',''],recebido:['Recebido','ok'],atencao:['Precisa de atenção','bad']};
+function mcCenarios(local){const s=new Map();MC.S.takes.filter(t=>(t.local||'casa')===local).forEach(t=>{if(t.cenario)s.set(t.cenario,1)});MC.S.videos.filter(v=>v.gravacao==='continuo'&&mst(v,'roteiro')==='aprovado'&&(v.local||'casa')===local&&v.cenario).forEach(v=>s.set(v.cenario,1));return[...s.keys()]}
+function vProducaoMC(){
+  const P=UI.mc.prod;let o=topBar('Produção','Gravação blocada',`<button class="icon-btn" data-act="mc-sync" aria-label="Conferir envios no Drive" title="Conferir envios">⟳</button>`);
+  const off=mcOff();if(off)return o+off;
+  if(UI.mc.ed&&mById('videos',UI.mc.ed))return o+mcEdDetail(mById('videos',UI.mc.ed));
+  o+=`<div class="tabs">${[['gravacao','Gravação'],['narracoes','Narrações'],['insercoes','Inserções'],['edicao','Edição']].map(([k,l])=>`<button class="${P.area===k?'on':''}" data-act="mc-parea" data-k="${k}">${l}</button>`).join('')}</div>`;
+  if(P.area==='gravacao')o+=mcGravacao();
+  if(P.area==='narracoes')o+=mcNarracoes();
+  if(P.area==='insercoes')o+=mcInsercoes();
+  if(P.area==='edicao')o+=mcEdicao();
+  return o;
+}
+function mcTakeCard(t){
+  const d=TST[t.status]||TST.pendente,et=t.etiqueta||'BROLL';
+  return`<div class="card"><div class="row"><span class="mc-id">${h(t.id)}</span><span class="mc-tag ${h(et)}">${h(et==='BROLL'?'B-roll':et)}</span>${t.tipo?`<span class="chip">${h(t.tipo)}</span>`:''}<span class="chip ${d[1]}">${d[0]}</span><span class="grow"></span><span class="mono muted">${h(t.duracao||'')}</span></div>
+  ${t.oQueFazer?`<div>${h(t.oQueFazer)}</div>`:''}${t.fala?`<div class="mc-fala mc-box">“${h(t.fala)}”</div>`:''}${t.problema&&t.status==='atencao'?`<div class="notice bad">${h(t.problema)}</div>`:''}
+  <div class="row between"><span class="small muted">${arr(t.videos).length?'usado em '+t.videos.map(h).join(', '):''}${arr(t.arquivos).length?` · ${t.arquivos.length} arquivo(s)`:''}</span><span class="row">${t.status!=='recebido'?`<button class="btn sm ghost" data-act="mc-takeok" data-id="${h(t.id)}">Já gravei</button>`:''}<button class="btn sm ${t.status==='recebido'?'':'pri'}" data-act="mc-up" data-k="take" data-id="${h(t.id)}">${t.status==='recebido'?'Subir outro':'Subir'}</button></span></div></div>`;
+}
+function mcGravacao(){
+  const P=UI.mc.prod;
+  let o=`<div class="sec"><div class="tabs">${[['casa','Dentro de casa'],['externa','Externas']].map(([k,l])=>`<button class="${P.local===k?'on':''}" data-act="mc-plocal" data-k="${k}">${l}</button>`).join('')}</div>`;
+  if(!P.cenario){
+    const cs=mcCenarios(P.local);
+    if(!cs.length)return o+`<div class="empty">Nada para gravar aqui ainda. Depois que você aprovar os roteiros, o Claude monta os takes por cenário.</div></div>`;
+    return o+`<div class="list">${cs.map(c=>{const ts=MC.S.takes.filter(t=>t.cenario===c),pend=ts.filter(t=>t.status!=='recebido').length,cont=MC.S.videos.filter(v=>v.gravacao==='continuo'&&v.cenario===c&&mst(v,'roteiro')==='aprovado'&&mst(v,'captacao')!=='completa').length;return`<button class="card tap" data-act="mc-pcen" data-k="${h(c)}"><div class="row between"><h3>${h(c)}</h3>${pend+cont===0?'<span class="chip ok">Tudo gravado</span>':`<span class="chip acc">${pend+cont} a gravar</span>`}</div><span class="small muted">${pend} take(s) · ${cont} contínuo(s)</span>${ts.length?`<div class="bar acc"><i style="width:${Math.round(100*(ts.length-pend)/ts.length)}%"></i></div>`:''}</button>`}).join('')}</div></div>`;
+  }
+  mcCont('gravacao',{cenario:P.cenario,produto:P.produto||'',modo:P.modo,local:P.local});
+  o+=`<div class="row small"><button class="btn sm ghost" data-act="mc-pcen" data-k="">${P.local==='casa'?'Dentro de casa':'Externas'}</button>›<b>${h(P.cenario)}</b>${P.produto?`›<button class="btn sm ghost" data-act="mc-pprod" data-k="">${h(mProd(P.produto))}</button>`:''}</div>
+  <div class="tabs">${[['blocados','Blocados'],['continuos','Contínuos']].map(([k,l])=>`<button class="${P.modo===k?'on':''}" data-act="mc-pmodo" data-k="${k}">${l}</button>`).join('')}</div>`;
+  if(P.modo==='blocados'){
+    const ts=MC.S.takes.filter(t=>t.cenario===P.cenario),prods=[...new Set(ts.map(t=>t.produto))];
+    if(!P.produto){
+      if(!prods.length)return o+`<div class="empty">Nenhum take blocado neste cenário.</div></div>`;
+      const falt=ts.filter(t=>t.status!=='recebido').length;
+      return o+`<div class="list">${prods.map(p=>{const pts=ts.filter(t=>t.produto===p),pend=pts.filter(t=>t.status!=='recebido').length;return`<button class="card tap" data-act="mc-pprod" data-k="${h(p)}"><div class="row between"><h3>${h(mProd(p))}</h3>${pend?`<span class="chip acc">${pend} a gravar</span>`:'<span class="chip ok">Completo</span>'}</div><span class="small muted">${pts.length} take(s)</span></button>`}).join('')}</div>${falt?`<div class="small muted">Faltam ${falt} take(s) neste cenário.</div>`:'<div class="notice ok">Todos os takes deste cenário foram enviados.</div>'}</div>`;
+    }
+    const ord={GANCHO:0,PONTE:1,CORPO:2,CTA:3,BROLL:4};
+    const pts=ts.filter(t=>t.produto===P.produto).sort((a,b)=>(ord[a.etiqueta]??5)-(ord[b.etiqueta]??5)||numSort(a,b));
+    return o+`<div class="list">${pts.map(mcTakeCard).join('')}</div></div>`;
+  }
+  const cv=MC.S.videos.filter(v=>v.gravacao==='continuo'&&v.cenario===P.cenario&&mst(v,'roteiro')==='aprovado');
+  if(!cv.length)return o+`<div class="empty">Nenhum vídeo contínuo neste cenário.</div></div>`;
+  return o+`<div class="list">${cv.map(v=>`<div class="card"><div class="row between"><span><span class="mc-id">${h(v.id)}</span> · <b>${h(mProd(v.produto))}</b></span>${mpill('captacao',mst(v,'captacao'))}</div>
+  <div class="chips">${[v.formato,FUNIL[v.funil],v.duracao].filter(Boolean).map(x=>`<span class="chip">${h(x)}</span>`).join('')}</div>
+  ${['gancho','ponte','corpo','cta'].map(k=>v[k]?`<div class="mc-block"><span class="mc-tag ${k==='cta'?'CTA':k.toUpperCase()}">${k==='cta'?'CTA':k[0].toUpperCase()+k.slice(1)}</span>${v[k].oQueFazer?`<div class="small muted">O que fazer: ${h(v[k].oQueFazer)}</div>`:''}${(v[k].falas||[v[k].fala]).filter(Boolean).map(f=>`<div class="mc-fala">“${h(f)}”</div>`).join('')}</div>`:'').join('')}
+  <div class="row between"><span class="mono muted">VC-${h(v.id)}</span><button class="btn sm pri" data-act="mc-up" data-k="video" data-id="${h(v.id)}">Subir vídeo</button></div></div>`).join('')}</div></div>`;
+}
+function mcNarracoes(){
+  const vs=MC.S.videos.filter(v=>v.narracao&&v.narracao.precisa&&mst(v,'roteiro')==='aprovado');
+  if(!vs.length)return`<div class="empty" style="margin-top:12px">Nenhuma narração para gravar agora.</div>`;
+  return[...new Set(vs.map(v=>v.produto))].map(p=>`<div class="sec"><div class="sec-h"><h2>${h(mProd(p))}</h2></div>${vs.filter(v=>v.produto===p).map(v=>{const pend=v.narracao.status!=='recebida';return`<div class="card"><div class="row between"><span><span class="mc-id">NAR-${h(v.id)}</span> <span class="small muted">· ${h(v.formato||'')}</span></span>${pend?'<span class="chip warn">Pendente</span>':'<span class="chip ok">Recebida</span>'}</div>${v.narracao.texto?`<div class="mc-fala mc-box">${h(v.narracao.texto)}</div>`:''}${pend?`<div class="row" style="justify-content:flex-end"><button class="btn sm pri" data-act="mc-up" data-k="narracao" data-id="${h(v.id)}">Subir narração</button></div>`:''}</div>`}).join('')}</div>`).join('');
+}
+function mcInsercoes(){
+  if(!MC.S.insercoes.length)return`<div class="empty" style="margin-top:12px">Nenhum material externo para conseguir agora.</div>`;
+  const xs=[...MC.S.insercoes].sort((a,b)=>(a.status==='recebido')-(b.status==='recebido')||numSort(a,b));
+  return`<div class="sec"><div class="small muted">${xs.filter(x=>x.status!=='recebido').length} de ${xs.length} a conseguir</div><div class="list">${xs.map(x=>`<div class="card"><div class="row"><span class="mc-id">${h(x.id)}</span><span class="chip">${h(mProd(x.produto))}</span><span class="chip ${x.status==='recebido'?'ok':'warn'}">${x.status==='recebido'?'Recebido':'A conseguir'}</span></div><div>${h(x.descricao||'')}</div><div class="row between"><span class="small muted">${arr(x.videos).length?'usado em '+x.videos.map(h).join(', '):''}</span><button class="btn sm ${x.status==='recebido'?'':'pri'}" data-act="mc-up" data-k="insercao" data-id="${h(x.id)}">${x.status==='recebido'?'Subir outro':'Subir'}</button></div></div>`).join('')}</div></div>`;
+}
+function mcEdicao(){
+  const groups=[['em_revisao','Para você revisar'],['pronto','Prontos para editar'],['em_edicao','Em edição'],['aguardando','Aguardando materiais'],['editado','Editados']];
+  const ap=MC.S.videos.filter(v=>mst(v,'roteiro')==='aprovado');
+  if(!ap.length)return`<div class="empty" style="margin-top:12px">A edição começa depois que os roteiros forem aprovados e gravados.</div>`;
+  return groups.map(([k,l])=>{const vs=ap.filter(v=>mst(v,'edicao')===k);if(!vs.length)return'';return`<div class="sec"><div class="sec-h"><h2>${l}</h2><span class="small muted">${vs.length}</span></div><div class="card" style="gap:0">${vs.sort(numSort).map(v=>mcItem(v,'mc-ed',v.prontidaoEdicao||'',mpill('edicao',k)+(mst(v,'publicacao')!=='nao'?mpill('publicacao',mst(v,'publicacao')):''))).join('')}</div></div>`}).join('');
+}
+function mcEdDetail(v){
+  return`<div class="sec"><button class="btn ghost sm" data-act="mc-edback" style="align-self:flex-start">← Voltar</button><div><span class="mc-id">${h(v.id)}</span><h2>${h(vTitle(v))}</h2></div><div class="chips">${mpill('edicao',mst(v,'edicao'))}${mst(v,'publicacao')!=='nao'?mpill('publicacao',mst(v,'publicacao')):''}</div>
+  ${v.linkEditado?`<a class="btn pri" style="text-decoration:none;align-self:flex-start" href="${h(v.linkEditado)}" target="_blank" rel="noopener">Assistir o vídeo editado</a>`:'<div class="small muted">O link do vídeo editado aparece aqui.</div>'}
+  ${mst(v,'edicao')==='em_revisao'?`<label class="f" for="mc-reved">O que mudar <span class="muted" style="font-weight:400">(pode citar a minutagem: “aos 0:12, troca o take”)</span></label><textarea id="mc-reved"></textarea><div class="row"><button class="btn sm" data-act="mc-mic" data-ta="mc-reved">🎙 Ditar</button><button class="btn sm" data-act="mc-edrev" data-id="${h(v.id)}">Pedir revisão</button><button class="btn sm pri" data-act="mc-edok" data-id="${h(v.id)}">Aprovar edição</button></div>`:''}
+  ${arr(v.edicaoVersoes).length?`<details class="card"><summary><b>Versões</b> (${v.edicaoVersoes.length})</summary>${v.edicaoVersoes.map(x=>`<div class="small" style="padding:6px 0;border-top:1px solid var(--line)">v${h(x.v)} · ${h(x.data||'')} ${x.pedido?'· '+h(x.pedido):''} ${x.link?`<a href="${h(x.link)}" target="_blank" rel="noopener" style="color:var(--accent)">abrir</a>`:''}</div>`).join('')}</details>`:''}</div>`;
+}
+
+/* ---------- ENVIO PARA O DRIVE (mesmos nomes que o Claude procura) ---------- */
+function mcUpTarget(kind,id){
+  if(kind==='take'){const t=mById('takes',id)||{};return{code:id,label:t.etiqueta&&t.etiqueta!=='BROLL'?t.etiqueta:(t.etiqueta==='BROLL'?'BROLL':''),produto:t.produto,video:arr(t.videos)[0]||'',pasta:'Takes brutos'}}
+  if(kind==='insercao'){const x=mById('insercoes',id)||{};return{code:id,produto:x.produto,video:arr(x.videos)[0]||'',pasta:'Inserções'}}
+  const v=mById('videos',id)||{};return{code:(kind==='narracao'?'NAR-':'VC-')+id,produto:v.produto,video:id,pasta:'Takes brutos'};
+}
+function mcUpPick(kind,id){
+  if(MODE!=='web')return toast('O envio para o Drive funciona no app web.');
+  const inp=document.createElement('input');inp.type='file';inp.multiple=true;inp.accept=kind==='insercao'?'image/*,video/*':'video/*,audio/*';
+  inp.onchange=()=>{const fs=[...inp.files];if(fs.length)mcUpload(kind,id,fs)};inp.click();
+}
+async function mcUpload(kind,id,files){
+  const T=mcUpTarget(kind,id);
+  sheet('Enviando para o Drive',`<div class="small muted">${h(T.code)} · ${h(mProd(T.produto))}</div><div id="up-box" class="list"></div><div class="notice info">Não feche o app até aparecer "Concluído".</div>`);
+  const box=()=>document.getElementById('up-box');const got=[];
+  for(const file of files){
+    const row=document.createElement('div');row.className='card';row.innerHTML=`<b class="small">${h(file.name)}</b><div class="bar acc"><i style="width:0%"></i></div><span class="small muted">Preparando pastas…</span>`;box()?.appendChild(row);
+    const bar=row.querySelector('i'),lab=row.querySelector('span');
+    try{
+      const parent=await driveFolder(['Meu Criativo',mProd(T.produto)||'Sem produto',T.video||T.code,T.pasta]);
+      const name=`MeuCriativo ${T.code}${T.label?' '+T.label:''} - ${file.name}`;
+      const f2=new File([file],name,{type:file.type||'application/octet-stream'});
+      const up=await driveUpload(f2,parent,p=>{bar.style.width=Math.round(p*100)+'%';lab.textContent='Enviando… '+Math.round(p*100)+'%'});
+      got.push({nome:name,driveId:up.id,link:up.webViewLink||`https://drive.google.com/file/d/${up.id}/view`,data:TODAY});
+      row.innerHTML=`<b class="small">✓ ${h(file.name)}</b><div class="small" style="color:var(--ok)">Concluído no Drive. Pode apagar do celular.</div>`;
+    }catch(e){row.innerHTML=`<b class="small">${h(file.name)}</b><div class="small" style="color:var(--bad)">Não enviado: ${h(e.message)}</div><div class="small muted">O arquivo continua no seu celular. Não apague.</div>`}
+  }
+  if(got.length){
+    if(kind==='take'){const t=mById('takes',id);await mcSave('takes',id,{status:'recebido',arquivos:[...arr(t?.arquivos),...got]})}
+    else if(kind==='insercao'){const x=mById('insercoes',id);await mcSave('insercoes',id,{status:'recebido',arquivos:[...arr(x?.arquivos),...got]})}
+    else if(kind==='narracao'){const v=mById('videos',id);await mcSave('videos',id,{narracao:{...(v?.narracao||{}),status:'recebida',arquivos:got}})}
+    else await mcSave('videos',id,{arquivoPrincipal:got});
+    await mcRecalc({});toast(got.length+' arquivo(s) no Drive');
+    box()?.insertAdjacentHTML('afterend','<button class="btn pri" data-act="close-form">Continuar gravando</button>');
+  }
+  render();
+}
+/* Captação de cada vídeo aprovado, a partir do que já chegou (got = arquivos achados no Drive por código). */
+async function mcRecalc(got){
+  let n=0;
+  const rec=id=>{const t=mById('takes',id);if(t)return t.status==='recebido'||!!got[id];const x=mById('insercoes',id);if(x)return x.status==='recebido'||!!got[id];return!!got[id]};
+  for(const v of MC.S.videos){
+    if(mst(v,'roteiro')!=='aprovado')continue;
+    const need=[...arr(v.takes),...arr(v.insercoesTakes),...arr(v.insercoes)],fl=need.map(rec);
+    if(v.narracao&&v.narracao.precisa)fl.push(v.narracao.status==='recebida'||!!got['NAR-'+v.id]);
+    if(v.gravacao==='continuo')fl.push(!!v.arquivoPrincipal||!!got['VC-'+v.id]);
+    if(!fl.length)continue;
+    const ok=fl.filter(Boolean).length,cap=ok===fl.length?'completa':ok?'parcial':'pendente';
+    if(cap!==mst(v,'captacao')){const s={...(v.status||{}),captacao:cap};if(cap==='completa'&&mst(v,'edicao')==='aguardando')s.edicao='pronto';if(await mcSave('videos',v.id,{status:s}))n++}
+  }
+  return n;
+}
+async function mcConferir(){
+  if(MODE!=='web')return;toast('Conferindo no Drive…');
+  const files=[];let pt='';
+  try{for(let i=0;i<30;i++){const q="name contains 'MeuCriativo' and trashed = false and mimeType != 'application/vnd.google-apps.shortcut' and mimeType != 'application/vnd.google-apps.folder'";
+    const j=await gdrive(`files?q=${encodeURIComponent(q)}&pageSize=1000&fields=${encodeURIComponent('nextPageToken,files(id,name,webViewLink,createdTime)')}${pt?'&pageToken='+pt:''}`);files.push(...arr(j.files));pt=j.nextPageToken;if(!pt)break}}
+  catch(e){return toast(/403/.test(e.message)?'Saia e entre de novo para liberar a leitura do Drive.':'Não consegui consultar o Drive: '+e.message)}
+  const got={};files.forEach(f=>{const m=/MeuCriativo\s+((?:NAR-|VC-)?[A-Z]+\d+)/.exec(f.name||'');if(m)(got[m[1]]=got[m[1]]||[]).push({nome:f.name,driveId:f.id,link:f.webViewLink||'',data:(f.createdTime||'').slice(0,10)})});
+  let n=0;
+  for(const t of MC.S.takes){const a=got[t.id];if(a&&(t.status!=='recebido'||arr(t.arquivos).length!==a.length)&&await mcSave('takes',t.id,{status:'recebido',arquivos:a}))n++}
+  for(const x of MC.S.insercoes){const a=got[x.id];if(a&&x.status!=='recebido'&&await mcSave('insercoes',x.id,{status:'recebido',arquivos:a}))n++}
+  for(const v of MC.S.videos){const ch={};if(v.narracao&&v.narracao.precisa&&got['NAR-'+v.id]&&v.narracao.status!=='recebida')ch.narracao={...v.narracao,status:'recebida',arquivos:got['NAR-'+v.id]};if(v.gravacao==='continuo'&&got['VC-'+v.id]&&!v.arquivoPrincipal)ch.arquivoPrincipal=got['VC-'+v.id];if(Object.keys(ch).length&&await mcSave('videos',v.id,ch))n++}
+  n+=await mcRecalc(got);render();
+  toast(files.length?`Conferi ${files.length} arquivo(s). ${n} atualização(ões).`:'Nenhum arquivo do Meu Criativo no Drive ainda.');
+}
+
+/* ---------- IMPORTAR (do antigo painel) ---------- */
+async function mcImport(file){
+  let j;try{j=JSON.parse(await file.text())}catch(e){return toast('Arquivo inválido.')}
+  const docs=arr(j.docs).filter(d=>d&&d.col&&d.id&&d.data);if(!docs.length)return toast('Esse arquivo não tem roteiros do Meu Criativo.');
+  if(!confirm(`Importar ${docs.length} itens do Meu Criativo? Itens com o mesmo código são substituídos.`))return;
+  const uidv=SESSION.user.id;let n=0;
+  for(let i=0;i<docs.length;i+=100){const rows=docs.slice(i,i+100).map(d=>({user_id:uidv,col:d.col,id:d.id,data:d.data,updated_at:new Date().toISOString()}));
+    const {error}=await SB.from('mc_docs').upsert(rows);if(error){toast('Parou no item '+(i+1)+': '+error.message);break}n+=rows.length;toast(`Importando… ${n}/${docs.length}`)}
+  await mcLoad();render();toast(`${n} itens do Meu Criativo importados`);
+}
+
+/* ---------- ditado ---------- */
+let MC_REC=null;
+function mcMic(taId,btn){
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;if(!SR)return toast('Use o microfone do teclado para ditar.');
+  if(MC_REC){MC_REC.stop();return}
+  const ta=document.getElementById(taId);if(!ta)return;const base=ta.value?ta.value.trim()+' ':'';
+  MC_REC=new SR();MC_REC.lang='pt-BR';MC_REC.continuous=true;MC_REC.interimResults=true;
+  MC_REC.onresult=e=>{let t='';for(const r of e.results)t+=r[0].transcript;ta.value=base+t;ta.dispatchEvent(new Event('input',{bubbles:true}))};
+  MC_REC.onend=()=>{MC_REC=null;if(btn)btn.textContent='🎙 Ditar'};
+  try{MC_REC.start();if(btn)btn.textContent='■ Parar'}catch(e){MC_REC=null}
+}
+
+/* ---------- ações ---------- */
+Object.assign(ACT,{
+  'mc-kpi':d=>{const k=MC_KPIS.find(x=>x[0]===d.k);mcOpenLista(k[1],MC.S.videos.filter(k[2]).sort(numSort).map(v=>v.id))},
+  'mc-need':d=>{const ids=mcNeed().filter(o=>o.kind==='roteiro').map(o=>o.v.id);mcOpenRev(ids,ids.indexOf(d.id))},
+  'mc-needall':()=>mcOpenLista('Precisam de você',mcNeed().map(o=>o.v.id)),
+  'mc-ed':d=>{UI.mc.ed=d.id;go('producao')},
+  'mc-edback':()=>{UI.mc.ed=null;render()},
+  'mc-back':()=>{if(UI.mc.rev&&UI.mc.lista)UI.mc.rev=null;else{UI.mc.rev=null;UI.mc.lista=null}render();window.scrollTo(0,0)},
+  'mc-rtab':d=>{UI.mc.rtab=d.k;UI.mc.produto=null;render()},
+  'mc-revstart':()=>mcOpenRev(UI.mc.lista.ids,0),
+  'mc-revat':d=>mcOpenRev(UI.mc.lista.ids,+d.i),
+  'mc-revfilt':()=>mcOpenRev(mcFilt().map(v=>v.id),0),
+  'mc-revfiltat':d=>mcOpenRev(mcFilt().map(v=>v.id),+d.i),
+  'mc-prev':()=>{UI.mc.rev.i=Math.max(0,UI.mc.rev.i-1);render();window.scrollTo(0,0)},
+  'mc-next':()=>{UI.mc.rev.i=Math.min(UI.mc.rev.ids.length-1,UI.mc.rev.i+1);render();window.scrollTo(0,0)},
+  'mc-contrev':()=>{const c=MC.estado.revisao,ids=arr(c.ids).length?c.ids:MC.S.videos.map(v=>v.id);mcOpenRev(ids,ids.indexOf(c.video))},
+  'mc-contgrav':()=>{const c=MC.estado.gravacao;Object.assign(UI.mc.prod,{area:'gravacao',local:c.local||'casa',cenario:c.cenario,modo:c.modo||'blocados',produto:c.produto||null});UI.mc.ed=null;go('producao')},
+  'mc-aprovar':async()=>{const id=UI.mc.rev.ids[UI.mc.rev.i],v=mById('videos',id);if(await mcSave('videos',id,{status:{...(v.status||{}),roteiro:'aprovado'},aprovadoEm:new Date().toISOString(),ajustado:false})){toast(id+' aprovado');if(UI.mc.rev.i<UI.mc.rev.ids.length-1){UI.mc.rev.i++;window.scrollTo(0,0)}render()}},
+  'mc-ajuste':async()=>{const id=UI.mc.rev.ids[UI.mc.rev.i],v=mById('videos',id),t=(document.getElementById('mc-alt')?.value||'').trim();if(!t)return toast('Escreva ou dite o que quer mudar.');if(await mcPedido('ajuste_roteiro',id,t)){await mcSave('videos',id,{status:{...(v.status||{}),roteiro:'em_ajuste'},rascunho:''});render()}},
+  'mc-lote':()=>{const n=UI.mc.lista.ids.filter(i=>{const v=mById('videos',i);return v&&mst(v,'roteiro')==='a_revisar'}).length;document.getElementById('mc-lotebox').innerHTML=`<div class="notice"><span class="grow">Aprovar os ${n} roteiros a revisar desta lista?</span><button class="btn sm pri" data-act="mc-lotesim">Sim</button><button class="btn sm ghost" data-act="mc-lotenao">Cancelar</button></div>`},
+  'mc-lotenao':()=>{document.getElementById('mc-lotebox').innerHTML=''},
+  'mc-lotesim':async(d,b)=>{b.disabled=true;const ids=UI.mc.lista.ids.filter(i=>{const v=mById('videos',i);return v&&mst(v,'roteiro')==='a_revisar'});let n=0;for(const id of ids){const v=mById('videos',id);if(await mcSave('videos',id,{status:{...(v.status||{}),roteiro:'aprovado'},aprovadoEm:new Date().toISOString(),ajustado:false}))n++}toast(n+' roteiros aprovados');render()},
+  'mc-prodopen':d=>{UI.mc.produto=d.id;render();window.scrollTo(0,0)},
+  'mc-prodback':()=>{UI.mc.produto=null;render()},
+  'mc-prodvids':d=>mcOpenLista('Vídeos · '+mProd(d.id),MC.S.videos.filter(v=>v.produto===d.id).sort(numSort).map(v=>v.id)),
+  'mc-prodideias':d=>{UI.mc.ideias.produto=d.id;UI.ideaTab='mcideias';go('ideias')},
+  'mc-idea':d=>{const i=mById('ideias',d.id);mcPedido(d.t,d.id,i?i.texto:'')},
+  'mc-parea':d=>{UI.mc.prod.area=d.k;render()},
+  'mc-plocal':d=>{Object.assign(UI.mc.prod,{local:d.k,cenario:null,produto:null});render()},
+  'mc-pcen':d=>{UI.mc.prod.cenario=d.k||null;UI.mc.prod.produto=null;render();window.scrollTo(0,0)},
+  'mc-pmodo':d=>{UI.mc.prod.modo=d.k;UI.mc.prod.produto=null;render()},
+  'mc-pprod':d=>{UI.mc.prod.produto=d.k||null;render();window.scrollTo(0,0)},
+  'mc-takeok':async d=>{if(await mcSave('takes',d.id,{status:'recebido',marcadoManual:true})){toast(d.id+' marcado. Suba o arquivo quando puder.');render()}},
+  'mc-up':d=>mcUpPick(d.k,d.id),
+  'mc-sync':()=>mcConferir(),
+  'mc-edok':async d=>{const v=mById('videos',d.id),p=mst(v,'publicacao');if(await mcSave('videos',d.id,{status:{...(v.status||{}),edicao:'editado',publicacao:p!=='nao'?p:'aprovado'}})){toast('Edição aprovada');UI.mc.ed=null;render()}},
+  'mc-edrev':async d=>{const t=(document.getElementById('mc-reved')?.value||'').trim();if(!t)return toast('Escreva ou dite o que mudar.');if(await mcPedido('revisar_edicao',d.id,t)){const v=mById('videos',d.id);await mcSave('videos',d.id,{status:{...(v.status||{}),edicao:'em_edicao'}});UI.mc.ed=null;render()}},
+  'mc-mic':(d,b)=>mcMic(d.ta,b),
+  'mc-import':()=>document.getElementById('mc-import-input')?.click()
+});
+let mcAltT=null,mcQT=null;
+document.addEventListener('input',e=>{const el=e.target;
+  if(el.id==='mc-q'){UI.mc.f.q=el.value;clearTimeout(mcQT);mcQT=setTimeout(()=>{const pos=el.selectionStart;render();const n=document.getElementById('mc-q');if(n){n.focus();try{n.setSelectionRange(pos,pos)}catch(_){}}},300)}
+  if(el.id==='mc-alt'&&UI.mc.rev){const id=UI.mc.rev.ids[UI.mc.rev.i],val=el.value,s=document.getElementById('mc-savestate');if(s)s.textContent='Salvando…';clearTimeout(mcAltT);mcAltT=setTimeout(async()=>{const ok=await mcSave('videos',id,{rascunho:val});const s2=document.getElementById('mc-savestate');if(s2)s2.textContent=ok?'Rascunho salvo (ainda não é aprovação)':'Não foi possível salvar'},1200)}
+});
+document.addEventListener('change',e=>{const el=e.target,v=el.value;
+  if(el.id==='mc-fprod')UI.mc.f.produto=v;else if(el.id==='mc-fst')UI.mc.f.status=v;else if(el.id==='mc-fsem')UI.mc.f.semana=v;else if(el.id==='mc-iprod')UI.mc.ideias.produto=v;else if(el.id==='mc-ist')UI.mc.ideias.status=v;
+  else{if(el.id==='mc-import-input'&&el.files[0])mcImport(el.files[0]);return}
+  render();
+});
+
+/* ---------- agenda: rascunhos do TikTok e datas de publicação ---------- */
+function mcCalItems(){
+  const out=[];
+  arr(UI.tt?.drafts).forEach(r=>{if(!r.sent_at||['erro','ignorado','substituido'].includes(r.status))return;const d=iso(new Date(r.sent_at));out.push({kind:'mc',type:'publicacao',date:d,time:'',label:(r.status==='publicado'?'Publicado: ':'Rascunho: ')+[r.video_code,r.product].filter(Boolean).join(' · '),sub:r.status==='publicado'?'Publicado no TikTok':'Rascunho no TikTok · cole a legenda e publique',act:'data-act="go-tt"'})});
+  const inTT=new Set(arr(UI.tt?.drafts).map(r=>r.video_code).filter(Boolean));
+  MC.S.videos.forEach(v=>{const d=v.publicacao&&v.publicacao.data;if(!d||inTT.has(v.id))return;out.push({kind:'mc',type:'publicacao',date:String(d).slice(0,10),time:v.publicacao.hora||'',label:'Postar: '+v.id+' · '+mProd(v.produto),sub:MST.publicacao[mst(v,'publicacao')]?.[0]||'',act:`data-act="mc-ed" data-id="${h(v.id)}"`})});
+  return out;
+}
+
 /* ============ MODO WEB (Fase 2): Supabase + Google Drive ============ */
 let SB=null,SESSION=null,WEBCFG=null,GTOK=null;const DRIVE={folders:{},checked:{}};
 const GSCOPES='https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/drive.readonly';
@@ -1692,7 +2131,7 @@ async function webInit(){
   SB=window.supabase.createClient(WEBCFG.supabaseUrl,WEBCFG.supabaseAnonKey,{auth:{persistSession:true,detectSessionInUrl:false,flowType:'pkce'}});
   const qp=new URLSearchParams(location.search),hp=new URLSearchParams(location.hash.replace(/^#/,''));
   const urlErr=qp.get('error_description')||hp.get('error_description')||qp.get('error')||hp.get('error');
-  const code=qp.get('code');const ttBack=qp.get('tiktok');if(ttBack){try{history.replaceState(null,'',location.pathname)}catch(_){}UI.view='projetos';UI.projTab='tiktok';setTimeout(()=>toast(ttBack==='conectado'?'TikTok conectado!':'TikTok: '+(qp.get('msg')||'não conectou')),600)}
+  const code=qp.get('code');const ttBack=qp.get('tiktok');if(ttBack){try{history.replaceState(null,'',location.pathname)}catch(_){}UI.view='ajustes';UI.ajTab='tiktok';setTimeout(()=>toast(ttBack==='conectado'?'TikTok conectado!':'TikTok: '+(qp.get('msg')||'não conectou')),600)}
   if(code||urlErr){try{history.replaceState(null,'',location.pathname)}catch(_){}}
   if(urlErr)UI._err='O Google/Supabase recusou o login: '+urlErr.replace(/\+/g,' ');
   if(code){const {data:ex,error:exErr}=await SB.auth.exchangeCodeForSession(code);if(exErr)UI._err='Não consegui concluir o login: '+exErr.message+(/verifier/i.test(exErr.message)?' Abra o app direto no Safari ou Chrome (não pelo link do WhatsApp) e tente de novo.':'');else if(ex?.session)UI._exchanged=ex.session}
@@ -1710,6 +2149,7 @@ async function webInit(){
   if(WEBCFG.ai)SAMPLE={json:async(prompt,opts={})=>{const j=await api('/api/ai',{method:'POST',body:JSON.stringify({prompt,tier:opts.modelTier||'default'})});return j.result}};
   // backup diário
   try{const {data:b}=await SB.from('os_backups').select('created_at').order('created_at',{ascending:false}).limit(1);if(!b?.length||Date.now()-new Date(b[0].created_at)>864e5){const snap={};KEYS.forEach(k=>snap[k]=S[k]);await SB.from('os_backups').insert({user_id:uidv,data:snap})}}catch(e){}
+  mcLoad().then(()=>render());ttLoad();
   MODE='web';return true;
 }
 function saveDrive(){if(MODE==='web'&&SB)SB.from('os_docs').upsert({user_id:SESSION.user.id,key:'drive',items:{folders:DRIVE.folders},updated_at:new Date().toISOString()}).then(()=>{})}
@@ -1786,7 +2226,7 @@ function exportData(){const snap={app:'creative-os',exportedAt:new Date().toISOS
 /* ---------- TIKTOK (rascunhos automáticos) ---------- */
 const TT_ST={fila:['Na fila',''],enviando:['Enviando…','warn'],no_tiktok:['No TikTok','acc'],publicado:['Publicado','ok'],erro:['Erro','bad'],ignorado:['Não enviar','']};
 const TT_SRC={roteiro:'do roteiro',ia:'feita pela IA, revise',simples:'só o produto, escreva a sua',manual:'editada por você'};
-async function ttLoad(){if(UI._ttBusy)return;UI._ttBusy=true;try{UI.tt=await api('/api/tiktok');UI._ttErr=''}catch(e){UI._ttErr=e.message}UI._ttBusy=false;if(UI.projTab==='tiktok')render()}
+async function ttLoad(){if(UI._ttBusy)return;UI._ttBusy=true;try{UI.tt=await api('/api/tiktok');UI._ttErr=''}catch(e){UI._ttErr=e.message}UI._ttBusy=false;render()}
 async function ttDo(body,msg){if(msg)toast(msg);UI._ttBusy=true;if(body.action==='sync'){UI._ttSync=true;render()}try{UI.tt=await api('/api/tiktok',{method:'POST',body:JSON.stringify(body)});const r=UI.tt.result;if(r)toast(r.error?r.error:r.sent?`${r.sent} rascunho(s) enviado(s) ao TikTok`:'Nada novo para enviar agora')}catch(e){toast(e.message)}UI._ttBusy=false;UI._ttSync=false;render()}
 function ttDraft(r){const [lab,cls]=TT_ST[r.status]||[r.status,''];
   const title=[r.video_code,r.product].filter(Boolean).join(' · ')||r.file_name;
@@ -1814,10 +2254,15 @@ function vTikTok(){
   <span class="eyebrow">Em andamento · ${pend} no TikTok</span><div class="list">${act.map(ttDraft).join('')||'<div class="empty">Nenhum vídeo novo nas pastas Editado.</div>'}</div>
   ${old.length?`<span class="eyebrow">Concluídos</span><div class="list">${old.slice(0,30).map(ttDraft).join('')}</div>`:''}</div>`;
 }
+function vAjustes(){
+  const t=UI.ajTab||'tiktok';
+  return topBar('Ajustes','TikTok e conta')+`<div class="tabs">${[['tiktok','TikTok'],['conta','Conta']].map(([k,l])=>`<button class="${t===k?'on':''}" data-act="ajtab" data-k="${k}">${l}</button>`).join('')}</div>`+(t==='conta'?vConta():vTikTok());
+}
 function vConta(){
   if(MODE!=='web')return`<div class="sec"><div class="notice info">Conta, backup e importação ficam disponíveis no app web (Fase 2).</div></div>`;
   return`<div class="sec"><div class="card"><h3>Conta</h3><div class="small">${h(SESSION?.user?.email||'')}</div><div class="small muted">Drive: pastas em "Creative OS" no seu Google Drive.</div><button class="btn sm" data-act="logout" style="align-self:flex-start">Sair</button></div>
-  <div class="card"><h3>Dados</h3><div class="small muted">Backup automático diário no banco. Você também pode baixar uma cópia.</div><div class="row"><button class="btn sm" data-act="export">Baixar backup</button><button class="btn sm" data-act="import-file">Importar backup</button><input type="file" id="import-input" data-import="1" accept="application/json,.json" hidden></div></div></div>`;
+  <div class="card"><h3>Dados</h3><div class="small muted">Backup automático diário no banco. Você também pode baixar uma cópia.</div><div class="row"><button class="btn sm" data-act="export">Baixar backup</button><button class="btn sm" data-act="import-file">Importar backup</button><input type="file" id="import-input" data-import="1" accept="application/json,.json" hidden></div></div>
+  <div class="card"><h3>Meu Criativo</h3><div class="small muted">${MC.on?`${MC.S.videos.length} roteiros, ${MC.S.produtos.length} produtos e ${MC.S.ideias.length} ideias no app.`:MC.missing?'Falta criar a tabela dos roteiros no Supabase.':'Carregando…'} Para trazer os dados do antigo painel, importe o arquivo que o Claude te mandou.</div><div class="row"><button class="btn sm" data-act="mc-import">Importar roteiros do painel</button><input type="file" id="mc-import-input" accept="application/json,.json" hidden></div></div></div>`;
 }
 function vLogin(){return`<div class="boot" style="min-height:80vh"><div style="display:flex;flex-direction:column;gap:14px;align-items:center;max-width:320px"><span class="rec-dot" style="width:16px;height:16px"></span><h1 style="font-family:var(--f-display);font-size:2rem;margin:0">Creative OS</h1><div class="muted">Entre com sua conta Google. O app vai pedir acesso ao seu Google Drive: criar as pastas e arquivos dele e ler os vídeos prontos da pasta Editado para mandar ao TikTok.</div>${UI._err?`<div class="notice bad">${h(UI._err)}</div>`:''}<button class="btn pri wide" data-act="login">Entrar com Google</button></div></div>`}
 
