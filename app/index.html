@@ -386,18 +386,19 @@ function reminders(){
     if(cs.length){add(d<=0?95:90-d*3,d<=3?'bad':'warn',`<b>${h(e.title)}</b> ${quando}: ${cs.length} conteúdo${cs.length>1?'s':''} para gravar${semTakes?`, <b>${semTakes} ainda sem takes</b>`:''}${pend?` · ${pend} com takes pendentes`:''}.`,`data-act="go-filter" data-ev="${e.id}"`)}
     else if(d>0)add(60-d,'info',`<b>${h(e.title)}</b> ${quando}. Nenhum conteúdo planejado para ele ainda.`,`data-act="cal-day" data-d="${e.date}"`);
   });
-  const tdy=S.takes.filter(t=>t.status!=='gravado'&&takeDay(t)===TODAY).length,late=S.takes.filter(t=>t.status!=='gravado'&&takeDay(t)&&takeDay(t)<TODAY).length;
+  const OLD=!MC.on;
+  const tdy=!OLD?0:S.takes.filter(t=>t.status!=='gravado'&&takeDay(t)===TODAY).length,late=!OLD?0:S.takes.filter(t=>t.status!=='gravado'&&takeDay(t)&&takeDay(t)<TODAY).length;
   if(tdy)add(97,'acc',`<b>Hoje: ${tdy} take${tdy>1?'s':''} para gravar.</b>`,`data-act="cal-day" data-d="${TODAY}"`);
   if(late)add(96,'bad',`<b>${late} take${late>1?'s':''} atrasado${late>1?'s':''}</b> (a data já passou). Grave ou arraste para outro dia.`,`data-act="cal-late"`);
-  const ed=S.contents.filter(c=>c.status==='Edição');
+  const ed=!OLD?[]:S.contents.filter(c=>c.status==='Edição');
   if(ed.length)add(80,'warn',ed.length===1?`<b>${h(ed[0].title)}</b> está esperando edição.`:`<b>${ed.length} vídeos esperando edição:</b> ${ed.slice(0,3).map(c=>h(c.title)).join(' · ')}`,`data-act="go" data-v="producao" data-tab="edicao"`);
-  S.contents.filter(readyForEdit).forEach(c=>add(85,'ok',`Todos os takes de <b>${h(c.title)}</b> gravados. Marque a captação como completa para ir para edição.`,open(c)));
-  const post=S.contents.filter(c=>c.status==='Postagem');
+  if(OLD)S.contents.filter(readyForEdit).forEach(c=>add(85,'ok',`Todos os takes de <b>${h(c.title)}</b> gravados. Marque a captação como completa para ir para edição.`,open(c)));
+  const post=!OLD?[]:S.contents.filter(c=>c.status==='Postagem');
   if(post.length)add(75,'acc',`<b>${post.length} vídeo${post.length>1?'s':''} pronto${post.length>1?'s':''} para postar</b>${post.some(c=>!S.pubs.some(p=>p.contentId===c.id))?' · defina a data':''}.`,`data-act="go" data-v="producao" data-tab="edicao"`);
   S.events.filter(e=>['edicao','revisao'].includes(e.type)&&e.status!=='concluido'&&e.date>=TODAY&&diffDays(TODAY,e.date)<=1).forEach(e=>add(88,'bad',`${EVT[e.type]} de <b>${h(e.title.replace(/^[^:]+: /,''))}</b> vence ${rel(e.date)}.`,`data-act="cal-day" data-d="${e.date}"`));
   S.pubs.filter(p=>p.status!=='Publicado'&&p.date>=TODAY&&diffDays(TODAY,p.date)<=1).forEach(p=>{const c=byId('contents',p.contentId);add(92,'acc',`Postar <b>${h(c?.title||'conteúdo')}</b> no ${h(p.platform)} ${rel(p.date)}${p.time?' às '+h(p.time):''}.`,c?open(c):'')});
   S.pubs.filter(p=>p.status!=='Publicado'&&p.date<TODAY).forEach(p=>{const c=byId('contents',p.contentId);add(93,'bad',`Postagem atrasada: <b>${h(c?.title||'conteúdo')}</b> (${fmtShort(p.date)}).`,c?open(c):'')});
-  S.contents.forEach(c=>{if(contentConflicts(c).length)add(70,'bad',`Conflito de datas em <b>${h(c.title)}</b>.`,open(c))});
+  if(OLD)S.contents.forEach(c=>{if(contentConflicts(c).length)add(70,'bad',`Conflito de datas em <b>${h(c.title)}</b>.`,open(c))});
   if(MC.on){const rv=MC.S.videos.filter(v=>mst(v,'roteiro')==='a_revisar').length,ed=MC.S.videos.filter(v=>mst(v,'edicao')==='em_revisao').length,tt=arr(UI.tt?.drafts).filter(r=>r.status==='no_tiktok').length;
     if(ed)add(91,'warn',`<b>${ed} ediç${ed>1?'ões':'ão'} para você revisar.</b>`,`data-act="go" data-v="producao"`);
     if(tt)add(89,'acc',`<b>${tt} rascunho${tt>1?'s':''} no TikTok</b> esperando legenda e publicação.`,`data-act="go-tt"`);
