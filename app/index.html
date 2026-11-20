@@ -239,6 +239,7 @@ const CTX={
   carro:{l:'Carro / estrada',s:['carro','estrada','dirigindo']},
   rua:{l:'Rua',s:['na rua','calcada','pela cidade','andando na rua']}
 };
+const REF_TAGS=['UGC trabalhos','Natal ideias','Livros, séries, filmes e podcast','Edição / ideia / formato','Conteúdo MKT pra mim','IAs / ferramentas','UGC ideias','Estratégia de conteúdo','Branding pessoal','Gravar viagem'];
 const CAP_QUICK=['Estou na praia','Estou na academia','Estou cozinhando','Estou em um restaurante','Estou em um evento','Estou no notebook','Estou arrumando a mala','Estou em reunião'];
 
 /* ============ ESTADO E PERSISTÊNCIA ============ */
@@ -610,7 +611,7 @@ function takeCard(t,o={}){
 const noteText=i=>i.text||[i.title,i.desc].filter(Boolean).join(' — ');
 const tagsOf=s=>[...new Set((String(s||'').match(/#[\p{L}\d_]+/gu)||[]).map(t=>norm(t)))];
 function notesFeed(){
-  const items=[...S.ideas.map(i=>({k:'note',i,txt:noteText(i),d:i.updatedAt||i.createdAt||''})),...S.refs.map(r=>({k:'ref',i:r,txt:[r.title,r.notes,r.why,r.adapt,allTags(r).join(' ')].join(' '),d:r.createdAt||''}))];
+  const items=[...S.ideas.map(i=>({k:'note',i,txt:noteText(i),d:i.updatedAt||i.createdAt||''})),...S.refs.map(r=>({k:'ref',i:r,txt:[r.title,r.notes,r.why,r.adapt,allTags(r).join(' '),arr(r.etiquetas).join(' ')].join(' '),d:r.createdAt||''}))].filter(x=>!UI.refTag||(x.k==='ref'&&arr(x.i.etiquetas).includes(UI.refTag)));
   const q=UI.noteQ.trim();if(!q)return items.sort((a,b)=>String(b.d).localeCompare(String(a.d)));
   const words=norm(q).split(/[^a-z0-9#]+/).filter(w=>w.length>1);
   return items.map(x=>{const hay=norm(x.txt);let s=0;words.forEach(w=>{if(w.startsWith('#')){if(tagsOf(x.txt).includes(w))s+=5}else if(hay.includes(w))s+=w.length>3?3:1;Object.entries(SYN).forEach(([k,v])=>{if(w.startsWith(k))v.forEach(y=>{if(hay.includes(norm(y)))s+=1})})});return{...x,s}}).filter(x=>x.s>0).sort((a,b)=>b.s-a.s);
@@ -619,7 +620,7 @@ function noteCard(x){
   const clamp='display:-webkit-box;-webkit-box-orient:vertical;overflow:hidden';
   if(x.k==='note')return`<button class="card tap" data-act="open" data-t="idea" data-id="${x.i.id}" style="gap:4px"><div class="small" style="${clamp};-webkit-line-clamp:3;white-space:pre-line">${h(x.txt)}</div><div class="serves">${x.d?fmtShort(iso(new Date(x.d))):''}</div></button>`;
   const r=x.i;let host='';try{host=r.url?new URL(r.url).hostname.replace('www.',''):''}catch(e){}
-  return`<button class="card tap" data-act="open" data-t="ref" data-id="${r.id}" style="gap:4px;border-color:var(--accent-soft)"><div class="row between"><span class="eyebrow" style="color:var(--accent)">Vídeo de referência</span><span class="serves">${h(host)}</span></div><h3>${h(r.title||'Referência')}</h3>${r.adapt?`<div class="small muted" style="${clamp};-webkit-line-clamp:2"><b>Adaptar:</b> ${h(r.adapt)}</div>`:''}</button>`;
+  return`<button class="card tap" data-act="open" data-t="ref" data-id="${r.id}" style="gap:4px;border-color:var(--accent-soft)"><div class="row between"><span class="eyebrow" style="color:var(--accent)">Vídeo de referência</span><span class="serves">${h(host)}</span></div><h3>${h(r.title||'Referência')}</h3>${arr(r.etiquetas).length?`<div class="chips">${r.etiquetas.map(t=>`<span class="chip acc">${h(t)}</span>`).join('')}</div>`:''}${r.notes&&r.notes!==r.title?`<div class="small" style="${clamp};-webkit-line-clamp:2">${h(r.notes)}</div>`:''}${r.adapt?`<div class="small muted" style="${clamp};-webkit-line-clamp:2"><b>Adaptar:</b> ${h(r.adapt)}</div>`:''}</button>`;
 }
 function vIdeias(){
   let out=topBar('Notas','Ideias e referências');
@@ -636,6 +637,8 @@ function vIdeias(){
   </form>`;
   const all=[...S.ideas.map(noteText),...S.refs.map(r=>[r.title,r.notes,r.adapt].join(' '))].flatMap(tagsOf);
   const cnt={};all.forEach(t=>cnt[t]=(cnt[t]||0)+1);const tags=Object.entries(cnt).sort((a,b)=>b[1]-a[1]).slice(0,10).map(x=>x[0]);
+  const tagCount=t=>S.refs.filter(r=>arr(r.etiquetas).includes(t)).length;
+  out+=`<div class="sec"><div class="sec-h"><h2>Referências por etiqueta</h2><button class="btn sm" data-act="share-new">＋ Referência</button></div><div class="scroll-x"><button class="chip btn ${!UI.refTag?'on':''}" data-act="ref-tag" data-k="">Todas</button>${REF_TAGS.map(t=>`<button class="chip btn ${UI.refTag===t?'on':''}" data-act="ref-tag" data-k="${h(t)}">${h(t)} <span class="muted">${tagCount(t)}</span></button>`).join('')}</div></div>`;
   const feed=notesFeed();
   out+=`<form class="sec" data-form="noteq"><div class="cap-in"><input type="search" id="note-q" value="${h(UI.noteQ)}" placeholder="Buscar nas minhas ideias: natal, casal, #tiktokshop"><button class="btn" type="submit">Buscar</button></div>
     ${tags.length?`<div class="scroll-x">${tags.map(t=>`<button type="button" class="chip btn ${norm(UI.noteQ)===t?'on':''}" data-act="note-tag" data-k="${h(t)}">${h(t)}</button>`).join('')}</div>`:''}
@@ -1311,7 +1314,7 @@ function shopSummary(c){const s=shopOf(c);const ht=S.takes.filter(t=>t.hookId&&a
 /* ============ FORMULÁRIOS GENÉRICOS ============ */
 const opts=k=>()=>S[k].map(x=>[x.id,x.title||x.name||x.desc]);
 const FORMS={
-  ref:{key:'refs',title:'Referência',fields:[['title','Título','text'],['url','Link do vídeo','url'],['notes','Observações pessoais','textarea'],['why','Por que gostei','textarea'],['adapt','Como pretendo adaptar','textarea'],['objectives','Objetivos','chips',OBJ],['audiences','Público','chips',AUD],['formats','Formato','chips',FMT],['traits','Características','chips',TRAITS],['platforms','Plataformas','chips',PLAT],['productIds','Produtos','rel','products'],['projectIds','Projetos','rel','projects'],['contentIds','Conteúdos','rel','contents'],['ts.hook','TikTok Shop · gancho comercial','text'],['ts.benefit','TikTok Shop · benefício','text'],['ts.objection','TikTok Shop · objeção de compra','text'],['ts.context','TikTok Shop · contexto de uso','text'],['ts.style','TikTok Shop · estilo de venda','text']]},
+  ref:{key:'refs',title:'Referência',fields:[['title','Título','text'],['url','Link do vídeo','url'],['etiquetas','Etiquetas','chips',REF_TAGS],['notes','Observações pessoais','textarea'],['why','Por que gostei','textarea'],['adapt','Como pretendo adaptar','textarea'],['objectives','Objetivos','chips',OBJ],['audiences','Público','chips',AUD],['formats','Formato','chips',FMT],['traits','Características','chips',TRAITS],['platforms','Plataformas','chips',PLAT],['productIds','Produtos','rel','products'],['projectIds','Projetos','rel','projects'],['contentIds','Conteúdos','rel','contents'],['ts.hook','TikTok Shop · gancho comercial','text'],['ts.benefit','TikTok Shop · benefício','text'],['ts.objection','TikTok Shop · objeção de compra','text'],['ts.context','TikTok Shop · contexto de uso','text'],['ts.style','TikTok Shop · estilo de venda','text']]},
   idea:{key:'ideas',title:'Ideia',fields:[['title','Título','text'],['desc','Descrição','textarea'],['refIds','Referências','rel','refs'],['audience','Público-alvo','select',AUD],['objective','Objetivo estratégico','select',OBJ],['platform','Plataforma','select',PLAT],['format','Formato','select',FMT],['projectId','Projeto','one','projects'],['priority','Prioridade','select',PRIO],['status','Status','select',IDEA_ST],['date','Possível data de publicação','date']]},
   content:{key:'contents',title:'Conteúdo',fields:[['title','Título','text'],['refLink','Link de referência','url'],['platforms','Plataformas','chips',PLAT],['goal','Objetivo','text'],['audienceText','Público / persona','text'],['when','Quando / cenário','text'],['janela','Janela de gravação','select',JANELAS],['contexts','Contextos (para o Captar agora)','ctx'],['scriptState','Roteiro','select',SCRIPT_ST],['formatNote','Formato / orientação','text'],['notes','Observações','textarea'],['projectId','Projeto','one','projects'],['frontId','Frente do projeto','front'],['productIds','Produtos','rel','products'],['refIds','Referências salvas','rel','refs'],['objectives','Objetivos (para o equilíbrio)','chips',OBJ],['audiences','Públicos (para o equilíbrio)','chips',AUD]]},
   take:{key:'takes',title:'Take',fields:[['desc','Descrição','text'],['action','Tipo de ação','text'],['framing','Enquadramento','text'],['setting','Cenário','text'],['contexts','Contextos (onde dá para gravar)','ctx'],['location','Localização','text'],['participant','Participante','text'],['productIds','Produtos','rel','products'],['contentIds','Conteúdos que usam este take','rel','contents'],['duration','Duração desejada','text'],['priority','Prioridade','select',PRIO],['status','Status','select',['pendente','gravado']],['date','Data para gravar','date'],['fixedEventId','Data fixa: depende do compromisso','one','events'],['hardToRepeat','Oportunidade difícil de repetir','bool'],['notes','Observações','textarea']]},
@@ -1592,6 +1595,11 @@ const ACT={
   'tt-backfill':()=>{const n=prompt('Incluir vídeos que já estão nas pastas Editado dos últimos quantos dias?','7');if(n)ttDo({action:'backfill',days:+n},'Vou incluir os vídeos desses dias na próxima verificação').then(()=>ttDo({action:'sync'},'Procurando…'))},
   'tt-disconnect':()=>{if(confirm('Desconectar o TikTok? A fila continua salva, mas nada mais é enviado.'))ttDo({action:'disconnect'},'TikTok desconectado')},
   itab:d=>{UI.ideaTab=d.k;render()},
+  'ref-tag':d=>{UI.refTag=d.k||'';render()},
+  'share-new':()=>openShare({}),
+  'share-tag':(d,b)=>{const S2=UI._share;if(!S2)return;S2.tags=S2.tags.includes(d.k)?S2.tags.filter(x=>x!==d.k):[...S2.tags,d.k];b.classList.toggle('on')},
+  'share-save':()=>saveShare(),
+  'share-cancel':()=>{try{localStorage.removeItem('cos_share')}catch(_){}UI._share=null;closeForm()},
   ajtab:d=>{UI.ajTab=d.k;render();if(d.k==='tiktok'&&UI.tt)ttLoad()},
   'go-tt':()=>{UI.ajTab='tiktok';go('ajustes')},ptab:d=>{UI.prodTab=d.k;render()},jtab:d=>{UI.projTab=d.k;render();if(d.k==='tiktok'&&UI.tt)ttLoad()},
   cf:d=>{UI.contentF=d.k;render()},
@@ -2185,6 +2193,7 @@ async function webInit(){
   if(!WEBCFG.supabaseUrl){MODE='error';UI._err='O app ainda não foi configurado: faltam as variáveis do Supabase na Vercel.';return false}
   SB=window.supabase.createClient(WEBCFG.supabaseUrl,WEBCFG.supabaseAnonKey,{auth:{persistSession:true,detectSessionInUrl:false,flowType:'pkce'}});
   const qp=new URLSearchParams(location.search),hp=new URLSearchParams(location.hash.replace(/^#/,''));
+  if(qp.get('su')||qp.get('sx')||qp.get('st')){try{localStorage.setItem('cos_share',JSON.stringify({url:qp.get('su')||'',text:qp.get('sx')||'',title:qp.get('st')||''}))}catch(_){}try{history.replaceState(null,'',location.pathname)}catch(_){}}
   const urlErr=qp.get('error_description')||hp.get('error_description')||qp.get('error')||hp.get('error');
   const code=qp.get('code');const ttBack=qp.get('tiktok');if(ttBack){try{history.replaceState(null,'',location.pathname)}catch(_){}UI.view='ajustes';UI.ajTab='tiktok';setTimeout(()=>toast(ttBack==='conectado'?'TikTok conectado!':'TikTok: '+(qp.get('msg')||'não conectou')),600)}
   if(code||urlErr){try{history.replaceState(null,'',location.pathname)}catch(_){}}
@@ -2205,6 +2214,7 @@ async function webInit(){
   // backup diário
   try{const {data:b}=await SB.from('os_backups').select('created_at').order('created_at',{ascending:false}).limit(1);if(!b?.length||Date.now()-new Date(b[0].created_at)>864e5){const snap={};KEYS.forEach(k=>snap[k]=S[k]);await SB.from('os_backups').insert({user_id:uidv,data:snap})}}catch(e){}
   mcLoad().then(()=>render());ttLoad();
+  try{const sh=JSON.parse(localStorage.getItem('cos_share')||'null');if(sh)setTimeout(()=>{UI.view='ideias';UI.ideaTab='refs';render();openShare(sh)},300)}catch(_){}
   MODE='web';return true;
 }
 function saveDrive(){if(MODE==='web'&&SB)SB.from('os_docs').upsert({user_id:SESSION.user.id,key:'drive',items:{folders:DRIVE.folders},updated_at:new Date().toISOString()}).then(()=>{})}
@@ -2310,6 +2320,28 @@ function vTikTok(){
   <div class="row" style="flex-wrap:wrap;gap:6px"><button class="btn sm pri" data-act="tt-sync" ${UI._ttSync?'disabled':''}>${UI._ttSync?'Verificando…':'Verificar agora'}</button><button class="btn sm" data-act="tt-backfill">Incluir vídeos antigos</button><button class="btn sm ghost" data-act="tt-disconnect">Desconectar</button></div></div>
   <span class="eyebrow">Em andamento · ${pend} no TikTok</span><div class="list">${act.map(ttDraft).join('')||'<div class="empty">Nenhum vídeo novo nas pastas Editado.</div>'}</div>
   ${old.length?`<span class="eyebrow">Concluídos</span><div class="list">${old.slice(0,30).map(ttDraft).join('')}</div>`:''}</div>`;
+}
+/* ---------- COMPARTILHAR DO INSTAGRAM (Web Share Target) ---------- */
+function shareLink(p){const all=[p.url,p.text,p.title].filter(Boolean).join(' ');const m=all.match(/https?:\/\/\S+/);return m?m[0].replace(/[).,]+$/,''):''}
+function openShare(p){
+  const link=shareLink(p),extra=[p.title,p.text].filter(Boolean).join(' ').replace(link,'').trim();
+  UI._share={url:link,extra,tags:[]};
+  let host='';try{host=link?new URL(link).hostname.replace('www.',''):''}catch(_){}
+  sheet('Nova referência',`${link?`<div class="card" style="gap:2px"><span class="eyebrow">${h(host||'Link')}</span><a class="small" href="${h(link)}" target="_blank" rel="noopener" style="color:var(--accent);word-break:break-all">${h(link)}</a></div>`:`<input type="url" id="share-url" placeholder="Cole o link do vídeo">`}
+  <div><div class="eyebrow" style="margin-bottom:6px">Etiquetas</div><div class="chips">${REF_TAGS.map(t=>`<button type="button" class="chip btn" data-act="share-tag" data-k="${h(t)}">${h(t)}</button>`).join('')}</div></div>
+  <label class="f" for="share-obs">O que você gostou?<textarea id="share-obs" placeholder="Ex.: o gancho com pergunta, a edição com cortes rápidos, a luz da janela…" style="min-height:96px">${h(extra)}</textarea></label>
+  <div class="row"><button class="btn sm" data-act="mc-mic" data-ta="share-obs">🎙 Ditar</button></div>
+  <div class="row"><button class="btn pri grow" data-act="share-save">Salvar referência</button><button class="btn" data-act="share-cancel">Cancelar</button></div>`);
+}
+function saveShare(){
+  const S2=UI._share;if(!S2)return;
+  const url=S2.url||(document.getElementById('share-url')?.value||'').trim(),obs=(document.getElementById('share-obs')?.value||'').trim();
+  if(!url&&!obs)return toast('Cole o link ou escreva o que gostou.');
+  let host='';try{host=new URL(url).hostname.replace('www.','')}catch(_){}
+  const net=/instagram/.test(host)?'Instagram':/tiktok/.test(host)?'TikTok':/youtu/.test(host)?'YouTube':host||'Referência';
+  S.refs.unshift({id:uid('r'),title:(obs.split('\n')[0]||`${net} · ${fmtShort(TODAY)}`).slice(0,90),url,notes:obs,etiquetas:[...S2.tags],via:'compartilhar',createdAt:new Date().toISOString(),contentIds:[]});
+  save('refs');try{localStorage.removeItem('cos_share')}catch(_){}
+  UI._share=null;closeForm();UI.ideaTab='refs';UI.refTag='';go('ideias');toast('Referência salva'+(S2.tags.length?' em '+S2.tags.join(', '):''));
 }
 function vAjustes(){
   const t=UI.ajTab||'tiktok';
