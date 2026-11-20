@@ -1957,9 +1957,9 @@ function mcEdDetail(v){
 
 /* ---------- ENVIO PARA O DRIVE (mesmos nomes que o Claude procura) ---------- */
 function mcUpTarget(kind,id){
-  if(kind==='take'){const t=mById('takes',id)||{};return{code:id,label:t.etiqueta&&t.etiqueta!=='BROLL'?t.etiqueta:(t.etiqueta==='BROLL'?'BROLL':''),produto:t.produto,video:arr(t.videos)[0]||'',pasta:'Takes brutos'}}
-  if(kind==='insercao'){const x=mById('insercoes',id)||{};return{code:id,produto:x.produto,video:arr(x.videos)[0]||'',pasta:'Inserções'}}
-  const v=mById('videos',id)||{};return{code:(kind==='narracao'?'NAR-':'VC-')+id,produto:v.produto,video:id,pasta:'Takes brutos'};
+  if(kind==='take'){const t=mById('takes',id)||{};const vs=arr(t.videos);return{code:id,label:t.etiqueta&&t.etiqueta!=='BROLL'?t.etiqueta:(t.etiqueta==='BROLL'?'BROLL':''),produto:t.produto,video:vs[0]||'',outros:vs.slice(1),pasta:'Takes brutos'}}
+  if(kind==='insercao'){const x=mById('insercoes',id)||{};const vs=arr(x.videos);return{code:id,produto:x.produto,video:vs[0]||'',outros:vs.slice(1),pasta:'Inserções'}}
+  const v=mById('videos',id)||{};return{code:(kind==='narracao'?'NAR-':'VC-')+id,produto:v.produto,video:id,outros:[],pasta:'Takes brutos'};
 }
 function mcUpPick(kind,id){
   if(MODE!=='web')return toast('O envio para o Drive funciona no app web.');
@@ -1978,8 +1978,14 @@ async function mcUpload(kind,id,files){
       const name=`MeuCriativo ${T.code}${T.label?' '+T.label:''} - ${file.name}`;
       const f2=new File([file],name,{type:file.type||'application/octet-stream'});
       const up=await driveUpload(f2,parent,p=>{bar.style.width=Math.round(p*100)+'%';lab.textContent='Enviando… '+Math.round(p*100)+'%'});
-      got.push({nome:name,driveId:up.id,link:up.webViewLink||`https://drive.google.com/file/d/${up.id}/view`,data:TODAY});
-      row.innerHTML=`<b class="small">✓ ${h(file.name)}</b><div class="small" style="color:var(--ok)">Concluído no Drive. Pode apagar do celular.</div>`;
+      /* Um take usado em vários vídeos: o original fica na pasta do 1º vídeo e os outros recebem atalho (sem duplicar o arquivo). */
+      const atalhos=[];
+      if(T.outros.length){lab.textContent='Criando atalhos nas pastas dos outros vídeos…';
+        for(const vid of T.outros){try{const pf=await driveFolder(['Meu Criativo',mProd(T.produto)||'Sem produto',vid,T.pasta]);
+          const sc=await gdrive('files?fields=id',{method:'POST',body:JSON.stringify({name,mimeType:'application/vnd.google-apps.shortcut',shortcutDetails:{targetId:up.id},parents:[pf]})});atalhos.push({video:vid,id:sc.id})}catch(e){console.warn('atalho',vid,e)}}}
+      got.push({nome:name,driveId:up.id,link:up.webViewLink||`https://drive.google.com/file/d/${up.id}/view`,data:TODAY,...(atalhos.length?{atalhos}:{})});
+      const faltou=T.outros.length-atalhos.length;
+      row.innerHTML=`<b class="small">✓ ${h(file.name)}</b><div class="small" style="color:var(--ok)">Concluído no Drive${atalhos.length?` · atalho em ${atalhos.length} vídeo${atalhos.length>1?'s':''}`:''}. Pode apagar do celular.</div>${faltou>0?`<div class="small muted">${faltou} atalho(s) não foram criados. O arquivo está salvo; o Claude acha pelo código.</div>`:''}`;
     }catch(e){row.innerHTML=`<b class="small">${h(file.name)}</b><div class="small" style="color:var(--bad)">Não enviado: ${h(e.message)}</div><div class="small muted">O arquivo continua no seu celular. Não apague.</div>`}
   }
   if(got.length){
