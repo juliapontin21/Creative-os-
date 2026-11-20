@@ -153,7 +153,8 @@ const codeOf = (...names) => {
   return null;
 };
 
-// Procura vídeos novos em pastas "Editado" e coloca na fila.
+// Procura vídeos novos em pastas "Editado" e registra como "aguardando".
+// Nada vai sozinho para o TikTok: só sai quando a Júlia toca em "Mandar pro rascunho" no app.
 async function scan(acc, gtok) {
   const startedAt = new Date().toISOString();
   const floor = new Date(acc.scan_since || acc.connected_at).getTime();
@@ -189,7 +190,7 @@ async function scan(acc, gtok) {
         video_folder: vf?.name || "",
         product: prod?.name || "",
         drive_created_at: f.createdTime,
-        status: "fila",
+        status: "aguardando",
       });
     }
     pageToken = j.nextPageToken || "";
@@ -202,16 +203,22 @@ async function scan(acc, gtok) {
       headers: { Prefer: "resolution=ignore-duplicates,return=representation" },
       body: JSON.stringify(row),
     });
-    // Nova versão do mesmo vídeo (V012 v2): a anterior que ainda não foi enviada sai da fila.
+    // Nova versão do mesmo vídeo (V012 v2): a anterior que ainda não foi enviada sai da lista.
     if (ins?.length && row.video_code) {
       await db(
-        `tiktok_drafts?user_id=eq.${acc.user_id}&video_code=eq.${row.video_code}&status=eq.fila&drive_file_id=neq.${row.drive_file_id}`,
+        `tiktok_drafts?user_id=eq.${acc.user_id}&video_code=eq.${row.video_code}&status=in.(fila,aguardando)&drive_file_id=neq.${row.drive_file_id}`,
         { method: "PATCH", body: JSON.stringify({ status: "substituido", updated_at: new Date().toISOString() }) }
       );
     }
   }
   await setAccount(acc.user_id, { last_scan: startedAt });
   return found.length;
+}
+
+// Só procura (sem enviar): usado quando a Júlia pede um rascunho de um vídeo específico.
+export async function scanNow(acc) {
+  const gtok = await googleAccess(acc.user_id);
+  return scan(acc, gtok);
 }
 
 /* ---------- Legenda ---------- */

@@ -1,7 +1,8 @@
 // Tela "TikTok" do app: conectar a conta, ver a fila de rascunhos e agir sobre ela.
-// GET: situação da conexão e dos rascunhos. POST {action}: connect · sync · retry · ignore · published · caption · backfill · disconnect.
+// GET: situação da conexão e dos rascunhos. POST {action}: connect · sync · send · retry · ignore · published · caption · backfill · disconnect.
+// "send" manda UM vídeo escolhido (por id da lista ou pelo código V012) para o rascunho do TikTok.
 import { send, readJson, requireUser, db, env } from "./_lib.js";
-import { authUrl, getAccount, setAccount, syncAccount, tiktokConfigured, maxPending, markVideo } from "./_tiktok.js";
+import { authUrl, getAccount, setAccount, syncAccount, scanNow, tiktokConfigured, maxPending, markVideo } from "./_tiktok.js";
 
 const FIELDS = "id,file_name,video_code,video_folder,product,caption,caption_source,status,error,attempts,drive_file_id,drive_created_at,sent_at,updated_at";
 
@@ -29,7 +30,7 @@ export default async function handler(req, res) {
   try {
     if (req.method === "GET") return send(res, 200, await state(user.id));
     if (req.method !== "POST") return send(res, 405, { error: "Use GET ou POST." });
-    const { action, id, caption, days } = await readJson(req);
+    const { action, id, code, caption, days } = await readJson(req);
     const draft = (patch) =>
       db(`tiktok_drafts?id=eq.${Number(id)}&user_id=eq.${user.id}`, { method: "PATCH", body: JSON.stringify({ ...patch, updated_at: new Date().toISOString() }) });
 
@@ -40,6 +41,25 @@ export default async function handler(req, res) {
     const acc = await getAccount(user.id);
     if (!acc) return send(res, 409, { error: "Conecte o TikTok primeiro.", code: "not_connected" });
 
+    if (action === "send") {
+      let rowId = Number(id) || null;
+      if (!rowId) {
+        const vc = String(code || "").toUpperCase();
+        if (!/^V\d{2,5}$/.test(vc)) return send(res, 400, { error: "Informe o vídeo (ex.: V012)." });
+        await scanNow(acc).catch(() => {});
+        const rows = await db(`tiktok_drafts?user_id=eq.${user.id}&video_code=eq.${vc}&status=neq.substituido&order=drive_created_at.desc&limit=1&select=id,status`);
+        const r = rows?.[0];
+        if (!r) return send(res, 404, { error: `Ainda não achei o vídeo editado do ${vc} na pasta Editado do Drive.` });
+        if (["fila", "enviando", "no_tiktok"].includes(r.status)) return send(res, 200, { ...(await state(user.id)), result: { sent: 0, error: null, already: r.status } });
+        rowId = r.id;
+      }
+      await db(`tiktok_drafts?id=eq.${rowId}&user_id=eq.${user.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ status: "fila", attempts: 0, error: null, publish_id: null, sent_at: null, updated_at: new Date().toISOString() }),
+      });
+      const r = await syncAccount(acc, Date.now() + 200e3);
+      return send(res, 200, { ...(await state(user.id)), result: r });
+    }
     if (action === "sync") {
       const r = await syncAccount(acc, Date.now() + 240e3);
       return send(res, 200, { ...(await state(user.id)), result: r });
