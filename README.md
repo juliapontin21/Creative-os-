@@ -15,7 +15,8 @@ O diferencial: transformar momentos reais da rotina em oportunidades organizadas
 | `supabase/schema.sql` | Tabelas do banco (Supabase) com acesso só da dona |
 | `docs/FASE2-SETUP.md` | Passo a passo para colocar a Fase 2 no ar |
 | `docs/MEU-CRIATIVO-NO-APP.md` | Roteiros, gravação blocada e edição do Meu Criativo dentro do app; como o Claude grava no banco |
-| `docs/TIKTOK-SETUP.md` | Rascunhos automáticos no TikTok: vídeos da pasta Editado viram rascunho, com a legenda pronta para copiar |
+| `docs/TIKTOK-SETUP.md` | TikTok: você escolhe por vídeo entre programar (skill Agendamento de Post, no PC) e mandar pro rascunho do celular |
+| `skills/agendamento-de-post/` | Skill que programa no TikTok Studio a fila "Para programar" do app (legenda, produto e horário) |
 
 ## Fase 2 (em configuração)
 

@@ -3,11 +3,11 @@
 ## Como funciona
 
 1. Você aprova a edição e o Claude salva o vídeo na pasta **Editado** do Drive (`Meu Criativo / <produto> / <V012> / Editado`), junto com um arquivo **`V012 - legenda.txt`**.
-2. A cada 10 minutos, o Creative OS procura vídeos novos em todas as pastas `Editado` (as pastas de takes brutos e de inserções são ignoradas).
-3. Para cada vídeo novo, ele:
-   - lê a legenda do arquivo `legenda` da mesma pasta. Se esse arquivo não aparecer em até 20 minutos, a IA escreve uma (com `ANTHROPIC_API_KEY`) ou entra uma legenda simples, com o nome do produto e `#tiktokshop`;
-   - envia o vídeo como **rascunho** para a caixa de entrada do seu TikTok.
-4. No celular: Creative OS → **Projetos → TikTok** → **Copiar legenda**. Depois, no TikTok, abra a notificação do rascunho, cole a legenda, vincule o produto, escolha a música (se for o caso) e publique. Por fim, toque em **Já publiquei** no Creative OS (ele também percebe sozinho).
+2. A cada 10 minutos, o Creative OS procura vídeos novos nas pastas `Editado` e mostra em **Ajustes → TikTok** como "Esperando você". **Nada vai sozinho para o TikTok.**
+3. Em cada vídeo editado (Produção → Edição → abrir o vídeo) você escolhe:
+   - **Programar**: escolhe dia e horário e o vídeo entra na fila **Para programar**. No PC, abra o Claude no Chrome e chame a skill **Agendamento de Post** (`skills/agendamento-de-post`): ela programa no TikTok Studio com legenda, produto e horário, e marca o vídeo como **Agendado**.
+   - **Mandar pro rascunho**: o vídeo vai para a caixa de entrada do TikTok no celular (com a legenda pronta em Ajustes → TikTok para copiar). Serve para quando você quer publicar pelo app do TikTok (por exemplo, com um som em alta).
+4. Rascunho no celular: abra a notificação do rascunho no TikTok, cole a legenda, vincule o produto e publique. Depois toque em **Já publiquei** no Creative OS (ele também percebe sozinho).
 
 **Limites do TikTok**
 - A API de rascunho **não aceita legenda nem produto**. Por isso a legenda fica no Creative OS para copiar, e o produto é vinculado no app do TikTok.

@@ -1582,6 +1582,7 @@ const ACT={
   'tt-connect':async()=>{try{const j=await api('/api/tiktok',{method:'POST',body:JSON.stringify({action:'connect'})});location.href=j.url}catch(e){toast(e.message)}},
   'tt-sync':()=>ttDo({action:'sync'},'Procurando vídeos novos…'),
   'tt-retry':d=>ttDo({action:'retry',id:d.id},'Volta para a fila'),
+  'tt-send':d=>ttDo({action:'send',id:d.id},'Mandando pro rascunho…'),
   'tt-ignore':d=>{if(confirm('Não enviar este vídeo ao TikTok?'))ttDo({action:'ignore',id:d.id},'Fora da fila')},
   'tt-pub':d=>ttDo({action:'published',id:d.id},'Marcado como publicado'),
   'tt-copy':async d=>{const r=arr(UI.tt?.drafts).find(x=>String(x.id)===d.id);try{await navigator.clipboard.writeText(r?.caption||'');toast('Legenda copiada. Cole no TikTok.')}catch(e){sheet('Copie a legenda',`<textarea readonly style="min-height:160px">${h(r?.caption||'')}</textarea><div class="small muted">Toque e segure no texto para copiar.</div>`)}},
@@ -1688,7 +1689,7 @@ const MST={
   roteiro:{a_revisar:['A revisar','warn'],em_ajuste:['Em ajuste','acc'],aprovado:['Aprovado','ok']},
   captacao:{pendente:['Captação pendente',''],parcial:['Captação parcial','warn'],completa:['Captação completa','ok']},
   edicao:{aguardando:['Aguardando materiais',''],pronto:['Pronto para editar','acc'],em_edicao:['Em edição','acc'],em_revisao:['Edição para você revisar','warn'],editado:['Editado','ok']},
-  publicacao:{nao:['Sem publicação',''],aprovado:['Aprovado para publicar','acc'],rascunho:['Rascunho no TikTok','acc'],agendado:['Agendado','acc'],postado:['Postado','ok']}
+  publicacao:{nao:['Sem publicação',''],aprovado:['Aprovado para publicar','acc'],programar:['Para programar','warn'],rascunho:['Rascunho no TikTok','acc'],agendado:['Agendado','acc'],postado:['Postado','ok']}
 };
 const mst=(v,k)=>(v.status&&v.status[k])||({roteiro:'a_revisar',captacao:'pendente',edicao:'aguardando',publicacao:'nao'})[k];
 const mpill=(k,val)=>{const d=(MST[k]||{})[val];return d?`<span class="chip ${d[1]}">${h(d[0])}</span>`:''};
@@ -1946,20 +1947,54 @@ function mcEdicao(){
   const groups=[['em_revisao','Para você revisar'],['pronto','Prontos para editar'],['em_edicao','Em edição'],['aguardando','Aguardando materiais'],['editado','Editados']];
   const ap=MC.S.videos.filter(v=>mst(v,'roteiro')==='aprovado');
   if(!ap.length)return`<div class="empty" style="margin-top:12px">A edição começa depois que os roteiros forem aprovados e gravados.</div>`;
-  return groups.map(([k,l])=>{const vs=ap.filter(v=>mst(v,'edicao')===k);if(!vs.length)return'';return`<div class="sec"><div class="sec-h"><h2>${l}</h2><span class="small muted">${vs.length}</span></div><div class="card" style="gap:0">${vs.sort(numSort).map(v=>mcItem(v,'mc-ed',v.prontidaoEdicao||'',mpill('edicao',k)+(mst(v,'publicacao')!=='nao'?mpill('publicacao',mst(v,'publicacao')):''))).join('')}</div></div>`}).join('');
+  const fila=ap.filter(v=>mst(v,'publicacao')==='programar').sort((a,b)=>mcSlotKey(a).localeCompare(mcSlotKey(b)));
+  const filaHtml=fila.length?`<div class="sec"><div class="sec-h"><h2>Para programar</h2><span class="small muted">${fila.length}</span></div><div class="small muted">No PC: abra o Claude no Chrome e chame a skill "Agendamento de Post". Ela programa estes vídeos no TikTok Studio.</div><div class="card" style="gap:0">${fila.map(v=>mcItem(v,'mc-ed',mcSlotLabel(v),mpill('publicacao','programar'))).join('')}</div></div>`:'';
+  return filaHtml+groups.map(([k,l])=>{const vs=ap.filter(v=>mst(v,'edicao')===k);if(!vs.length)return'';return`<div class="sec"><div class="sec-h"><h2>${l}</h2><span class="small muted">${vs.length}</span></div><div class="card" style="gap:0">${vs.sort(numSort).map(v=>mcItem(v,'mc-ed',v.prontidaoEdicao||'',mpill('edicao',k)+(mst(v,'publicacao')!=='nao'?mpill('publicacao',mst(v,'publicacao')):''))).join('')}</div></div>`}).join('');
 }
 function mcEdDetail(v){
   return`<div class="sec"><button class="btn ghost sm" data-act="mc-edback" style="align-self:flex-start">← Voltar</button><div><span class="mc-id">${h(v.id)}</span><h2>${h(vTitle(v))}</h2></div><div class="chips">${mpill('edicao',mst(v,'edicao'))}${mst(v,'publicacao')!=='nao'?mpill('publicacao',mst(v,'publicacao')):''}</div>
   ${v.linkEditado?`<a class="btn pri" style="text-decoration:none;align-self:flex-start" href="${h(v.linkEditado)}" target="_blank" rel="noopener">Assistir o vídeo editado</a>`:'<div class="small muted">O link do vídeo editado aparece aqui.</div>'}
   ${mst(v,'edicao')==='em_revisao'?`<label class="f" for="mc-reved">O que mudar <span class="muted" style="font-weight:400">(pode citar a minutagem: “aos 0:12, troca o take”)</span></label><textarea id="mc-reved"></textarea><div class="row"><button class="btn sm" data-act="mc-mic" data-ta="mc-reved">🎙 Ditar</button><button class="btn sm" data-act="mc-edrev" data-id="${h(v.id)}">Pedir revisão</button><button class="btn sm pri" data-act="mc-edok" data-id="${h(v.id)}">Aprovar edição</button></div>`:''}
+  ${mst(v,'edicao')==='editado'?mcPubCard(v):''}
   ${arr(v.edicaoVersoes).length?`<details class="card"><summary><b>Versões</b> (${v.edicaoVersoes.length})</summary>${v.edicaoVersoes.map(x=>`<div class="small" style="padding:6px 0;border-top:1px solid var(--line)">v${h(x.v)} · ${h(x.data||'')} ${x.pedido?'· '+h(x.pedido):''} ${x.link?`<a href="${h(x.link)}" target="_blank" rel="noopener" style="color:var(--accent)">abrir</a>`:''}</div>`).join('')}</details>`:''}</div>`;
+}
+
+/* ---------- PUBLICAÇÃO: programar no PC (skill "Agendamento de Post") ou mandar pro rascunho ---------- */
+const mcSlotKey=v=>{const p=v.publicacao||{};return (p.data||'9999-99-99')+' '+(p.hora||'99:99')};
+const mcSlotLabel=v=>{const p=v.publicacao||{};return p.data?`${fmtShort(p.data)}${p.hora?' · '+p.hora:''}`:'sem data'};
+/* Sugere o próximo horário livre: até 30 por dia, das 07:00 às 21:30, de 30 em 30 min, a partir de amanhã. */
+function mcNextSlot(){
+  const used=new Set(MC.S.videos.filter(x=>['programar','agendado'].includes(mst(x,'publicacao'))&&x.publicacao&&x.publicacao.data).map(x=>x.publicacao.data+' '+(x.publicacao.hora||'')));
+  const d=new Date(TODAY+'T12:00:00');
+  for(let i=1;i<60;i++){const day=new Date(d.getTime()+i*864e5).toISOString().slice(0,10);
+    for(let m=7*60;m<=21*60+30;m+=30){const hh=String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0');if(!used.has(day+' '+hh))return{data:day,hora:hh}}}
+  return{data:'',hora:''};
+}
+function mcPubCard(v){
+  const st=mst(v,'publicacao'),p=v.publicacao||{},edit=UI.mc.pubEdit===v.id;
+  if(st==='agendado'||st==='postado')return`<div class="card"><h3>Publicação</h3><div class="small">${MST.publicacao[st][0]}${p.data?' · '+h(mcSlotLabel(v)):''}</div>${p.link?`<a class="small" href="${h(p.link)}" target="_blank" rel="noopener" style="color:var(--accent)">ver no TikTok</a>`:''}</div>`;
+  if(st==='rascunho')return`<div class="card"><h3>Publicação</h3><div class="small">Está como rascunho no TikTok do seu celular. A legenda fica em Ajustes → TikTok para copiar.</div></div>`;
+  const s=edit?(p.data?{data:p.data,hora:p.hora||''}:mcNextSlot()):null;
+  return`<div class="card" style="gap:8px"><h3>Publicação</h3>
+  ${st==='programar'&&!edit?`<div class="small">Na fila para programar: <b>${h(mcSlotLabel(v))}</b>. No PC, a skill "Agendamento de Post" programa no TikTok Studio com a legenda e o produto.</div><div class="row" style="flex-wrap:wrap;gap:6px"><button class="btn sm" data-act="mc-pubedit" data-id="${h(v.id)}">Mudar dia e horário</button><button class="btn sm ghost" data-act="mc-pubout" data-id="${h(v.id)}">Tirar da fila</button></div>`:''}
+  ${edit?`<div class="row" style="gap:8px;flex-wrap:wrap"><label class="f" style="flex:1">Dia<input type="date" id="mc-pubdata" value="${h(s.data)}"></label><label class="f" style="flex:1">Horário<input type="time" id="mc-pubhora" step="1800" value="${h(s.hora)}"></label></div><div class="row" style="gap:6px"><button class="btn sm pri" data-act="mc-pubsave" data-id="${h(v.id)}">Pôr na fila para programar</button><button class="btn sm ghost" data-act="mc-pubcancel">Cancelar</button></div>`:''}
+  ${st!=='programar'&&!edit?`<div class="small muted">Escolha como este vídeo vai para o TikTok. Nada é enviado sozinho.</div><div class="row" style="flex-wrap:wrap;gap:6px"><button class="btn sm pri" data-act="mc-pubedit" data-id="${h(v.id)}">Programar</button><button class="btn sm" data-act="mc-pubdraft" data-id="${h(v.id)}">Mandar pro rascunho</button></div>`:''}
+  </div>`;
+}
+async function mcPubDraft(id){
+  if(MODE!=='web')return toast('O envio para o TikTok funciona no app web.');
+  toast('Mandando '+id+' pro rascunho…');
+  try{UI.tt=await api('/api/tiktok',{method:'POST',body:JSON.stringify({action:'send',code:id})});const r=UI.tt.result||{};
+    toast(r.already?'Este vídeo já está a caminho do TikTok.':r.error?r.error:r.sent?'Enviado. Confira a caixa de entrada do TikTok no celular.':'Na fila. O TikTok aceita poucos rascunhos pendentes por dia; ele sai assim que liberar.')}
+  catch(e){toast(e.message)}
+  render();
 }
 
 /* ---------- ENVIO PARA O DRIVE (mesmos nomes que o Claude procura) ---------- */
 function mcUpTarget(kind,id){
-  if(kind==='take'){const t=mById('takes',id)||{};return{code:id,label:t.etiqueta&&t.etiqueta!=='BROLL'?t.etiqueta:(t.etiqueta==='BROLL'?'BROLL':''),produto:t.produto,video:arr(t.videos)[0]||'',pasta:'Takes brutos'}}
-  if(kind==='insercao'){const x=mById('insercoes',id)||{};return{code:id,produto:x.produto,video:arr(x.videos)[0]||'',pasta:'Inserções'}}
-  const v=mById('videos',id)||{};return{code:(kind==='narracao'?'NAR-':'VC-')+id,produto:v.produto,video:id,pasta:'Takes brutos'};
+  if(kind==='take'){const t=mById('takes',id)||{};const vs=arr(t.videos);return{code:id,label:t.etiqueta&&t.etiqueta!=='BROLL'?t.etiqueta:(t.etiqueta==='BROLL'?'BROLL':''),produto:t.produto,video:vs[0]||'',outros:vs.slice(1),pasta:'Takes brutos'}}
+  if(kind==='insercao'){const x=mById('insercoes',id)||{};const vs=arr(x.videos);return{code:id,produto:x.produto,video:vs[0]||'',outros:vs.slice(1),pasta:'Inserções'}}
+  const v=mById('videos',id)||{};return{code:(kind==='narracao'?'NAR-':'VC-')+id,produto:v.produto,video:id,outros:[],pasta:'Takes brutos'};
 }
 function mcUpPick(kind,id){
   if(MODE!=='web')return toast('O envio para o Drive funciona no app web.');
@@ -1978,8 +2013,14 @@ async function mcUpload(kind,id,files){
       const name=`MeuCriativo ${T.code}${T.label?' '+T.label:''} - ${file.name}`;
       const f2=new File([file],name,{type:file.type||'application/octet-stream'});
       const up=await driveUpload(f2,parent,p=>{bar.style.width=Math.round(p*100)+'%';lab.textContent='Enviando… '+Math.round(p*100)+'%'});
-      got.push({nome:name,driveId:up.id,link:up.webViewLink||`https://drive.google.com/file/d/${up.id}/view`,data:TODAY});
-      row.innerHTML=`<b class="small">✓ ${h(file.name)}</b><div class="small" style="color:var(--ok)">Concluído no Drive. Pode apagar do celular.</div>`;
+      /* Um take usado em vários vídeos: o original fica na pasta do 1º vídeo e os outros recebem atalho (sem duplicar o arquivo). */
+      const atalhos=[];
+      if(T.outros.length){lab.textContent='Criando atalhos nas pastas dos outros vídeos…';
+        for(const vid of T.outros){try{const pf=await driveFolder(['Meu Criativo',mProd(T.produto)||'Sem produto',vid,T.pasta]);
+          const sc=await gdrive('files?fields=id',{method:'POST',body:JSON.stringify({name,mimeType:'application/vnd.google-apps.shortcut',shortcutDetails:{targetId:up.id},parents:[pf]})});atalhos.push({video:vid,id:sc.id})}catch(e){console.warn('atalho',vid,e)}}}
+      got.push({nome:name,driveId:up.id,link:up.webViewLink||`https://drive.google.com/file/d/${up.id}/view`,data:TODAY,...(atalhos.length?{atalhos}:{})});
+      const faltou=T.outros.length-atalhos.length;
+      row.innerHTML=`<b class="small">✓ ${h(file.name)}</b><div class="small" style="color:var(--ok)">Concluído no Drive${atalhos.length?` · atalho em ${atalhos.length} vídeo${atalhos.length>1?'s':''}`:''}. Pode apagar do celular.</div>${faltou>0?`<div class="small muted">${faltou} atalho(s) não foram criados. O arquivo está salvo; o Claude acha pelo código.</div>`:''}`;
     }catch(e){row.innerHTML=`<b class="small">${h(file.name)}</b><div class="small" style="color:var(--bad)">Não enviado: ${h(e.message)}</div><div class="small muted">O arquivo continua no seu celular. Não apague.</div>`}
   }
   if(got.length){
@@ -2080,6 +2121,12 @@ Object.assign(ACT,{
   'mc-takeok':async d=>{if(await mcSave('takes',d.id,{status:'recebido',marcadoManual:true})){toast(d.id+' marcado. Suba o arquivo quando puder.');render()}},
   'mc-up':d=>mcUpPick(d.k,d.id),
   'mc-sync':()=>mcConferir(),
+  'mc-pubedit':d=>{UI.mc.pubEdit=d.id;render()},
+  'mc-pubcancel':()=>{UI.mc.pubEdit=null;render()},
+  'mc-pubsave':async d=>{const v=mById('videos',d.id),data=document.getElementById('mc-pubdata')?.value||'',hora=document.getElementById('mc-pubhora')?.value||'';if(!data||!hora)return toast('Escolha o dia e o horário.');
+    if(await mcSave('videos',d.id,{status:{...(v.status||{}),publicacao:'programar'},publicacao:{...(v.publicacao||{}),data,hora}})){UI.mc.pubEdit=null;toast('Na fila para programar');render()}},
+  'mc-pubout':async d=>{const v=mById('videos',d.id);if(await mcSave('videos',d.id,{status:{...(v.status||{}),publicacao:'aprovado'}})){toast('Fora da fila');render()}},
+  'mc-pubdraft':d=>{if(confirm('Mandar '+d.id+' como rascunho para o TikTok do seu celular?'))mcPubDraft(d.id)},
   'mc-edok':async d=>{const v=mById('videos',d.id),p=mst(v,'publicacao');if(await mcSave('videos',d.id,{status:{...(v.status||{}),edicao:'editado',publicacao:p!=='nao'?p:'aprovado'}})){toast('Edição aprovada');UI.mc.ed=null;render()}},
   'mc-edrev':async d=>{const t=(document.getElementById('mc-reved')?.value||'').trim();if(!t)return toast('Escreva ou dite o que mudar.');if(await mcPedido('revisar_edicao',d.id,t)){const v=mById('videos',d.id);await mcSave('videos',d.id,{status:{...(v.status||{}),edicao:'em_edicao'}});UI.mc.ed=null;render()}},
   'mc-mic':(d,b)=>mcMic(d.ta,b),
@@ -2208,7 +2255,7 @@ function importData(file){
     toast(n?`${n} registros importados`:'Arquivo sem dados reconhecidos.');render()}catch(e){toast('Arquivo inválido: use o backup .json do Creative OS.')}};fr.readAsText(file)}
 function exportData(){const snap={app:'creative-os',exportedAt:new Date().toISOString(),collections:{}};KEYS.forEach(k=>snap.collections[k]=S[k]);const b=new Blob([JSON.stringify(snap)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=`creative-os-backup-${TODAY}.json`;document.body.appendChild(a);a.click();a.remove()}
 /* ---------- TIKTOK (rascunhos automáticos) ---------- */
-const TT_ST={fila:['Na fila',''],enviando:['Enviando…','warn'],no_tiktok:['No TikTok','acc'],publicado:['Publicado','ok'],erro:['Erro','bad'],ignorado:['Não enviar','']};
+const TT_ST={aguardando:['Esperando você',''],fila:['Na fila',''],enviando:['Enviando…','warn'],no_tiktok:['No TikTok','acc'],publicado:['Publicado','ok'],erro:['Erro','bad'],ignorado:['Não enviar','']};
 const TT_SRC={roteiro:'do roteiro',ia:'feita pela IA, revise',simples:'só o produto, escreva a sua',manual:'editada por você'};
 async function ttLoad(){if(UI._ttBusy)return;UI._ttBusy=true;try{UI.tt=await api('/api/tiktok');UI._ttErr=''}catch(e){UI._ttErr=e.message}UI._ttBusy=false;render()}
 async function ttDo(body,msg){if(msg)toast(msg);UI._ttBusy=true;if(body.action==='sync'){UI._ttSync=true;render()}try{UI.tt=await api('/api/tiktok',{method:'POST',body:JSON.stringify(body)});const r=UI.tt.result;if(r)toast(r.error?r.error:r.sent?`${r.sent} rascunho(s) enviado(s) ao TikTok`:'Nada novo para enviar agora')}catch(e){toast(e.message)}UI._ttBusy=false;UI._ttSync=false;render()}
@@ -2218,21 +2265,23 @@ function ttDraft(r){const [lab,cls]=TT_ST[r.status]||[r.status,''];
   <div class="small muted">${h(r.file_name)}${r.drive_file_id?` · <a href="https://drive.google.com/file/d/${h(r.drive_file_id)}/view" target="_blank" rel="noopener" style="color:var(--accent)">ver no Drive</a>`:''}</div>
   ${r.status==='no_tiktok'?'<div class="notice info">Abra o TikTok → caixa de entrada (notificação de rascunho), cole a legenda, vincule o produto e publique.</div>':''}
   ${r.error&&r.status!=='publicado'?`<div class="small" style="color:var(--bad)">${h(r.error)}</div>`:''}
+  ${r.status==='aguardando'?'<div class="small muted">Só vai para o TikTok se você mandar. Para programar com legenda e produto, use “Programar” no vídeo (Produção → Edição).</div>':''}
   ${r.caption?`<div class="small" style="white-space:pre-line;background:var(--bg);border-radius:10px;padding:8px 10px">${h(r.caption)}</div><div class="small muted">Legenda ${TT_SRC[r.caption_source]||''}</div>`:r.status==='fila'?'<div class="small muted">Esperando o arquivo de legenda na pasta Editado (até 20 min; depois a IA escreve uma).</div>':''}
   <div class="row" style="flex-wrap:wrap;gap:6px">${r.caption?`<button class="btn sm pri" data-act="tt-copy" data-id="${r.id}">Copiar legenda</button><button class="btn sm" data-act="tt-edit" data-id="${r.id}">Editar</button>`:''}
   ${r.status==='no_tiktok'?`<button class="btn sm ok" data-act="tt-pub" data-id="${r.id}">Já publiquei</button>`:''}
   ${r.status==='erro'||r.status==='ignorado'?`<button class="btn sm" data-act="tt-retry" data-id="${r.id}">Enviar de novo</button>`:''}
-  ${r.status==='fila'||r.status==='erro'?`<button class="btn sm ghost" data-act="tt-ignore" data-id="${r.id}">Não enviar</button>`:''}</div></div>`}
+  ${r.status==='aguardando'?`<button class="btn sm pri" data-act="tt-send" data-id="${r.id}">Mandar pro rascunho</button>`:''}
+  ${['aguardando','fila','erro'].includes(r.status)?`<button class="btn sm ghost" data-act="tt-ignore" data-id="${r.id}">Não enviar</button>`:''}</div></div>`}
 function vTikTok(){
   if(MODE!=='web')return`<div class="sec"><div class="notice info">O envio automático para o TikTok funciona no app web (Fase 2).</div></div>`;
   if(!UI.tt){if(!UI._ttBusy)ttLoad();return`<div class="sec">${UI._ttErr?`<div class="notice bad">${h(UI._ttErr)}</div>`:'<div class="empty">Carregando…</div>'}</div>`}
   const T=UI.tt,A=T.account;
   if(!T.configured)return`<div class="sec"><div class="notice info">Falta configurar o app do TikTok na Vercel (TIKTOK_CLIENT_KEY e TIKTOK_CLIENT_SECRET). Siga docs/TIKTOK-SETUP.md.</div></div>`;
-  if(!A||A.needs_reconnect)return`<div class="sec"><div class="card"><h3>Rascunhos automáticos no TikTok</h3><div class="small muted">Quando um vídeo aprovado cair numa pasta Editado do seu Drive, o Creative OS manda ele como rascunho para o seu TikTok e deixa a legenda pronta aqui para copiar.</div>${A?.needs_reconnect?'<div class="notice bad">O acesso ao TikTok expirou. Conecte de novo.</div>':''}<button class="btn pri" data-act="tt-connect" style="align-self:flex-start">Conectar TikTok</button></div></div>`;
-  const ds=arr(T.drafts),act=ds.filter(r=>['fila','enviando','no_tiktok','erro'].includes(r.status)),old=ds.filter(r=>!act.includes(r));
+  if(!A||A.needs_reconnect)return`<div class="sec"><div class="card"><h3>Rascunhos automáticos no TikTok</h3><div class="small muted">Os vídeos editados aparecem aqui. Você escolhe quais vão como rascunho para o seu TikTok, e a legenda fica pronta aqui para copiar.</div>${A?.needs_reconnect?'<div class="notice bad">O acesso ao TikTok expirou. Conecte de novo.</div>':''}<button class="btn pri" data-act="tt-connect" style="align-self:flex-start">Conectar TikTok</button></div></div>`;
+  const ds=arr(T.drafts),act=ds.filter(r=>['aguardando','fila','enviando','no_tiktok','erro'].includes(r.status)),old=ds.filter(r=>!act.includes(r));
   const pend=ds.filter(r=>r.status==='no_tiktok'||r.status==='enviando').length;
   return`<div class="sec"><div class="card" style="gap:6px"><div class="row between"><h3 class="grow">TikTok${A.display_name?' · '+h(A.display_name):''}</h3><span class="chip ok">conectado</span></div>
-  <div class="small muted">Verifica a pasta Editado a cada 10 min. ${A.last_sync?'Última verificação: '+new Date(A.last_sync).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})+'.':''} O TikTok aceita até ${T.maxPending} rascunhos pendentes por dia; os outros esperam na fila.</div>
+  <div class="small muted">Procura vídeos novos na pasta Editado a cada 10 min, mas só manda pro TikTok os que você escolher. ${A.last_sync?'Última verificação: '+new Date(A.last_sync).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})+'.':''} O TikTok aceita até ${T.maxPending} rascunhos pendentes por dia; os outros esperam na fila.</div>
   ${A.last_error?`<div class="notice bad">${h(A.last_error)}</div>`:''}
   <div class="row" style="flex-wrap:wrap;gap:6px"><button class="btn sm pri" data-act="tt-sync" ${UI._ttSync?'disabled':''}>${UI._ttSync?'Verificando…':'Verificar agora'}</button><button class="btn sm" data-act="tt-backfill">Incluir vídeos antigos</button><button class="btn sm ghost" data-act="tt-disconnect">Desconectar</button></div></div>
   <span class="eyebrow">Em andamento · ${pend} no TikTok</span><div class="list">${act.map(ttDraft).join('')||'<div class="empty">Nenhum vídeo novo nas pastas Editado.</div>'}</div>
