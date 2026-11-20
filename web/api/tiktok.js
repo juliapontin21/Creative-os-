@@ -1,7 +1,7 @@
 // Tela "TikTok" do app: conectar a conta, ver a fila de rascunhos e agir sobre ela.
 // GET: situação da conexão e dos rascunhos. POST {action}: connect · sync · retry · ignore · published · caption · backfill · disconnect.
 import { send, readJson, requireUser, db, env } from "./_lib.js";
-import { authUrl, getAccount, setAccount, syncAccount, tiktokConfigured, maxPending } from "./_tiktok.js";
+import { authUrl, getAccount, setAccount, syncAccount, tiktokConfigured, maxPending, markVideo } from "./_tiktok.js";
 
 const FIELDS = "id,file_name,video_code,video_folder,product,caption,caption_source,status,error,attempts,drive_file_id,drive_created_at,sent_at,updated_at";
 
@@ -46,7 +46,11 @@ export default async function handler(req, res) {
     }
     if (action === "retry") await draft({ status: "fila", attempts: 0, error: null, publish_id: null, sent_at: null });
     else if (action === "ignore") await draft({ status: "ignorado" });
-    else if (action === "published") await draft({ status: "publicado", error: null });
+    else if (action === "published") {
+      await draft({ status: "publicado", error: null });
+      const r = await db(`tiktok_drafts?id=eq.${Number(id)}&user_id=eq.${user.id}&select=video_code`);
+      await markVideo(user.id, r?.[0]?.video_code, "postado");
+    }
     else if (action === "caption") {
       if (typeof caption !== "string" || caption.length > 2200) return send(res, 400, { error: "Legenda inválida (máximo de 2.200 caracteres)." });
       await draft({ caption, caption_source: "manual" });

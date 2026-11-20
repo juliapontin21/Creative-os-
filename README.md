@@ -14,6 +14,7 @@ O diferencial: transformar momentos reais da rotina em oportunidades organizadas
 | `web/` | Fase 2: app web (Vercel). `index.html` é gerado de `app/index.html` por `web/build.py`; `api/` tem login com Google, token do Drive e IA |
 | `supabase/schema.sql` | Tabelas do banco (Supabase) com acesso só da dona |
 | `docs/FASE2-SETUP.md` | Passo a passo para colocar a Fase 2 no ar |
+| `docs/MEU-CRIATIVO-NO-APP.md` | Roteiros, gravação blocada e edição do Meu Criativo dentro do app; como o Claude grava no banco |
 | `docs/TIKTOK-SETUP.md` | Rascunhos automáticos no TikTok: vídeos da pasta Editado viram rascunho, com a legenda pronta para copiar |
 
 ## Fase 2 (em configuração)

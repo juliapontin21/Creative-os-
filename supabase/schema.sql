@@ -80,3 +80,42 @@ create table if not exists public.tiktok_drafts (
 );
 create index if not exists tiktok_drafts_user_status on public.tiktok_drafts (user_id, status);
 alter table public.tiktok_drafts enable row level security;
+
+-- ============ Meu Criativo (roteiros, takes, produtos dentro do Creative OS) ============
+-- Um documento por item, no mesmo formato do antigo painel: col = coleção (videos, takes,
+-- produtos, ideias, pedidos, semanas, insercoes, linguagem, estado, config), id = código (V012, T014...).
+create table if not exists public.mc_docs (
+  user_id uuid not null references auth.users on delete cascade,
+  col text not null,
+  id text not null,
+  data jsonb not null default '{}'::jsonb,
+  updated_at timestamptz not null default now(),
+  primary key (user_id, col, id)
+);
+alter table public.mc_docs enable row level security;
+drop policy if exists "mc_docs: só a dona" on public.mc_docs;
+create policy "mc_docs: só a dona" on public.mc_docs
+  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+-- Dona do Creative OS (usada quando o Claude grava pelo conector do Supabase, sem login).
+create or replace function public.mc_owner() returns uuid
+language sql stable security definer set search_path = public, auth as $$
+  select coalesce(auth.uid(), (select user_id from public.google_tokens order by updated_at desc limit 1));
+$$;
+
+-- Junta campos num documento (cria se não existir). Usado pelo app e pelo Claude.
+create or replace function public.mc_merge(p_col text, p_id text, p_patch jsonb) returns jsonb
+language sql security definer set search_path = public as $$
+  insert into public.mc_docs (user_id, col, id, data)
+  values (public.mc_owner(), p_col, p_id, p_patch)
+  on conflict (user_id, col, id) do update
+    set data = public.mc_docs.data || excluded.data, updated_at = now()
+  returning data;
+$$;
+revoke all on function public.mc_merge(text, text, jsonb) from public, anon;
+grant execute on function public.mc_merge(text, text, jsonb) to authenticated, service_role;
+
+-- Atualização ao vivo no app quando o Claude grava algo.
+do $$ begin
+  alter publication supabase_realtime add table public.mc_docs;
+exception when others then null; end $$;
