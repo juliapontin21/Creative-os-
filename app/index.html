@@ -1933,9 +1933,13 @@ function mcGravacao(){
     }
     const ord={GANCHO:0,PONTE:1,CORPO:2,CTA:3,BROLL:4};
     const pts=ts.filter(t=>t.produto===P.produto).sort((a,b)=>(ord[a.etiqueta]??5)-(ord[b.etiqueta]??5)||numSort(a,b));
-    return o+`<div class="list">${pts.map(mcTakeCard).join('')}</div></div>`;
+    // Pendentes no topo; o que já subiu desce para "Já enviados".
+    const pend=pts.filter(t=>t.status!=='recebido'),feitos=pts.filter(t=>t.status==='recebido');
+    return o+`<div class="sec-h"><h2>A gravar</h2><span class="small muted">${pend.length} de ${pts.length}</span></div>
+    ${pend.length?`<div class="list">${pend.map(mcTakeCard).join('')}</div>`:'<div class="notice ok">Todos os takes deste produto foram enviados.</div>'}
+    ${feitos.length?`<details class="sec"${pend.length?'':' open'}><summary class="sec-h" style="cursor:pointer"><h2>Já enviados</h2><span class="small muted">${feitos.length} · toque para ver</span></summary><div class="list" style="margin-top:10px">${feitos.map(mcTakeCard).join('')}</div></details>`:''}</div>`;
   }
-  const cv=MC.S.videos.filter(v=>v.gravacao==='continuo'&&v.cenario===P.cenario&&mst(v,'roteiro')==='aprovado');
+  const cv=MC.S.videos.filter(v=>v.gravacao==='continuo'&&v.cenario===P.cenario&&mst(v,'roteiro')==='aprovado').sort((a,b)=>(mst(a,'captacao')==='completa')-(mst(b,'captacao')==='completa')||numSort(a,b));
   if(!cv.length)return o+`<div class="empty">Nenhum vídeo contínuo neste cenário.</div></div>`;
   return o+`<div class="list">${cv.map(v=>`<div class="card"><div class="row between"><span><span class="mc-id">${h(v.id)}</span> · <b>${h(mProd(v.produto))}</b></span>${mpill('captacao',mst(v,'captacao'))}</div>
   <div class="chips">${[v.formato,FUNIL[v.funil],v.duracao].filter(Boolean).map(x=>`<span class="chip">${h(x)}</span>`).join('')}</div>
@@ -1943,7 +1947,7 @@ function mcGravacao(){
   <div class="row between"><span class="mono muted">VC-${h(v.id)}</span><button class="btn sm pri" data-act="mc-up" data-k="video" data-id="${h(v.id)}">Subir vídeo</button></div></div>`).join('')}</div></div>`;
 }
 function mcNarracoes(){
-  const vs=MC.S.videos.filter(v=>v.narracao&&v.narracao.precisa&&mst(v,'roteiro')==='aprovado');
+  const vs=MC.S.videos.filter(v=>v.narracao&&v.narracao.precisa&&mst(v,'roteiro')==='aprovado').sort((a,b)=>(a.narracao.status==='recebida')-(b.narracao.status==='recebida')||numSort(a,b));
   if(!vs.length)return`<div class="empty" style="margin-top:12px">Nenhuma narração para gravar agora.</div>`;
   return[...new Set(vs.map(v=>v.produto))].map(p=>`<div class="sec"><div class="sec-h"><h2>${h(mProd(p))}</h2></div>${vs.filter(v=>v.produto===p).map(v=>{const pend=v.narracao.status!=='recebida';return`<div class="card"><div class="row between"><span><span class="mc-id">NAR-${h(v.id)}</span> <span class="small muted">· ${h(v.formato||'')}</span></span>${pend?'<span class="chip warn">Pendente</span>':'<span class="chip ok">Recebida</span>'}</div>${v.narracao.texto?`<div class="mc-fala mc-box">${h(v.narracao.texto)}</div>`:''}${pend?`<div class="row" style="justify-content:flex-end"><button class="btn sm pri" data-act="mc-up" data-k="narracao" data-id="${h(v.id)}">Subir narração</button></div>`:''}</div>`}).join('')}</div>`).join('');
 }
